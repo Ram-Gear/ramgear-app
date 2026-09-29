@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ram Gear Jobs</title>
+<meta name="theme-color" content="#1f3a5f">
+<meta name="description" content="Ram Gear gearbox assembly verification and teardown evaluation forms. Works offline; data stays on this device.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon-64.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ram Gear">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="appbar">
+  <button class="appbar-back" id="backBtn" hidden aria-label="Back"></button>
+  <div class="appbar-title"><span class="brand">Ram Gear</span></div>
+  <div class="appbar-actions" id="appbarActions"></div>
+  <div class="crumbbar" id="appbarSub"></div>
+</header>
+<main id="view" tabindex="-1"></main>
+<div id="toast" role="status" aria-live="polite"></div>
+<dialog id="dlg"><form method="dialog" id="dlgForm"></form></dialog>
+<input type="file" id="fileCamera" accept="image/*" capture="environment" hidden>
+<input type="file" id="fileGallery" accept="image/*" multiple hidden>
+<input type="file" id="fileRestore" accept="application/json,.json" hidden>
+<script src="vendor/pdf-lib.min.js"></script>
+<script src="vendor/fflate.min.js"></script>
+<script src="js/db.js"></script>
+<script src="js/photos.js"></script>
+<script src="js/pdf.js"></script>
+<script src="js/app.js"></script>
+<script>
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW', e)));
+}
+</script>
+</body>
+</html>
