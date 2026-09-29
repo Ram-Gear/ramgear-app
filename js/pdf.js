@@ -118,7 +118,7 @@ const PdfExport = (() => {
       header(pg, font, bold, BRAND, woLine);
       let y = H - 92; sectionBar(pg, bold, y, 'Completion record'); y -= 38;
       const rows = [['Form', `${form.title} - ${form.docTitle}`], ['Status', 'Completed'], ['Revision', String(final.revision)],
-                    ['Completed', final.completedAt], ['Signed by', final.signedBy], ['Customer', job.customer || ''], ['Work order', job.wo || '']];
+                    ['Completed', final.completedAt], ['Signed by', final.signedBy], ['Inspected on', final.inspectedOn || '-'], ['Customer', job.customer || ''], ['Work order', job.wo || '']];
       for (const [a, b] of rows) {
         pg.drawText(a, {x: M + 6, y, size: 11, font: bold, color: NAVY});
         pg.drawText(clean(b), {x: M + 120, y, size: 11, font}); y -= 20;

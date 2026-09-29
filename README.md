@@ -10,7 +10,7 @@ No backend, no accounts, no analytics. Jobs, photos and saved PDFs live in the b
 ## Files
 | Path | Purpose |
 |---|---|
-| `index.html`, `app.css` | Shell + styles (navy #1f3a5f, matches the PDFs) |
+| `index.html`, `app.css` | Shell + styles (ram-gear.com palette: charcoal #2C2C2E header, teal #2E7386 primary, #4396AC accent) |
 | `js/app.js` | UI: home/job/form screens, autosave, photos, finalize/reopen, backup/restore |
 | `js/admin.js` | Local admin account: salted PBKDF2-SHA-256 PIN hash (Web Crypto), verification, 5-try / 30 s lockout |
 | `js/db.js` | IndexedDB v2 (`customers`, `jobs`, `photos`, `docs`); migrates v1 jobs into an "Unassigned" customer |
@@ -58,6 +58,19 @@ Forms always appear in this order: **Teardown Evaluation first, then Assembly Ve
 * **Take photo** opens the in-app camera: full-screen preview (rear camera preferred, ideal 1920×1080 or better), a large shutter, **Switch camera** when the device has more than one, and **✕ Done**. Every shot goes to a review step: add a caption, then **Retake** or **Use photo**. After Use, the camera stays open for the next shot. Photos are captured from the video frame at the camera's native resolution, then compressed and saved like any other photo. Closing the camera turns it off (all tracks are stopped).
 * If the camera can't be used (permission denied, no camera, camera busy, browser not supported, or the page isn't https), a message says why and offers **Use device camera / pick a file**, a file input with `capture=environment`. On Windows, camera access is under Settings › Privacy & security › Camera, plus the browser's site permissions.
 * **Choose from gallery** is always a normal file picker.
+
+## Backup reminder
+
+* Every write to customers, jobs (including form edits and finalize), photos or saved PDFs stamps `lastChangeAt`. Generating a backup file stamps `lastBackupAt`. Both live in the IndexedDB `settings` store (key `backup`).
+* When the app opens and whenever you return to the home screen, a banner appears if data changed since the last backup **and** there has never been a backup or the last one is at least N days old. It reads "Last backup: N days ago (or Never). Back up now to keep your data safe." and has **Back up now** and **Remind me later** (snoozes for 24 h).
+* N is set on the Admin screen (1, 3 or 7 days; default 3) and needs no PIN. "Last backup: <date>" is shown next to Backup on the home screen and on the Admin screen.
+* Backups include these settings. Restoring never moves `lastBackupAt` back to an older date.
+
+## Tablet ID
+
+* Each device has a Tablet ID (e.g. "Shop Tablet 2"). You enter it during first-launch admin setup; devices set up before this feature ask once on the next start. Changing it on the Admin screen needs the admin PIN and is written to the audit log. Every audit entry records the Tablet ID.
+* New jobs are stamped "Created on: <Tablet ID>", which is shown in the job folder. Each form has a **Tablet used for inspection** field, prefilled with this device's ID and editable while in Draft. At finalize that value is stamped as "Inspected on" and shown on the form, in the job folder, on the Completion record page of the final PDF and in `job-summary.txt`.
+* The backup file includes the Tablet ID. A restore only applies it to a device that has no Tablet ID yet.
 
 ## Admin approval (per device)
 * On first launch you are asked to create the admin account: a name plus a 4–8 digit PIN, entered twice. Only a salted PBKDF2-SHA-256 hash (250,000 iterations) is stored in IndexedDB `settings`; the PIN itself is never stored.

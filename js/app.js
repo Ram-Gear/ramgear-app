@@ -18,6 +18,36 @@
 
   const fmtDate = t => t ? new Date(t).toLocaleString([], {year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'}) : '';
   const fmtDay = t => t ? new Date(t).toLocaleDateString([], {year: 'numeric', month: 'short', day: 'numeric'}) : '';
+  const HOME_LABEL = 'Industrial Gearbox Data', APP_TITLE = 'Ram-Gear Manufacturing Incorporated';
+  /* ---------- Tablet ID (device name, settings key 'device') ---------- */
+  let TABLET = '';
+  const loadTablet = async () => { TABLET = ((await DB.get('settings', 'device')) || {}).tabletId || ''; return TABLET; };
+  const saveTablet = async id => { await DB.put('settings', {key: 'device', tabletId: id, updatedAt: Date.now()}); TABLET = id; };
+  const tabletInput = (val, label = 'Tablet ID (name of this device)') => `<label class="fld"><span>${label}</span><input name="tablet" required maxlength="60" autocomplete="off" placeholder="e.g. Shop Tablet 2" value="${esc(val || '')}"></label>`;
+  /* ---------- backup reminder ---------- */
+  const DAY = 86400000, INTERVALS = [1, 3, 7];
+  const lastBackupText = m => m.lastBackupAt ? fmtDate(m.lastBackupAt) : 'Never';
+  function daysAgo(t) { const d = Math.floor((Date.now() - t) / DAY); return d <= 0 ? 'today' : d === 1 ? '1 day ago' : `${d} days ago`; }
+  function backupDue(m, now = Date.now()) {
+    const changed = m.lastChangeAt > (m.lastBackupAt || 0);
+    const old = !m.lastBackupAt || now - m.lastBackupAt >= (INTERVALS.includes(m.intervalDays) ? m.intervalDays : 3) * DAY;
+    return changed && old && !(m.snoozeUntil > now);
+  }
+  async function showBackupBanner() {
+    const host = $('#backupBanner'); if (!host) return;
+    const m = await DB.getMeta();
+    if (!backupDue(m)) { host.hidden = true; host.innerHTML = ''; return; }
+    host.hidden = false;
+    host.innerHTML = `<div class="bb-text"><b>Last backup: ${m.lastBackupAt ? daysAgo(m.lastBackupAt) : 'Never'}.</b> Back up now to keep your data safe.</div>
+      <div class="bb-actions"><button class="btn primary big" id="bbNow">Back up now</button><button class="btn" id="bbLater">Remind me later</button></div>`;
+    $('#bbNow').onclick = backup;
+    $('#bbLater').onclick = async () => { await DB.updateMeta(() => ({snoozeUntil: Date.now() + DAY})); host.hidden = true; host.innerHTML = ''; toast('We’ll remind you again in 24 hours'); };
+  }
+  async function refreshBackupInfo() {
+    const m = await DB.getMeta();
+    $$('[data-lastbk]').forEach(el => { el.textContent = `Last backup: ${lastBackupText(m)}`; });
+    if (!backupDue(m)) { const h = $('#backupBanner'); if (h) { h.hidden = true; h.innerHTML = ''; } }
+  }
   const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
   function objUrl(blob) { const u = URL.createObjectURL(blob); urls.push(u); return u; }
   function hideToast() { $('#toast').classList.remove('show'); }
@@ -81,7 +111,7 @@
   /* ---------- admin approval (local, per device) ---------- */
   async function audit(action, item, result = 'approved', adminName) {
     const a = adminName || ((await Admin.get()) || {}).name || '';
-    await DB.put('audit', {id: DB.uid(), at: Date.now(), action, item: item || '', admin: a, result});
+    await DB.put('audit', {id: DB.uid(), at: Date.now(), action, item: item || '', admin: a, result, tablet: TABLET});
   }
   const pinInput = (name, label) => `<label class="fld"><span>${label}</span><input name="${name}" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" autocomplete="off" required class="pin"></label>`;
   /* Shows the Admin approval dialog; resolves true only after the correct PIN. Every attempt is written to the audit log. */
@@ -105,20 +135,22 @@
     }
   }
   async function pinSetupDialog(title, intro, prevName, mandatory) {
-    let err = '';
+    let err = '', prevTablet = '';
     for (;;) {
       const v = await modal(`<h2>${esc(title)}</h2><p class="muted">${intro}</p>
         <label class="fld"><span>Admin name</span><input name="aname" required autocomplete="off" value="${esc(prevName || '')}"></label>
+        ${mandatory && !TABLET ? tabletInput(prevTablet) : ''}
         <div class="grid2">${pinInput('pin1', 'New PIN (4–8 digits)')}${pinInput('pin2', 'Enter PIN again')}</div>
         ${err ? `<p class="pin-error" role="alert">${esc(err)}</p>` : ''}`,
         (mandatory ? [] : [{label: 'Cancel', value: 'cancel'}]).concat([{label: mandatory ? 'Create admin account' : 'Save new PIN', value: 'ok', cls: 'primary'}]), {mandatory});
       if (v !== 'ok') { if (mandatory) continue; return null; }
-      const f = $('#dlgForm'), name = f.aname.value.trim(), p1 = f.pin1.value, p2 = f.pin2.value;
-      prevName = name;
+      const f = $('#dlgForm'), name = f.aname.value.trim(), p1 = f.pin1.value, p2 = f.pin2.value, tablet = f.tablet ? f.tablet.value.trim() : null;
+      prevName = name; if (tablet !== null) prevTablet = tablet;
       if (!name) err = 'Enter the admin name.';
+      else if (tablet === '') err = 'Enter a Tablet ID for this device (e.g. Shop Tablet 2).';
       else if (!Admin.validPin(p1)) err = 'PIN must be 4 to 8 digits.';
       else if (p1 !== p2) err = 'The two PINs do not match.';
-      else return {name, pin: p1};
+      else return {name, pin: p1, tablet};
     }
   }
   async function ensureAdmin() {
@@ -126,8 +158,32 @@
     const r = await pinSetupDialog('Create the admin account',
       'Deleting anything, reopening a completed form, restoring a backup and changing the PIN will need the admin PIN. Everyone else can still create, edit and finalize. The PIN is stored only as a salted hash on this device – it cannot be recovered, so keep it safe.', '', true);
     const rec = await Admin.makeRecord(r.name, r.pin);
+    if (r.tablet) await saveTablet(r.tablet);
     await DB.put('settings', rec); await audit('Admin account created', r.name, 'done', r.name);
+    if (r.tablet) await audit('Tablet ID set', r.tablet, 'done', r.name);
     toast('Admin account created');
+  }
+  /* Devices set up before Tablet IDs existed: ask once (no PIN needed to set it the first time). */
+  async function ensureTablet() {
+    if (TABLET) return;
+    let err = '';
+    for (;;) {
+      await modal(`<h2>Name this tablet</h2><p class="muted">The Tablet ID is stamped on every new job and on each form when it is finalized ("Inspected on"). Changing it later needs the admin PIN.</p>${tabletInput('')}${err ? `<p class="pin-error" role="alert">${esc(err)}</p>` : ''}`,
+        [{label: 'Save Tablet ID', value: 'ok', cls: 'primary'}], {mandatory: true});
+      const id = $('#dlgForm').tablet.value.trim();
+      if (id) { await saveTablet(id); await audit('Tablet ID set', id, 'done'); toast(`Tablet ID: ${id}`); return; }
+      err = 'Enter a Tablet ID (e.g. Shop Tablet 2).';
+    }
+  }
+  async function changeTablet() {
+    const old = TABLET;
+    if (!await requireAdmin('Change Tablet ID', old || '(not set)')) return;
+    const v = await modal(`<h2>Change Tablet ID</h2><p class="muted">New jobs and forms finalized from now on will show the new name. Existing jobs and saved PDFs keep the name they were stamped with.</p>${tabletInput(old)}`,
+      [{label: 'Cancel', value: 'cancel'}, {label: 'Save', value: 'ok', cls: 'primary'}]);
+    const id = v === 'ok' ? $('#dlgForm').tablet.value.trim() : '';
+    if (!id || id === old) { toast('Tablet ID unchanged'); return; }
+    await saveTablet(id); await audit('Tablet ID changed', `${old} → ${id}`, 'done');
+    toast(`Tablet ID changed to ${id}`); renderSettings();
   }
   async function changePin() {
     const rec = await Admin.get();
@@ -140,8 +196,8 @@
   }
   async function renderSettings() {
     current = {customer: null, job: null, formKey: null};
-    bar([crumbHome, {label: 'Admin & settings'}], '', {label: 'Customers', href: P.home()});
-    const rec = await Admin.get(), log = (await DB.all('audit')).sort((a, b) => b.at - a.at);
+    bar([crumbHome, {label: 'Admin & settings'}], '', {label: HOME_LABEL, href: P.home()});
+    const rec = await Admin.get(), log = (await DB.all('audit')).sort((a, b) => b.at - a.at), meta = await DB.getMeta();
     view.innerHTML = `
       <section class="card" id="adminCard">
         <div class="card-head"><h2>Admin</h2><span class="badge done">Protected</span></div>
@@ -152,22 +208,33 @@
         <p class="muted small">Admin approval is required to delete customers, jobs, photos or saved PDFs, to reopen a completed form, to restore a backup, and to change the PIN. 5 wrong PINs lock approval for 30 seconds. This protection is local to this device.</p>
         <div class="fr-actions" style="justify-content:flex-start"><button class="btn primary" id="changePinBtn">Change PIN</button></div>
       </section>
+      <section class="card" id="tabletCard">
+        <div class="card-head"><h2>This tablet</h2></div>
+        <div class="details"><div><div class="muted small">Tablet ID</div><div><b id="tabletIdVal">${esc(TABLET || '—')}</b></div></div></div>
+        <p class="muted small">Stamped on each new job ("Created on") and on each form at finalize ("Inspected on"), shown on the Completion record of final PDFs and in the job summary. Changing it needs the admin PIN and is written to the audit log.</p>
+        <div class="fr-actions" style="justify-content:flex-start"><button class="btn" id="changeTabletBtn">Change Tablet ID</button></div>
+      </section>
       <section class="card">
         <div class="card-head"><h2>Data</h2></div>
-        <div class="fr-actions" style="justify-content:flex-start"><button class="btn" id="sBackup">Backup all data</button><button class="btn" id="sRestore">Restore from backup</button><button class="btn" id="sBlank">Blank PDFs</button></div>
+        <div class="fr-actions" style="justify-content:flex-start;align-items:center"><button class="btn" id="sBackup">Backup all data</button><span class="muted" data-lastbk>Last backup: ${esc(lastBackupText(meta))}</span></div>
+        <label class="fld bk-interval"><span>Backup reminder</span>
+          <select id="bkInterval">${INTERVALS.map(d => `<option value="${d}" ${d === meta.intervalDays ? 'selected' : ''}>Every ${d} day${d > 1 ? 's' : ''}</option>`).join('')}</select></label>
+        <p class="muted small">The home screen shows a reminder when data has changed since the last backup and the last backup is older than this (or there has never been one).</p>
+        <div class="fr-actions" style="justify-content:flex-start"><button class="btn" id="sRestore">Restore from backup</button><button class="btn" id="sBlank">Blank PDFs</button></div>
       </section>
       <section class="card">
         <div class="card-head"><h2>Audit log</h2><span class="muted small">${log.length} entr${log.length === 1 ? 'y' : 'ies'} · included in backups</span></div>
-        ${log.length ? `<div class="tablewrap"><table class="tbl audit"><thead><tr><th>When</th><th>Action</th><th>Item</th><th>Admin</th><th>Result</th></tr></thead><tbody>
-          ${log.map(a => `<tr class="${a.result === 'approved' || a.result === 'done' ? '' : 'bad'}"><td>${esc(fmtDate(a.at))}</td><td>${esc(a.action)}</td><td>${esc(a.item)}</td><td>${esc(a.admin)}</td><td>${esc(a.result)}</td></tr>`).join('')}</tbody></table></div>`
+        ${log.length ? `<div class="tablewrap"><table class="tbl audit"><thead><tr><th>When</th><th>Action</th><th>Item</th><th>Admin</th><th>Tablet</th><th>Result</th></tr></thead><tbody>
+          ${log.map(a => `<tr class="${a.result === 'approved' || a.result === 'done' ? '' : 'bad'}"><td>${esc(fmtDate(a.at))}</td><td>${esc(a.action)}</td><td>${esc(a.item)}</td><td>${esc(a.admin)}</td><td>${esc(a.tablet || '')}</td><td>${esc(a.result)}</td></tr>`).join('')}</tbody></table></div>`
           : '<p class="muted">No entries yet.</p>'}
       </section>`;
-    $('#changePinBtn').onclick = changePin;
+    $('#changePinBtn').onclick = changePin; $('#changeTabletBtn').onclick = changeTablet;
+    $('#bkInterval').onchange = async e => { const d = +e.target.value; await DB.updateMeta(() => ({intervalDays: d})); toast(`Backup reminder: every ${d} day${d > 1 ? 's' : ''}`); };
     $('#sBackup').onclick = backup; $('#sRestore').onclick = () => $('#fileRestore').click(); $('#sBlank').onclick = blankPdfs;
   }
 
   /* ---------- model helpers ---------- */
-  function newFormState() { return {enabled: true, status: 'draft', revision: 1, values: {}, na: {}, history: [], createdAt: Date.now()}; }
+  function newFormState() { return {enabled: true, status: 'draft', revision: 1, values: {}, na: {}, history: [], createdAt: Date.now(), tabletUsed: TABLET}; }
   const formIdx = k => { const i = FORMS.forms.findIndex(f => f.key === k); return i < 0 ? 99 : i; };
   function formStates(job) { return FORMS.forms.filter(f => job.forms[f.key] && job.forms[f.key].enabled); }
   function jobStatus(job) {
@@ -214,6 +281,7 @@
   async function flushSave() { if (saveTimer && current.job) { clearTimeout(saveTimer); saveTimer = null; await saveJob(current.job); } }
   window.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSave(); });
   window.addEventListener('pagehide', flushSave);
+  window.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && $('#backupBanner')) showBackupBanner(); });
 
   /* ---------- app bar with breadcrumbs ---------- */
   function bar(crumbs, actionsHtml, back) {
@@ -225,7 +293,7 @@
     setBarH && setTimeout(setBarH, 0);
     if (back) { b.innerHTML = `<span class="chev">‹</span><span class="blabel">${esc(back.label)}</span>`; b.onclick = () => { location.hash = back.href; }; }
   }
-  const crumbHome = {label: 'Customers', href: P.home()};
+  const crumbHome = {label: HOME_LABEL, href: P.home()};
   const setBarH = () => document.documentElement.style.setProperty('--appbar-h', $('.appbar').offsetHeight + 'px');
   if (window.ResizeObserver) new ResizeObserver(setBarH).observe($('.appbar')); else window.addEventListener('resize', setBarH);
 
@@ -235,13 +303,14 @@
     urls.forEach(u => URL.revokeObjectURL(u)); urls = [];
     const h = location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent);
     window.scrollTo(0, 0);
+    document.title = APP_TITLE;
     try {
       if (h[0] === 'c' && h[1] && h[2] === 'j' && h[3] && h[4] === 'f' && h[5]) await renderForm(h[1], h[3], h[5]);
       else if (h[0] === 'c' && h[1] && h[2] === 'j' && h[3]) await renderJob(h[1], h[3]);
       else if (h[0] === 'c' && h[1]) await renderCustomer(h[1]);
       else if (h[0] === 'settings') await renderSettings();
       else await renderHome();
-    } catch (e) { console.error(e); view.innerHTML = `<div class="card"><h2>Something went wrong</h2><p>${esc(e.message)}</p><a class="btn" href="#/">Customers</a></div>`; }
+    } catch (e) { console.error(e); view.innerHTML = `<div class="card"><h2>Something went wrong</h2><p>${esc(e.message)}</p><a class="btn" href="#/">${HOME_LABEL}</a></div>`; }
     view.focus({preventScroll: true});
   }
   window.addEventListener('hashchange', route);
@@ -255,14 +324,16 @@
   /* ---------- home: customers ---------- */
   async function renderHome() {
     current = {customer: null, job: null, formKey: null};
-    bar([{label: 'Customers'}], `<button class="btn ghost" id="blankBtn">Blank PDFs</button><button class="btn ghost" id="backupBtn">Backup</button><button class="btn ghost" id="restoreBtn">Restore</button><a class="btn ghost" id="adminBtn" href="#/settings">🔐 Admin</a>`);
+    document.title = `${HOME_LABEL} – ${APP_TITLE}`;
+    bar([{label: HOME_LABEL}], `<button class="btn ghost" id="blankBtn">Blank PDFs</button><span class="lastbk" data-lastbk></span><button class="btn ghost" id="backupBtn">Backup</button><button class="btn ghost" id="restoreBtn">Restore</button><a class="btn ghost" id="adminBtn" href="#/settings">🔐 Admin</a>`);
     let customers = (await DB.all('customers')).sort((a, b) => (a.id === 'unassigned') - (b.id === 'unassigned') || a.name.localeCompare(b.name));
     const jobs = await DB.all('jobs'), byC = {};
     jobs.forEach(j => (byC[j.customerId] = byC[j.customerId] || []).push(j));
     customers = customers.filter(c => c.id !== 'unassigned' || (byC[c.id] || []).length);   // hide empty Unassigned
     view.innerHTML = `
+      <section class="backup-banner" id="backupBanner" role="status" aria-live="polite" hidden></section>
       <section class="home-head">
-        <div><h1>Customers</h1><p class="muted">${customers.length} customer${customers.length === 1 ? '' : 's'} · ${jobs.length} job${jobs.length === 1 ? '' : 's'} · data stays on this tablet · back up regularly</p></div>
+        <div><h1>${HOME_LABEL}</h1><p class="muted">${customers.length} customer${customers.length === 1 ? '' : 's'} · ${jobs.length} job${jobs.length === 1 ? '' : 's'} · data stays on this tablet · back up regularly</p></div>
         <button class="btn primary big" id="newCustBtn">+ New customer</button>
       </section>
       <input type="search" id="custSearch" class="search" placeholder="Search customers, contacts, phone or work order">
@@ -276,6 +347,7 @@
       }).join('') : `<div class="empty"><p>No customers yet.</p><p class="muted">Tap <b>New customer</b>, then add jobs to the customer's file.</p></div>`}</div>
       <p class="muted small center" id="storageInfo"></p>`;
     $('#newCustBtn').onclick = async () => { const c = await editCustomer(null); if (c) location.hash = P.cust(c.id); };
+    refreshBackupInfo(); showBackupBanner();
     $('#blankBtn').onclick = blankPdfs; $('#backupBtn').onclick = backup; $('#restoreBtn').onclick = () => $('#fileRestore').click();
     const s = $('#custSearch'); s.oninput = () => { const q = s.value.toLowerCase().trim(); $$('.custcard').forEach(c => c.hidden = !c.dataset.search.includes(q)); };
     if (navigator.storage && navigator.storage.estimate) navigator.storage.estimate().then(async e => {
@@ -310,7 +382,7 @@
   async function renderCustomer(cid) {
     const {customer} = await load(cid); if (!customer) return;
     current = {customer, job: null, formKey: null};
-    bar([crumbHome, {label: customer.name}], `<button class="btn ghost" id="editCustBtn">Edit</button><button class="btn ghost" id="delCustBtn">Delete customer</button>`, {label: 'Customers', href: P.home()});
+    bar([crumbHome, {label: customer.name}], `<button class="btn ghost" id="editCustBtn">Edit</button><button class="btn ghost" id="delCustBtn">Delete customer</button>`, {label: HOME_LABEL, href: P.home()});
     const jobs = (await DB.byCustomer(cid)).sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.updatedAt - a.updatedAt);
     const detail = (l, v, href) => v ? `<div><div class="muted small">${l}</div><div>${href ? `<a href="${esc(href)}">${esc(v)}</a>` : esc(v).replace(/\n/g, '<br>')}</div></div>` : '';
     view.innerHTML = `
@@ -347,7 +419,7 @@
     if (v !== 'ok') return;
     const f = $('#dlgForm');
     const job = {id: DB.uid(), customerId: customer.id, wo: f.wo.value.trim(), date: f.date.value, manufacturer: f.manufacturer.value.trim(),
-                 model: f.model.value.trim(), serial: f.serial.value.trim(), createdAt: Date.now(), updatedAt: Date.now(), forms: {}};
+                 model: f.model.value.trim(), serial: f.serial.value.trim(), createdAt: Date.now(), updatedAt: Date.now(), tabletId: TABLET, forms: {}};
     for (const fm of FORMS.forms) if (f['form_' + fm.key].checked) job.forms[fm.key] = newFormState();
     await saveJob(job); await saveCustomer(customer);
     location.hash = P.job(customer.id, job.id);
@@ -369,6 +441,7 @@
         <div class="row cols2" style="margin-top:12px"><label class="fld"><span>Customer</span><select id="moveCust">${customers.map(c => `<option value="${esc(c.id)}" ${c.id === cid ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>
           ${job.legacyCustomer ? `<div class="muted small" style="align-self:end">Customer name on this job before upgrade: <b>${esc(job.legacyCustomer)}</b></div>` : ''}</div>
         <p class="muted small">Customer name, work order, manufacturer, model and serial fill in automatically on both forms.</p>
+        <div class="details job-tablet"><div><div class="muted small">Created on</div><div><b data-jobtablet>${esc(job.tabletId || '—')}</b></div></div><div><div class="muted small">Created</div><div>${esc(fmtDate(job.createdAt))}</div></div></div>
       </section>
       <section class="card">
         <div class="card-head"><h2>Forms</h2></div>
@@ -379,7 +452,7 @@
           return `<div class="formrow" data-formrow="${f.key}"><div class="fr-main"><div><b>${esc(f.title)}</b> ${badge(st.status)} <span class="muted small">rev ${st.revision}</span></div>
               <div class="muted small">${esc(f.docTitle)}</div>
               <div class="bar"><i style="width:${p.total ? Math.round(100 * p.done / p.total) : 0}%"></i></div>
-              <div class="muted small">${p.done} of ${p.total} required items complete${st.status === 'completed' ? ` · completed ${esc(fmtDate(st.completedAt))} by ${esc(st.signedBy)}` : ''}</div></div>
+              <div class="muted small">${p.done} of ${p.total} required items complete${st.status === 'completed' ? ` · completed ${esc(fmtDate(st.completedAt))} by ${esc(st.signedBy)}${st.inspectedOn ? ` · Inspected on: ${esc(st.inspectedOn)}` : ''}` : ` · Tablet: ${esc(st.tabletUsed ?? TABLET)}`}</div></div>
             <div class="fr-actions"><button class="btn" data-export="${f.key}">${st.status === 'completed' ? 'Share final PDF' : 'Export PDF'}</button><a class="btn primary" href="${P.form(cid, jid, f.key)}">${st.status === 'completed' ? 'View' : 'Open'}</a></div></div>`;
         }).join('')}</div>
       </section>
@@ -389,7 +462,7 @@
       </section>
       <section class="card">
         <div class="card-head"><h2>Saved documents</h2><span class="muted small">Final PDFs created when a form is finalized · all revisions kept</span></div>
-        ${docs.length ? `<div class="doclist">${docs.map(d => `<div class="docrow"><div><b>${esc(d.filename)}</b><div class="muted small">${esc((FORM_BY_KEY[d.formKey] || {}).title || d.formKey)} · revision ${d.revision} · ${esc(fmtDate(d.createdAt))} · signed by ${esc(d.signedBy)} · ${d.pages} pages · ${(d.size / 1024).toFixed(0)} KB</div></div>
+        ${docs.length ? `<div class="doclist">${docs.map(d => `<div class="docrow"><div><b>${esc(d.filename)}</b><div class="muted small">${esc((FORM_BY_KEY[d.formKey] || {}).title || d.formKey)} · revision ${d.revision} · ${esc(fmtDate(d.createdAt))} · signed by ${esc(d.signedBy)}${d.inspectedOn ? ` · inspected on ${esc(d.inspectedOn)}` : ''} · ${d.pages} pages · ${(d.size / 1024).toFixed(0)} KB</div></div>
           <div class="fr-actions"><button class="btn" data-docview="${d.id}">View</button><button class="btn" data-docprint="${d.id}">Print</button><button class="btn primary" data-docshare="${d.id}">Share</button><button class="btn danger-outline" data-docdel="${d.id}" aria-label="Delete saved PDF">Delete</button></div></div>`).join('')}</div>`
           : '<p class="muted">No saved documents yet. Finalize a form to save its PDF here.</p>'}
       </section>
@@ -567,7 +640,8 @@
     view.innerHTML = `
       <div class="form-top">
         <div class="form-meta"><h1>${esc(form.docTitle)}</h1><div>${badge(st.status)} <span class="muted small">rev ${st.revision}</span> <span class="muted small" id="progTxt"></span></div></div>
-        ${locked ? `<div class="lockbar">🔒 Completed ${esc(fmtDate(st.completedAt))}, signed by <b>${esc(st.signedBy)}</b>. This form is read-only. The final PDF is saved in the job's documents. Tap <b>Reopen</b> to start revision ${st.revision + 1}.</div>` : ''}
+        ${locked ? '' : `<div class="tablet-row"><label class="fld"><span>Tablet used for inspection</span><input id="tabletUsed" type="text" maxlength="60" autocomplete="off" value="${esc(st.tabletUsed ?? TABLET)}"></label></div>`}
+        ${locked ? `<div class="lockbar">🔒 Completed ${esc(fmtDate(st.completedAt))}, signed by <b>${esc(st.signedBy)}</b>${st.inspectedOn ? ` · Inspected on: <b>${esc(st.inspectedOn)}</b>` : ''}. This form is read-only. The final PDF is saved in the job's documents. Tap <b>Reopen</b> to start revision ${st.revision + 1}.</div>` : ''}
         ${st.history.length && !locked ? `<div class="infobar">Revision ${st.revision} (reopened). Earlier final PDFs are kept in the job's saved documents.</div>` : ''}
       </div>
       <nav class="chips">${form.sections.map(s => `<a href="#" data-jump="sec-${s.id}">${esc(/^[A-Z0-9]+\./.test(s.title) ? s.title.replace(/^([A-Z0-9]+)\.\s*/, '$1 · ') : s.title)}</a>`).join('')}<a href="#" data-jump="sec-photos-all">Photos</a></nav>
@@ -582,6 +656,7 @@
     refreshReqUI(job, key);
     $$('.chips a').forEach(a => a.onclick = e => { e.preventDefault(); jumpTo($('#' + a.dataset.jump)); });
     if (!locked) {
+      $('#tabletUsed').oninput = e => { st.tabletUsed = e.target.value; scheduleSave(); };
       body.addEventListener('input', e => onField(e, job, key));
       body.addEventListener('change', e => onField(e, job, key));
       body.addEventListener('click', e => {
@@ -666,12 +741,12 @@
     }
     await flushSave();
     const suggested = (st.values[form.signedByField] || '').trim();
-    const now = new Date();
+    const now = new Date(), inspectedOn = (st.tabletUsed ?? TABLET ?? '').trim() || TABLET || 'Unknown';
     const v = await modal(`<h2>Finalize ${esc(form.title)}</h2>
       <p>All required items are complete${Object.keys(st.na).length ? ` (${Object.keys(st.na).length} marked N/A)` : ''}. Finalizing will:</p>
       <ul><li>lock this form (read-only, status <b>Completed</b>)</li><li>create a flattened final PDF (revision ${st.revision}) with photo pages</li><li>save it in this job's documents</li></ul>
       <label class="fld"><span>Signed by</span><input name="signedBy" required value="${esc(suggested)}" autocomplete="name"></label>
-      <p class="muted small">Completion date: ${esc(fmtDate(now))}</p>`,
+      <p class="muted small">Completion date: ${esc(fmtDate(now))} · Inspected on: <b>${esc(inspectedOn)}</b></p>`,
       [{label: 'Cancel', value: 'cancel'}, {label: 'Finalize & save PDF', value: 'ok', cls: 'accent'}]);
     if (v !== 'ok') return;
     const signedBy = $('#dlgForm').signedBy.value.trim() || suggested || 'Unknown';
@@ -679,13 +754,13 @@
     try {
       const c = ctx(job, current.customer);
       const naLabels = REQS[key].filter(r => st.na[r.req.id] && reqState(job, key, r.req) !== 'skip').map(r => `${r.section}: ${r.req.label}`);
-      const out = await PdfExport.build({form, job: c, state: st, photos: await photosFor(job, key), final: {signedBy, completedAt: fmtDate(now), revision: st.revision, naLabels}});
+      const out = await PdfExport.build({form, job: c, state: st, photos: await photosFor(job, key), final: {signedBy, completedAt: fmtDate(now), revision: st.revision, naLabels, inspectedOn}});
       const blob = new Blob([out.bytes], {type: 'application/pdf'});
       const filename = PdfExport.filename(c, form, `_FINAL-rev${st.revision}`);
-      const doc = {id: DB.uid(), jobId: job.id, customerId: job.customerId, formKey: key, revision: st.revision, filename, createdAt: now.getTime(), signedBy, pages: out.pages, size: blob.size, blob};
+      const doc = {id: DB.uid(), jobId: job.id, customerId: job.customerId, formKey: key, revision: st.revision, filename, createdAt: now.getTime(), signedBy, inspectedOn, pages: out.pages, size: blob.size, blob};
       await DB.put('docs', doc);
-      Object.assign(st, {status: 'completed', completedAt: now.getTime(), signedBy, snapshot: c});
-      st.history.push({revision: st.revision, completedAt: now.getTime(), signedBy, docId: doc.id});
+      Object.assign(st, {status: 'completed', completedAt: now.getTime(), signedBy, inspectedOn, tabletUsed: inspectedOn, snapshot: c});
+      st.history.push({revision: st.revision, completedAt: now.getTime(), signedBy, inspectedOn, docId: doc.id});
       await saveJob(job);
       await renderForm(job.customerId, job.id, key);
       await fileReady(blob, filename, `Completed – final PDF saved (rev ${doc.revision})`);
@@ -696,8 +771,8 @@
     const ok = await confirmBox('Reopen form?', `This unlocks the form for editing as <b>revision ${st.revision + 1}</b>. The saved final PDF for revision ${st.revision} is kept unchanged in the job documents. You will need to finalize again to produce a new final PDF.`, `Reopen as rev ${st.revision + 1}`, true);
     if (!ok) return;
     if (!await requireAdmin('Reopen completed form', `${FORM_BY_KEY[key].title} rev ${st.revision} → rev ${st.revision + 1} – WO ${job.wo}`)) return;
-    Object.assign(st, {status: 'draft', revision: st.revision + 1, reopenedAt: Date.now()});
-    delete st.completedAt; delete st.signedBy; delete st.snapshot;
+    Object.assign(st, {status: 'draft', revision: st.revision + 1, reopenedAt: Date.now(), tabletUsed: TABLET});
+    delete st.completedAt; delete st.signedBy; delete st.snapshot; delete st.inspectedOn;
     await saveJob(job); toast(`Reopened as revision ${st.revision}`); renderForm(job.customerId, job.id, key);
   }
 
@@ -759,11 +834,11 @@
       files[`${folder}/Photos/${name}`] = [await u8(p.blob), store];
       capLines.push(`${name}\t${p.scope === 'job' ? 'Job photo' : (FORM_BY_KEY[p.scope.split(':')[0]] || {}).title + ' / ' + p.label}\t${p.caption || ''}`);
     }
-    const summary = [`Ram-Gear Manufacturing Incorporated – job folder`, `Customer: ${c.customer}`, `Work order: ${c.wo}`, `Date: ${c.date}`, `Gearbox: ${[c.manufacturer, c.model].filter(Boolean).join(' ')}  S/N ${c.serial}`,
+    const summary = [`Ram-Gear Manufacturing Incorporated – job folder`, `Customer: ${c.customer}`, `Work order: ${c.wo}`, `Date: ${c.date}`, `Gearbox: ${[c.manufacturer, c.model].filter(Boolean).join(' ')}  S/N ${c.serial}`, `Created on tablet: ${job.tabletId || '-'}`,
       customer.contact || customer.phone || customer.email ? `Contact: ${[customer.contact, customer.phone, customer.email].filter(Boolean).join(' / ')}` : '', '',
-      'Forms:', ...formStates(job).map(f => { const st = job.forms[f.key]; return `  ${f.title}: ${st.status === 'completed' ? `Completed rev ${st.revision} ${fmtDate(st.completedAt)} by ${st.signedBy}` : `Draft (rev ${st.revision})`}`; }),
-      '', 'Saved documents:', ...(docs.length ? docs.map(d => `  ${d._zipName}  (rev ${d.revision}, ${fmtDate(d.createdAt)}, signed by ${d.signedBy})`) : ['  none']),
-      '', `Photos: ${photos.length}`, '', `Exported ${new Date().toString()}`].join('\r\n');
+      'Forms:', ...formStates(job).map(f => { const st = job.forms[f.key]; return `  ${f.title}: ${st.status === 'completed' ? `Completed rev ${st.revision} ${fmtDate(st.completedAt)} by ${st.signedBy}, Inspected on: ${st.inspectedOn || '-'}` : `Draft (rev ${st.revision}), Tablet used for inspection: ${st.tabletUsed ?? TABLET}`}`; }),
+      '', 'Saved documents:', ...(docs.length ? docs.map(d => `  ${d._zipName}  (rev ${d.revision}, ${fmtDate(d.createdAt)}, signed by ${d.signedBy}${d.inspectedOn ? `, inspected on ${d.inspectedOn}` : ''})`) : ['  none']),
+      '', `Photos: ${photos.length}`, '', `Exported ${new Date().toString()} from ${TABLET || 'this device'}`].join('\r\n');
     files[`${folder}/job-summary.txt`] = fflate.strToU8(summary);
     if (capLines.length) files[`${folder}/Photos/captions.tsv`] = fflate.strToU8('file\tsection\tcaption\r\n' + capLines.join('\r\n'));
     const zip = fflate.zipSync(files, {level: 6});
@@ -777,11 +852,14 @@
     toast('Preparing backup…', 5000);
     const customers = await DB.all('customers'), jobs = await DB.all('jobs'), photos = await DB.all('photos'), docs = await DB.all('docs');
     const admin = await Admin.get(), auditLog = await DB.all('audit');
-    const data = {app: 'ramgear-jobs', version: 3, exportedAt: new Date().toISOString(), admin, audit: auditLog, customers, jobs,
+    const meta = await DB.updateMeta(() => ({lastBackupAt: Date.now(), snoozeUntil: 0}));   // a backup file is being generated
+    const backupSettings = {lastBackupAt: meta.lastBackupAt, lastChangeAt: meta.lastChangeAt, intervalDays: meta.intervalDays};
+    const data = {app: 'ramgear-jobs', version: 3, exportedAt: new Date(meta.lastBackupAt).toISOString(), admin, audit: auditLog, backupSettings, device: {tabletId: TABLET}, customers, jobs,
       photos: await Promise.all(photos.map(async p => ({...p, blob: await blobToDataURL(p.blob), thumb: p.thumb ? await blobToDataURL(p.thumb) : null}))),
       docs: await Promise.all(docs.map(async d => ({...d, blob: await blobToDataURL(d.blob)})))};
     const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
     const name = `ramgear-backup-${today()}.json`;
+    refreshBackupInfo();
     const v = await modal(`<h2>Backup ready</h2><p>${customers.length} customers, ${jobs.length} jobs, ${photos.length} photos, ${docs.length} saved PDFs · ${(blob.size / 1048576).toFixed(1)} MB</p><p class="muted small">Save it to Files / Drive or send it to yourself. Restore it on any device with this app.</p>`,
       [{label: 'Cancel', value: 'cancel'}, {label: 'Download', value: 'dl'}, {label: 'Share', value: 'share', cls: 'primary'}]);
     if (v === 'share') shareOrDownload(blob, name); else if (v === 'dl') download(blob, name);
@@ -801,6 +879,11 @@
       for (const p of data.photos || []) await DB.put('photos', {...p, blob: await dataURLToBlob(p.blob), thumb: p.thumb ? await dataURLToBlob(p.thumb) : null});
       for (const d of data.docs || []) await DB.put('docs', {...d, blob: await dataURLToBlob(d.blob)});
       for (const a of data.audit || []) await DB.put('audit', a);
+      if (data.device && data.device.tabletId && !TABLET) await saveTablet(data.device.tabletId);   // never rename a device that already has an ID
+      const bs = data.backupSettings;
+      if (bs) await DB.updateMeta(cur => ({   // never move lastBackupAt back to an older date
+        lastBackupAt: Math.max(cur.lastBackupAt || 0, +bs.lastBackupAt || 0),
+        intervalDays: INTERVALS.includes(+bs.intervalDays) ? +bs.intervalDays : cur.intervalDays}));
       if (data.admin && data.admin.hash && data.admin.salt) { await DB.put('settings', {...data.admin, key: 'admin'}); await audit('Admin account restored from backup', data.admin.name, 'done', data.admin.name); }
       toast('Backup restored'); route();
     } catch (err) { modal(`<h2>Restore failed</h2><p>${esc(err.message)}</p>`, [{label: 'Close', value: 'cancel'}]); }
@@ -817,7 +900,13 @@
       }
     }
     window.RG = {FORMS, REQS, DB, Admin, Camera};  // for debugging/tests
-    await ensureAdmin();
+    await loadTablet();
+    await ensureAdmin(); await ensureTablet();
+    const meta = await DB.getMeta();
+    if (!meta.lastChangeAt) {   // installs from before the reminder existed: treat existing data as unbacked-up changes
+      const t = [...await DB.all('customers'), ...await DB.all('jobs')].reduce((m, x) => Math.max(m, x.updatedAt || x.createdAt || 0), 0);
+      if (t) await DB.updateMeta(() => ({lastChangeAt: t}));
+    }
     route();
   }
   boot();

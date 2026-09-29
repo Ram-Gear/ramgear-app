@@ -1,5 +1,5 @@
 /* Ram Gear offline service worker. Bump VERSION whenever any app file changes. */
-const VERSION = 'rg-v8';
+const VERSION = 'rg-v9';
 const ASSETS = [
   './', 'index.html', 'app.css', 'forms.json', 'manifest.webmanifest',
   'js/db.js', 'js/admin.js', 'js/photos.js', 'js/camera.js', 'js/pdf.js', 'js/app.js', 'vendor/pdf-lib.min.js', 'vendor/fflate.min.js',

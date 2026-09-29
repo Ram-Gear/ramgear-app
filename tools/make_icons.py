@@ -1,8 +1,8 @@
-"""Generate 'RG' app icons in navy #1f3a5f."""
+"""Generate 'RG' app icons in the ram-gear.com primary teal #2E7386 (site --rg-accent-hover) with a #9FD3E1 underline."""
 import os
 from PIL import Image, ImageDraw, ImageFont
 APP = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-NAVY = (0x1f, 0x3a, 0x5f); FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+NAVY = (0x2E, 0x73, 0x86); FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 def icon(size, maskable=False, rounded=False):
     s = size * 4
     im = Image.new("RGBA", (s, s), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
@@ -13,7 +13,7 @@ def icon(size, maskable=False, rounded=False):
     bb = d.textbbox((0, 0), "RG", font=f); w, h = bb[2]-bb[0], bb[3]-bb[1]
     d.text(((s-w)/2-bb[0], (s-h)/2-bb[1]-s*0.02), "RG", font=f, fill="white")
     lw = int(s*0.022); y = int((s+h)/2 + s*0.06)
-    d.rectangle([int((s-w)/2), y, int((s+w)/2), y+lw], fill=(0xe8, 0xee, 0xf5))
+    d.rectangle([int((s-w)/2), y, int((s+w)/2), y+lw], fill=(0x9F, 0xD3, 0xE1))
     return im.resize((size, size), Image.LANCZOS)
 os.makedirs(f"{APP}/icons", exist_ok=True)
 icon(192).save(f"{APP}/icons/icon-192.png"); icon(512).save(f"{APP}/icons/icon-512.png")

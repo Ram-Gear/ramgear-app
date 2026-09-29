@@ -52,10 +52,21 @@ const DB = (() => {
       t.oncomplete = () => res(out); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
     });
   }
+  /* Backup reminder bookkeeping: settings record 'backup' = {lastBackupAt, lastChangeAt, intervalDays, snoozeUntil}.
+     Any write to a data store stamps lastChangeAt. Read-modify-write happens inside one transaction, so it is atomic. */
+  const DATA = new Set(['customers', 'jobs', 'photos', 'docs']);
+  const META_DEFAULT = {key: 'backup', lastBackupAt: 0, lastChangeAt: 0, intervalDays: 3, snoozeUntil: 0};
+  const updateMeta = fn => tx('settings', 'readwrite', async s => {
+    const cur = {...META_DEFAULT, ...(await p(s.get('backup')) || {})}, next = {...cur, ...fn(cur), key: 'backup'};
+    await p(s.put(next)); return next;
+  });
+  const touch = store => DATA.has(store) ? updateMeta(() => ({lastChangeAt: Date.now()})) : null;
   const api = {
-    put: (store, obj) => tx(store, 'readwrite', s => p(s.put(obj))),
+    async put(store, obj) { const r = await tx(store, 'readwrite', s => p(s.put(obj))); await touch(store); return r; },
+    getMeta: async () => ({...META_DEFAULT, ...(await api.get('settings', 'backup') || {})}),
+    updateMeta,
     get: (store, id) => tx(store, 'readonly', s => p(s.get(id))),
-    del: (store, id) => tx(store, 'readwrite', s => p(s.delete(id))),
+    async del(store, id) { const r = await tx(store, 'readwrite', s => p(s.delete(id))); await touch(store); return r; },
     all: (store) => tx(store, 'readonly', s => p(s.getAll())),
     byJob: (store, jobId) => tx(store, 'readonly', s => p(s.index('jobId').getAll(jobId))),
     byCustomer: (customerId) => tx('jobs', 'readonly', s => p(s.index('customerId').getAll(customerId))),
@@ -68,7 +79,7 @@ const DB = (() => {
           const idx = t.objectStore(st).index('jobId').openKeyCursor(IDBKeyRange.only(jobId));
           idx.onsuccess = () => { const c = idx.result; if (c) { t.objectStore(st).delete(c.primaryKey); c.continue(); } };
         }
-        t.oncomplete = res; t.onerror = () => rej(t.error);
+        t.oncomplete = () => touch('jobs').then(res, rej); t.onerror = () => rej(t.error);
       });
     },
     async deleteCustomer(customerId) {
