@@ -14,6 +14,7 @@ No backend, no accounts, no analytics. Jobs, photos and saved PDFs live in the b
 | `js/app.js` | UI: home/job/form screens, autosave, photos, finalize/reopen, backup/restore |
 | `js/admin.js` | Local admin account: salted PBKDF2-SHA-256 PIN hash (Web Crypto), verification, 5-try / 30 s lockout |
 | `js/db.js` | IndexedDB v2 (`customers`, `jobs`, `photos`, `docs`); migrates v1 jobs into an "Unassigned" customer |
+| `js/camera.js` | In-app full-screen camera (getUserMedia): shutter, switch camera, review/retake/use + caption, multi-shot |
 | `js/photos.js` | Client-side compression (max 1600 px, JPEG 0.8) + thumbnails |
 | `js/pdf.js` | Fills the bundled AcroForm with pdf-lib, flattens finals, appends completion + photo pages |
 | `forms.json` | Shared field definition (sections, fields, required items) – generated |
@@ -51,6 +52,12 @@ Forms always appear in this order: **Teardown Evaluation first, then Assembly Ve
 * **Export PDF** (draft): the filled template, still editable, plus photo pages. File name `WO-<number>_<customer>_<form>.pdf`.
 * **Finalize**: lists every incomplete required item with *Go to* and *N/A*. Once everything is complete, you confirm who signs. The form is then locked (Completed, date, signer). A flattened final PDF (form + completion record listing N/A items + photo pages) is saved in the job as `..._FINAL-rev<N>.pdf`.
 * **Reopen**: asks for confirmation, then starts revision N+1. Earlier final PDFs are kept.
+
+## Taking photos
+
+* **Take photo** opens the in-app camera: full-screen preview (rear camera preferred, ideal 1920×1080 or better), a large shutter, **Switch camera** when the device has more than one, and **✕ Done**. Every shot goes to a review step: add a caption, then **Retake** or **Use photo**. After Use, the camera stays open for the next shot. Photos are captured from the video frame at the camera's native resolution, then compressed and saved like any other photo. Closing the camera turns it off (all tracks are stopped).
+* If the camera can't be used (permission denied, no camera, camera busy, browser not supported, or the page isn't https), a message says why and offers **Use device camera / pick a file**, a file input with `capture=environment`. On Windows, camera access is under Settings › Privacy & security › Camera, plus the browser's site permissions.
+* **Choose from gallery** is always a normal file picker.
 
 ## Admin approval (per device)
 * On first launch you are asked to create the admin account: a name plus a 4–8 digit PIN, entered twice. Only a salted PBKDF2-SHA-256 hash (250,000 iterations) is stored in IndexedDB `settings`; the PIN itself is never stored.

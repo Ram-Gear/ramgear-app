@@ -441,7 +441,7 @@
   /* ---------- photos ---------- */
   function photoPanel(scope, label, locked) {
     return `<div class="photos" data-scope="${esc(scope)}" data-label="${esc(label)}" ${locked ? 'data-locked="1"' : ''}>
-      ${locked ? '' : `<div class="photo-btns"><label class="btn cam" for="fileCamera" data-scope="${esc(scope)}" data-label="${esc(label)}">📷 Take photo</label><label class="btn" for="fileGallery" data-scope="${esc(scope)}" data-label="${esc(label)}">🖼 Choose from gallery</label></div>`}
+      ${locked ? '' : `<div class="photo-btns"><button type="button" class="btn cam" data-cam="1" data-scope="${esc(scope)}" data-label="${esc(label)}">📷 Take photo</button><label class="btn" for="fileGallery" data-scope="${esc(scope)}" data-label="${esc(label)}">🖼 Choose from gallery</label></div>`}
       <div class="thumbs"></div></div>`;
   }
   async function fillPhotoPanels(job) {
@@ -459,6 +459,8 @@
     return async e => {
       const t = e.target;
       if (t.matches('label[for="fileCamera"],label[for="fileGallery"]')) { pendingPhoto = {jobId: current.job.id, scope: t.dataset.scope, label: t.dataset.label}; return; }
+      const camBtn = t.closest && t.closest('[data-cam]');
+      if (camBtn) { pendingPhoto = {jobId: current.job.id, scope: camBtn.dataset.scope, label: camBtn.dataset.label}; openCamera(pendingPhoto); return; }
       if (t.dataset.full) { const p = photos.find(x => x.id === t.dataset.full) || await DB.get('photos', t.dataset.full); if (p) modal(`<img class="full" src="${objUrl(p.blob)}" alt=""><p>${esc(p.caption || '')}</p><p class="muted small">${esc(p.label)} · ${p.w}×${p.h}</p>`, [{label: 'Close', value: 'cancel'}], {wide: true, noFocus: true}); return; }
       if (t.dataset.delphoto) {
         if (!await confirmBox('Delete photo?', 'This photo will be removed from the job.', 'Delete', true)) return;
@@ -473,6 +475,33 @@
       const p = await DB.get('photos', e.target.dataset.cap); if (p) { p.caption = e.target.value; await DB.put('photos', p); toast('Caption saved', 1200); }
     }
   });
+  async function savePhoto(target, file, caption) {
+    const c = await Photos.compress(file);
+    await DB.put('photos', {id: DB.uid(), jobId: target.jobId, scope: target.scope, label: target.label, caption: caption || '', blob: c.blob, thumb: c.thumb, w: c.w, h: c.h, createdAt: Date.now(), source: file.name ? 'file' : 'camera'});
+    return c.thumb;
+  }
+  function openCamera(target) {
+    Camera.open({
+      title: `${target.label} – WO ${current.job ? current.job.wo : ''}`,
+      onUse: (blob, caption) => savePhoto(target, blob, caption),
+      onClose: async n => { if (current.job && n) { current.job.updatedAt = Date.now(); await DB.put('jobs', current.job); await fillPhotoPanels(current.job); toast(`${n} photo${n > 1 ? 's' : ''} added`); } },
+      onUnavailable: err => cameraFallback(target, err),
+    });
+  }
+  function cameraFallback(target, err) {
+    const why = err && err.name === 'NotAllowedError' ? 'Camera permission was denied. To use the in-app camera, allow camera access for this site in the browser or system settings (on Windows: Settings › Privacy & security › Camera), then try again.'
+      : err && err.name === 'NotFoundError' ? 'No camera was found on this device.'
+      : err && err.name === 'NotReadableError' ? 'The camera is in use by another app. Close the other app and try again.'
+      : window.isSecureContext === false ? 'The camera needs a secure (https) connection.'
+      : err && err.name === 'NotSupportedError' ? 'This browser does not support the in-app camera.'
+      : `The in-app camera is not available (${esc(err && (err.name || err.message) || 'unknown error')}).`;
+    modal(`<h2>Camera not available</h2><p>${why}</p><p class="muted small">You can still add a photo with the device's own camera app or pick an image file:</p>
+      <label class="btn primary fallback-pick">📷 Use device camera / pick a file<input type="file" accept="image/*" capture="environment" class="vh" data-fallback="1"></label>`,
+      [{label: 'Close', value: 'cancel'}], {noFocus: true, onOpen: (f, dlg) => {
+        const inp = $('input[data-fallback]', f);
+        inp.onchange = async () => { pendingPhoto = target; const files = Array.from(inp.files || []); dlg.close('picked'); await onFiles({files, value: ''}); };
+      }});
+  }
   async function onFiles(input) {
     const files = Array.from(input.files || []); input.value = '';
     if (!files.length || !pendingPhoto) return;
@@ -480,8 +509,7 @@
     let n = 0;
     for (const f of files) {
       try {
-        const c = await Photos.compress(f);
-        await DB.put('photos', {id: DB.uid(), jobId: target.jobId, scope: target.scope, label: target.label, caption: '', blob: c.blob, thumb: c.thumb, w: c.w, h: c.h, createdAt: Date.now()});
+        await savePhoto(target, f, '');
         n++;
       } catch (err) { console.error(err); toast('Could not read one image: ' + err.message, 4000); }
     }
@@ -788,7 +816,7 @@
         if (b.type === 'table') for (const r of b.rows) if (r.req) REQS[f.key].push({req: r.req, section: s.title});
       }
     }
-    window.RG = {FORMS, REQS, DB, Admin};  // for debugging/tests
+    window.RG = {FORMS, REQS, DB, Admin, Camera};  // for debugging/tests
     await ensureAdmin();
     route();
   }
