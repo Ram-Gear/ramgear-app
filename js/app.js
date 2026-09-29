@@ -19,6 +19,7 @@
   const fmtDate = t => t ? new Date(t).toLocaleString([], {year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'}) : '';
   const fmtDay = t => t ? new Date(t).toLocaleDateString([], {year: 'numeric', month: 'short', day: 'numeric'}) : '';
   const HOME_LABEL = 'Industrial Gearbox Data', APP_TITLE = 'Ram-Gear Manufacturing Incorporated';
+  const REV = self.APP_REV || '?', BUILD = self.APP_BUILD || '?', REV_LABEL = `Rev ${REV} (build ${BUILD})`;   // from js/version.js
   /* ---------- Tablet ID (device name, settings key 'device') ---------- */
   let TABLET = '';
   const loadTablet = async () => { TABLET = ((await DB.get('settings', 'device')) || {}).tabletId || ''; return TABLET; };
@@ -66,7 +67,8 @@
       dlg.addEventListener('close', done);
       dlg.returnValue = ''; dlg.showModal();
       if (opts.onOpen) opts.onOpen(f, dlg);
-      const first = $('input,textarea,select', f); if (first && !opts.noFocus) setTimeout(() => first.focus(), 50);
+      const first = $('input,textarea,select', f);
+      if (first && !opts.noFocus) setTimeout(() => { if (dlg.open && !f.contains(document.activeElement)) first.focus(); }, 50);   // never steal focus from a field the user is already typing in
     });
   }
   const confirmBox = (title, msg, okLabel = 'OK', danger = false) =>
@@ -108,61 +110,161 @@
     else if (v === 'print') printPdf(blob, filename);
   }
 
-  /* ---------- admin approval (local, per device) ---------- */
+  /* ---------- users, session, admin approval (local, per device) ---------- */
+  let USER = null;            // signed-in user record
+  let lastActive = Date.now(), lastPersist = 0;
+  const ROLE_LABEL = {admin: 'Admin', technician: 'Technician'};
+  const isAdmin = () => !!USER && USER.role === 'admin';
+  const userName = () => USER ? USER.displayName : '';
   async function audit(action, item, result = 'approved', adminName) {
-    const a = adminName || ((await Admin.get()) || {}).name || '';
-    await DB.put('audit', {id: DB.uid(), at: Date.now(), action, item: item || '', admin: a, result, tablet: TABLET});
+    await DB.put('audit', {id: DB.uid(), at: Date.now(), action, item: item || '', admin: adminName || userName(), user: userName(), result, tablet: TABLET});
   }
-  const pinInput = (name, label) => `<label class="fld"><span>${label}</span><input name="${name}" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" autocomplete="off" required class="pin"></label>`;
-  /* Shows the Admin approval dialog; resolves true only after the correct PIN. Every attempt is written to the audit log. */
+  const secretInput = (name, label, autocomplete = 'off') => `<label class="fld"><span>${label}</span><input name="${name}" type="password" autocomplete="${autocomplete}" autocapitalize="none" spellcheck="false" required class="pin"></label>`;
+  const pinInput = secretInput;
+  /* Admin approval: an active Admin re-enters their password/PIN (the signed-in Admin, or any Admin for a Technician).
+     5 wrong attempts lock approval for 30 s (persisted). Every attempt is written to the audit log. */
+  async function checkApproval(uname, secret) {
+    const ls = await Admin.lockState(), now = Date.now();
+    if (ls.until > now) return {ok: false, locked: ls.until - now};
+    const u = await Auth.byUsername(uname);
+    if (u && u.role === 'admin' && !u.disabled && await Auth.verify(u, secret)) { await DB.put('settings', {key: 'lockout', fails: 0, until: 0}); return {ok: true, user: u}; }
+    ls.fails = (ls.fails || 0) + 1;
+    if (ls.fails >= Admin.MAX_FAILS) { ls.fails = 0; ls.until = now + Admin.LOCK_MS; await DB.put('settings', ls); return {ok: false, locked: Admin.LOCK_MS, justLocked: true}; }
+    await DB.put('settings', ls); return {ok: false, left: Admin.MAX_FAILS - ls.fails};
+  }
   async function requireAdmin(action, item) {
-    const rec = await Admin.get(); if (!rec) { await ensureAdmin(); return requireAdmin(action, item); }
     let msg = '';
     for (;;) {
       const ls = await Admin.lockState(), lockedMs = ls.until - Date.now();
       const lockMsg = lockedMs > 0 ? `Too many wrong PINs. Try again in ${Math.ceil(lockedMs / 1000)} s.` : '';
       const v = await modal(`<h2>🔐 Admin approval required</h2>
         <p><b>${esc(action)}</b>${item ? `<br><span class="muted">${esc(item)}</span>` : ''}</p>
-        <p class="muted small">Only the admin (<b>${esc(rec.name)}</b>) can approve this on this device.</p>
-        ${pinInput('pin', 'Admin PIN')}
+        ${isAdmin() ? `<p class="muted small">Approving as <b>${esc(USER.displayName)}</b> (Admin). Re-enter your password or PIN.</p>`
+          : `<p class="muted small">Only an Admin can approve this. Ask an Admin to enter their username and password or PIN.</p>
+             <label class="fld"><span>Admin username</span><input name="auser" required autocomplete="off" autocapitalize="none" spellcheck="false"></label>`}
+        ${pinInput('pin', 'Admin password or PIN')}
         ${msg || lockMsg ? `<p class="pin-error" role="alert">${esc(lockMsg || msg)}</p>` : ''}`,
         [{label: 'Cancel', value: 'cancel'}, {label: 'Approve', value: 'ok', cls: 'primary'}], {cls: 'approval'});
       if (v !== 'ok') { toast('Not approved – nothing was changed'); return false; }
-      const r = await Admin.check($('#dlgForm').pin.value);
-      if (r.ok) { await audit(action, item, 'approved', rec.name); return true; }
-      if (r.locked) { await audit(action, item, r.justLocked ? 'wrong PIN – locked 30 s' : 'blocked (locked out)', rec.name); msg = `Too many wrong PINs. Locked for ${Math.ceil(r.locked / 1000)} s.`; }
-      else { await audit(action, item, 'wrong PIN', rec.name); msg = `Incorrect PIN. ${r.left} attempt${r.left === 1 ? '' : 's'} left before a 30 s lockout.`; }
+      const f = $('#dlgForm'), uname = isAdmin() ? USER.username : f.auser.value;
+      const r = await checkApproval(uname, f.pin.value), who = (r.user && r.user.displayName) || (isAdmin() ? USER.displayName : Auth.norm(uname));
+      if (r.ok) { await audit(action, item, 'approved', who); return true; }
+      if (r.locked) { await audit(action, item, r.justLocked ? 'wrong PIN – locked 30 s' : 'blocked (locked out)', who); msg = `Too many wrong PINs. Locked for ${Math.ceil(r.locked / 1000)} s.`; }
+      else { await audit(action, item, 'wrong PIN', who); msg = `Incorrect PIN or password. ${r.left} attempt${r.left === 1 ? '' : 's'} left before a 30 s lockout.`; }
     }
   }
-  async function pinSetupDialog(title, intro, prevName, mandatory) {
-    let err = '', prevTablet = '';
+  /* New-secret dialog (first-run admin, change own secret, new user, reset). */
+  function secretError(p1, p2) { return !Auth.validSecret(p1) ? Auth.secretRule : p1 !== p2 ? 'The two entries do not match.' : ''; }
+  async function firstRunSetup() {
+    let err = '', prev = {name: '', tablet: TABLET};
     for (;;) {
-      const v = await modal(`<h2>${esc(title)}</h2><p class="muted">${intro}</p>
-        <label class="fld"><span>Admin name</span><input name="aname" required autocomplete="off" value="${esc(prevName || '')}"></label>
-        ${mandatory && !TABLET ? tabletInput(prevTablet) : ''}
-        <div class="grid2">${pinInput('pin1', 'New PIN (4–8 digits)')}${pinInput('pin2', 'Enter PIN again')}</div>
+      await modal(`<h2>Create the first Admin account</h2><p class="muted">This tablet has no user accounts yet. The first account is an <b>Admin</b>: it signs in, manages users (Admin screen › Users) and approves deleting, reopening and restoring. There is no self sign-up. Passwords/PINs are stored only as salted hashes on this device and cannot be recovered.</p>
+        <label class="fld"><span>Admin name (also the username)</span><input name="aname" required autocomplete="off" value="${esc(prev.name)}"></label>
+        ${!TABLET ? tabletInput(prev.tablet) : ''}
+        <div class="grid2">${secretInput('pin1', 'Password or PIN', 'new-password')}${secretInput('pin2', 'Enter it again', 'new-password')}</div>
+        <p class="muted small">${Auth.secretRule}</p>
         ${err ? `<p class="pin-error" role="alert">${esc(err)}</p>` : ''}`,
-        (mandatory ? [] : [{label: 'Cancel', value: 'cancel'}]).concat([{label: mandatory ? 'Create admin account' : 'Save new PIN', value: 'ok', cls: 'primary'}]), {mandatory});
-      if (v !== 'ok') { if (mandatory) continue; return null; }
-      const f = $('#dlgForm'), name = f.aname.value.trim(), p1 = f.pin1.value, p2 = f.pin2.value, tablet = f.tablet ? f.tablet.value.trim() : null;
-      prevName = name; if (tablet !== null) prevTablet = tablet;
-      if (!name) err = 'Enter the admin name.';
-      else if (tablet === '') err = 'Enter a Tablet ID for this device (e.g. Shop Tablet 2).';
-      else if (!Admin.validPin(p1)) err = 'PIN must be 4 to 8 digits.';
-      else if (p1 !== p2) err = 'The two PINs do not match.';
-      else return {name, pin: p1, tablet};
+        [{label: 'Create admin account', value: 'ok', cls: 'primary'}], {mandatory: true});
+      const f = $('#dlgForm'), name = f.aname.value.trim(), tablet = f.tablet ? f.tablet.value.trim() : null;
+      prev = {name, tablet: tablet ?? TABLET};
+      err = !name ? 'Enter the admin name.' : tablet === '' ? 'Enter a Tablet ID for this device (e.g. Shop Tablet 2).' : secretError(f.pin1.value, f.pin2.value);
+      if (err) continue;
+      if (tablet) await saveTablet(tablet);
+      const u = await Auth.create({username: name, displayName: name, role: 'admin', secret: f.pin1.value, createdBy: 'first-run setup'});
+      startSession(u);
+      await audit('Admin account created', `${u.displayName} (username "${u.username}")`, 'done');
+      if (tablet) await audit('Tablet ID set', tablet, 'done');
+      toast('Admin account created'); return;
     }
   }
-  async function ensureAdmin() {
-    if (await Admin.get()) return;
-    const r = await pinSetupDialog('Create the admin account',
-      'Deleting anything, reopening a completed form, restoring a backup and changing the PIN will need the admin PIN. Everyone else can still create, edit and finalize. The PIN is stored only as a salted hash on this device – it cannot be recovered, so keep it safe.', '', true);
-    const rec = await Admin.makeRecord(r.name, r.pin);
-    if (r.tablet) await saveTablet(r.tablet);
-    await DB.put('settings', rec); await audit('Admin account created', r.name, 'done', r.name);
-    if (r.tablet) await audit('Tablet ID set', r.tablet, 'done', r.name);
-    toast('Admin account created');
+  /* ---------- login screen ---------- */
+  function startSession(u) {
+    USER = u; lastActive = Date.now(); Auth.setSession({userId: u.id, lastActive});
+    document.body.classList.remove('locked'); $('#login').hidden = true; renderUserBox();
   }
+  function renderUserBox() {
+    const box = $('#userBox'); if (!box) return;
+    box.innerHTML = USER ? `<span class="user-chip" title="Signed in on ${esc(TABLET)}"><span aria-hidden="true">👤</span> <b id="userName">${esc(USER.displayName)}</b> <span class="role-tag">${ROLE_LABEL[USER.role]}</span></span><button class="btn ghost" id="logoutBtn">Log out</button>` : '';
+    if (USER) $('#logoutBtn').onclick = logout;
+  }
+  function showLogin(message, username) {
+    return new Promise(res => {
+      const scr = $('#login'), f = $('#loginForm');
+      document.body.classList.add('locked'); scr.hidden = false;
+      $('#loginTablet').textContent = TABLET ? `Tablet: ${TABLET}` : '';
+      $('#loginRev').textContent = REV_LABEL;
+      const m = $('#loginMsg'); m.textContent = message || ''; m.hidden = !message;
+      const err = $('#loginErr'); err.hidden = true; err.textContent = '';
+      f.username.value = username || ''; f.secret.value = '';
+      setTimeout(() => (username ? f.secret : f.username).focus(), 60);
+      f.onsubmit = async e => {
+        e.preventDefault();
+        const btn = $('#loginBtn'); btn.disabled = true;
+        const uname = f.username.value, r = await Auth.login(uname, f.secret.value);
+        btn.disabled = false; f.secret.value = '';
+        if (r.ok) {
+          startSession(r.user); await audit('Signed in', r.user.username, 'done');
+          f.onsubmit = null; res(r.user); return;
+        }
+        const who = r.user ? r.user.displayName : Auth.norm(uname);
+        await DB.put('audit', {id: DB.uid(), at: Date.now(), action: 'Sign-in failed', item: Auth.norm(uname), admin: '', user: who, tablet: TABLET,
+          result: r.locked ? (r.justLocked ? 'wrong password – locked 30 s' : 'blocked (locked out)') : r.disabled ? 'account disabled' : 'wrong username or password'});
+        err.textContent = r.locked ? `Too many failed sign-ins. Try again in ${Math.ceil(r.locked / 1000)} s.`
+          : `Wrong username or password/PIN. ${r.left} attempt${r.left === 1 ? '' : 's'} left before a 30 s lockout.`;
+        err.hidden = false; f.secret.focus();
+      };
+    });
+  }
+  function closeOverlays() {
+    if (Camera.isOpen()) Camera.close();
+    const d = $('#dlg'); if (d.open) d.close('cancel');
+    const vw = $('.viewer'); if (vw) vw.remove();
+  }
+  async function endSession(reason) {
+    await flushSave(); closeOverlays();
+    const was = USER; USER = null; Auth.setSession(null); renderUserBox();
+    return was;
+  }
+  async function logout() {
+    await audit('Signed out', USER.username, 'done');
+    await endSession('logout');
+    location.hash = P.home();
+    view.innerHTML = '';
+    const u = await showLogin('You have been signed out.');
+    await afterLogin(u, null); route();
+  }
+  async function idleLock() {
+    if (!USER) return;
+    const mins = await Auth.idleMinutes();
+    await audit('Auto-locked (idle)', `${USER.username} – ${mins} min without activity`, 'done');
+    const was = await endSession('idle');
+    view.innerHTML = '';
+    const u = await showLogin(`Locked after ${mins} minutes without activity. Sign in to continue.`, was.username);
+    await afterLogin(u, was); route();
+  }
+  async function afterLogin(u, prevUser) {
+    await ensureTablet();
+    if (prevUser && prevUser.id !== u.id) location.hash = P.home();   // a different person unlocked: start at home
+  }
+  /* idle tracking */
+  function touchActivity() {
+    lastActive = Date.now();
+    if (USER && lastActive - lastPersist > 5000) { lastPersist = lastActive; Auth.setSession({userId: USER.id, lastActive}); }
+  }
+  ['pointerdown', 'keydown', 'input', 'touchstart', 'wheel'].forEach(ev => document.addEventListener(ev, touchActivity, {capture: true, passive: true}));
+  let idleMs = 15 * 60000;
+  const refreshIdle = async () => { idleMs = (await Auth.idleMinutes()) * 60000; };
+  async function checkIdle() { if (USER && Date.now() - lastActive >= idleMs) await idleLock(); }
+  setInterval(checkIdle, 5000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkIdle(); else if (USER) Auth.setSession({userId: USER.id, lastActive}); });
+  /* On app open: resume this tab's session only if it has not been idle longer than the timeout. */
+  async function resumeSession() {
+    const s = Auth.getSession(); if (!s) return null;
+    const u = (await Auth.all()).find(x => x.id === s.userId);
+    if (!u || u.disabled || Date.now() - (s.lastActive || 0) >= idleMs) { Auth.setSession(null); return null; }
+    startSession(u); return u;
+  }
+
   /* Devices set up before Tablet IDs existed: ask once (no PIN needed to set it the first time). */
   async function ensureTablet() {
     if (TABLET) return;
@@ -185,33 +287,110 @@
     await saveTablet(id); await audit('Tablet ID changed', `${old} → ${id}`, 'done');
     toast(`Tablet ID changed to ${id}`); renderSettings();
   }
+  async function newSecretDialog(title, intro) {
+    let err = '';
+    for (;;) {
+      const v = await modal(`<h2>${esc(title)}</h2><p class="muted">${intro}</p>
+        <div class="grid2">${secretInput('pin1', 'New password or PIN', 'new-password')}${secretInput('pin2', 'Enter it again', 'new-password')}</div>
+        <p class="muted small">${Auth.secretRule}</p>${err ? `<p class="pin-error" role="alert">${esc(err)}</p>` : ''}`,
+        [{label: 'Cancel', value: 'cancel'}, {label: 'Save', value: 'ok', cls: 'primary'}]);
+      if (v !== 'ok') return null;
+      const f = $('#dlgForm'); err = secretError(f.pin1.value, f.pin2.value);
+      if (!err) return f.pin1.value;
+    }
+  }
   async function changePin() {
-    const rec = await Admin.get();
-    if (!await requireAdmin('Change admin PIN', rec.name)) return;
-    const r = await pinSetupDialog('Change admin PIN', 'Enter the admin name and the new PIN twice.', rec.name, false);
-    if (!r) return;
-    await DB.put('settings', await Admin.makeRecord(r.name, r.pin, rec));
-    await audit('Admin PIN changed', r.name !== rec.name ? `${rec.name} → ${r.name}` : r.name, 'done', r.name);
-    toast('Admin PIN changed'); renderSettings();
+    if (!await requireAdmin('Change my password / PIN', USER.displayName)) return;
+    const s = await newSecretDialog('Change my password / PIN', `Signed in as <b>${esc(USER.displayName)}</b>. Enter the new password or PIN twice.`);
+    if (!s) return;
+    await Auth.setSecret(USER, s); await audit('Password/PIN changed', USER.displayName, 'done');
+    toast('Password / PIN changed'); renderSettings();
+  }
+  /* ---------- Users (Admin screen) ---------- */
+  const activeAdmins = users => users.filter(u => u.role === 'admin' && !u.disabled);
+  async function userDialog(u) {
+    const isNew = !u; let err = '', vals = u ? {dname: u.displayName, uname: u.username, role: u.role} : {dname: '', uname: '', role: 'technician'};
+    for (;;) {
+      const v = await modal(`<h2>${isNew ? 'New user' : `Edit ${esc(u.displayName)}`}</h2>
+        <div class="grid2"><label class="fld"><span>Full name</span><input name="dname" required autocomplete="off" value="${esc(vals.dname)}"></label>
+        <label class="fld"><span>Username</span><input name="uname" required autocomplete="off" autocapitalize="none" spellcheck="false" value="${esc(vals.uname)}" ${isNew ? '' : 'readonly'}></label></div>
+        <label class="fld"><span>Role</span><select name="role"><option value="technician" ${vals.role === 'technician' ? 'selected' : ''}>Technician – create, edit and finalize</option><option value="admin" ${vals.role === 'admin' ? 'selected' : ''}>Admin – also manages users and approves admin actions</option></select></label>
+        ${isNew ? `<div class="grid2">${secretInput('pin1', 'Password or PIN', 'new-password')}${secretInput('pin2', 'Enter it again', 'new-password')}</div><p class="muted small">${Auth.secretRule}</p>` : ''}
+        ${err ? `<p class="pin-error" role="alert">${esc(err)}</p>` : ''}`,
+        [{label: 'Cancel', value: 'cancel'}, {label: isNew ? 'Create user' : 'Save', value: 'ok', cls: 'primary'}], {wide: true});
+      if (v !== 'ok') return null;
+      const f = $('#dlgForm'), users = await Auth.all();
+      vals = {dname: f.dname.value.trim(), uname: Auth.norm(f.uname.value), role: f.role.value};
+      if (!vals.dname || !vals.uname) { err = 'Enter a full name and a username.'; continue; }
+      if (isNew && users.some(x => x.username === vals.uname)) { err = `The username "${vals.uname}" is already taken on this device.`; continue; }
+      if (!isNew && u.role === 'admin' && vals.role !== 'admin' && activeAdmins(users).filter(x => x.id !== u.id).length === 0) { err = 'This is the only active Admin. Make another user an Admin first.'; continue; }
+      if (isNew) { err = secretError(f.pin1.value, f.pin2.value); if (err) continue; }
+      return {...vals, secret: isNew ? f.pin1.value : null};
+    }
+  }
+  async function manageUser(action, id) {
+    if (!isAdmin()) { toast('Only an Admin can manage users'); return; }
+    const users = await Auth.all(), u = users.find(x => x.id === id);
+    if (action === 'new') {
+      const r = await userDialog(null); if (!r) return;
+      const nu = await Auth.create({username: r.uname, displayName: r.dname, role: r.role, secret: r.secret, createdBy: USER.displayName});
+      await audit('User created', `${nu.displayName} (${nu.username}, ${ROLE_LABEL[nu.role]})`, 'done'); toast(`User ${nu.username} created`);
+    } else if (action === 'edit') {
+      const r = await userDialog(u); if (!r) return;
+      const changes = [r.dname !== u.displayName ? `name ${u.displayName} → ${r.dname}` : '', r.role !== u.role ? `role ${ROLE_LABEL[u.role]} → ${ROLE_LABEL[r.role]}` : ''].filter(Boolean).join(', ');
+      Object.assign(u, {displayName: r.dname, role: r.role, updatedAt: Date.now()}); await DB.put('users', u);
+      if (u.id === USER.id) { USER = u; renderUserBox(); }
+      await audit('User edited', `${u.username}${changes ? ': ' + changes : ' (no change)'}`, 'done'); toast('User saved');
+    } else if (action === 'reset') {
+      const s = await newSecretDialog(`Reset password / PIN – ${u.displayName}`, `Set a new password or PIN for <b>${esc(u.username)}</b> and tell them in person.`); if (!s) return;
+      await Auth.setSecret(u, s); await audit('User password/PIN reset', u.username, 'done'); toast(`Password / PIN reset for ${u.username}`);
+    } else if (action === 'disable' || action === 'enable') {
+      if (action === 'disable') {
+        if (u.id === USER.id) { toast('You cannot disable your own account'); return; }
+        if (u.role === 'admin' && activeAdmins(users).filter(x => x.id !== u.id).length === 0) { toast('You cannot disable the only active Admin'); return; }
+        if (!await confirmBox('Disable user?', `<b>${esc(u.displayName)}</b> (${esc(u.username)}) will no longer be able to sign in on this device. Their jobs, forms and audit entries are kept. You can enable the account again later.`, 'Disable user', true)) return;
+      }
+      u.disabled = action === 'disable'; u.updatedAt = Date.now(); await DB.put('users', u);
+      await audit(action === 'disable' ? 'User disabled' : 'User enabled', u.username, 'done'); toast(`User ${u.username} ${action}d`);
+    }
+    renderSettings();
+  }
+  function adminOnly() {
+    bar([crumbHome, {label: 'Admin & settings'}], '', {label: HOME_LABEL, href: P.home()});
+    view.innerHTML = `<section class="card" id="adminOnly"><h2>Admin only</h2><p>User management and device settings can only be opened by an Admin. You are signed in as <b>${esc(userName())}</b> (${ROLE_LABEL[USER.role]}).</p><a class="btn primary" href="${P.home()}">${HOME_LABEL}</a></section>`;
   }
   async function renderSettings() {
     current = {customer: null, job: null, formKey: null};
+    if (!isAdmin()) return adminOnly();
     bar([crumbHome, {label: 'Admin & settings'}], '', {label: HOME_LABEL, href: P.home()});
-    const rec = await Admin.get(), log = (await DB.all('audit')).sort((a, b) => b.at - a.at), meta = await DB.getMeta();
+    const users = (await Auth.all()).sort((a, b) => (a.disabled - b.disabled) || (a.role !== b.role ? (a.role === 'admin' ? -1 : 1) : a.displayName.localeCompare(b.displayName)));
+    const log = (await DB.all('audit')).sort((a, b) => b.at - a.at), meta = await DB.getMeta(), idle = await Auth.idleMinutes();
     view.innerHTML = `
       <section class="card" id="adminCard">
         <div class="card-head"><h2>Admin</h2><span class="badge done">Protected</span></div>
-        <div class="details"><div><div class="muted small">Admin name</div><div><b>${esc(rec ? rec.name : '—')}</b></div></div>
-          <div><div class="muted small">Created</div><div>${esc(fmtDate(rec && rec.createdAt))}</div></div>
-          <div><div class="muted small">PIN last changed</div><div>${esc(fmtDate(rec && rec.updatedAt))}</div></div>
-          <div><div class="muted small">PIN storage</div><div>${esc(rec ? `${rec.algo}, ${rec.iterations.toLocaleString()} iterations, random salt` : '')}</div></div></div>
-        <p class="muted small">Admin approval is required to delete customers, jobs, photos or saved PDFs, to reopen a completed form, to restore a backup, and to change the PIN. 5 wrong PINs lock approval for 30 seconds. This protection is local to this device.</p>
-        <div class="fr-actions" style="justify-content:flex-start"><button class="btn primary" id="changePinBtn">Change PIN</button></div>
+        <div class="details"><div><div class="muted small">Signed in as</div><div><b>${esc(USER.displayName)}</b> (${esc(USER.username)})</div></div>
+          <div><div class="muted small">Role</div><div>${ROLE_LABEL[USER.role]}</div></div>
+          <div><div class="muted small">App revision</div><div id="adminRev"><b>${esc(REV_LABEL)}</b></div></div>
+          <div><div class="muted small">Password/PIN storage</div><div>${esc(`${USER.algo}, ${USER.iterations.toLocaleString()} iterations, random salt`)}</div></div></div>
+        <p class="muted small">Admin approval (an Admin's password or PIN) is required to delete customers, jobs, photos or saved PDFs, to reopen a completed form, to restore a backup, and to change the Tablet ID or your password. 5 wrong entries lock approval for 30 seconds. All of this is local to this device.</p>
+        <div class="fr-actions" style="justify-content:flex-start"><button class="btn primary" id="changePinBtn">Change my password / PIN</button></div>
+      </section>
+      <section class="card" id="usersCard">
+        <div class="card-head"><h2>Users</h2><span class="muted small">${users.length} account${users.length === 1 ? '' : 's'} on this device · no self sign-up</span><button class="btn primary right" id="newUserBtn">+ New user</button></div>
+        <div class="tablewrap"><table class="tbl users"><thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead><tbody>
+          ${users.map(u => `<tr data-user="${esc(u.username)}" class="${u.disabled ? 'off' : ''}"><td><b>${esc(u.displayName)}</b>${u.id === USER.id ? ' <span class="muted small">(you)</span>' : ''}</td><td>${esc(u.username)}</td><td>${ROLE_LABEL[u.role]}</td>
+            <td>${u.disabled ? '<span class="badge off">Disabled</span>' : '<span class="badge done">Active</span>'}</td><td>${esc(u.lastLoginAt ? fmtDate(u.lastLoginAt) : 'Never')}</td>
+            <td><div class="uactions"><button class="btn" data-uact="edit" data-uid="${u.id}">Edit</button><button class="btn" data-uact="reset" data-uid="${u.id}">Reset password</button>
+              ${u.disabled ? `<button class="btn" data-uact="enable" data-uid="${u.id}">Enable</button>` : `<button class="btn danger-outline" data-uact="disable" data-uid="${u.id}" ${u.id === USER.id ? 'disabled' : ''}>Disable</button>`}</div></td></tr>`).join('')}
+        </tbody></table></div>
+        <p class="muted small">Technicians can create, edit and finalize. Admins can also manage users and approve admin-only actions. Only salted hashes of passwords/PINs are stored, and they are included in backups.</p>
+        <label class="fld bk-interval"><span>Auto-lock after inactivity</span>
+          <select id="idleMin">${[5, 10, 15, 30, 60].map(m => `<option value="${m}" ${m === idle ? 'selected' : ''}>${m} minutes</option>`).join('')}</select></label>
       </section>
       <section class="card" id="tabletCard">
         <div class="card-head"><h2>This tablet</h2></div>
         <div class="details"><div><div class="muted small">Tablet ID</div><div><b id="tabletIdVal">${esc(TABLET || '—')}</b></div></div></div>
-        <p class="muted small">Stamped on each new job ("Created on") and on each form at finalize ("Inspected on"), shown on the Completion record of final PDFs and in the job summary. Changing it needs the admin PIN and is written to the audit log.</p>
+        <p class="muted small">Stamped on each new job ("Created on") and on each form at finalize ("Inspected on"), shown on the Completion record of final PDFs and in the job summary. Changing it needs admin approval and is written to the audit log.</p>
         <div class="fr-actions" style="justify-content:flex-start"><button class="btn" id="changeTabletBtn">Change Tablet ID</button></div>
       </section>
       <section class="card">
@@ -224,17 +403,24 @@
       </section>
       <section class="card">
         <div class="card-head"><h2>Audit log</h2><span class="muted small">${log.length} entr${log.length === 1 ? 'y' : 'ies'} · included in backups</span></div>
-        ${log.length ? `<div class="tablewrap"><table class="tbl audit"><thead><tr><th>When</th><th>Action</th><th>Item</th><th>Admin</th><th>Tablet</th><th>Result</th></tr></thead><tbody>
-          ${log.map(a => `<tr class="${a.result === 'approved' || a.result === 'done' ? '' : 'bad'}"><td>${esc(fmtDate(a.at))}</td><td>${esc(a.action)}</td><td>${esc(a.item)}</td><td>${esc(a.admin)}</td><td>${esc(a.tablet || '')}</td><td>${esc(a.result)}</td></tr>`).join('')}</tbody></table></div>`
+        ${log.length ? `<div class="tablewrap"><table class="tbl audit"><thead><tr><th>When</th><th>Action</th><th>Item</th><th>User</th><th>Approved by</th><th>Tablet</th><th>Result</th></tr></thead><tbody>
+          ${log.map(a => `<tr class="${a.result === 'approved' || a.result === 'done' ? '' : 'bad'}"><td>${esc(fmtDate(a.at))}</td><td>${esc(a.action)}</td><td>${esc(a.item)}</td><td>${esc(a.user || '')}</td><td>${esc(a.result === 'done' ? '' : a.admin)}</td><td>${esc(a.tablet || '')}</td><td>${esc(a.result)}</td></tr>`).join('')}</tbody></table></div>`
           : '<p class="muted">No entries yet.</p>'}
       </section>`;
     $('#changePinBtn').onclick = changePin; $('#changeTabletBtn').onclick = changeTablet;
+    $('#newUserBtn').onclick = () => manageUser('new');
+    $$('[data-uact]').forEach(b => b.onclick = () => manageUser(b.dataset.uact, b.dataset.uid));
+    $('#idleMin').onchange = async e => { const m = +e.target.value; await DB.put('settings', {key: 'session', idleMinutes: m}); await refreshIdle(); await audit('Auto-lock changed', `${m} minutes`, 'done'); toast(`Auto-lock after ${m} minutes`); };
     $('#bkInterval').onchange = async e => { const d = +e.target.value; await DB.updateMeta(() => ({intervalDays: d})); toast(`Backup reminder: every ${d} day${d > 1 ? 's' : ''}`); };
     $('#sBackup').onclick = backup; $('#sRestore').onclick = () => $('#fileRestore').click(); $('#sBlank').onclick = blankPdfs;
   }
 
   /* ---------- model helpers ---------- */
-  function newFormState() { return {enabled: true, status: 'draft', revision: 1, values: {}, na: {}, history: [], createdAt: Date.now(), tabletUsed: TABLET}; }
+  function newFormState(key) {
+    const values = {}, sf = key && FORM_BY_KEY[key] && FORM_BY_KEY[key].signedByField;
+    if (sf && USER) values[sf] = USER.displayName;   // prefill "Inspected by" with the signed-in user
+    return {enabled: true, status: 'draft', revision: 1, values, na: {}, history: [], createdAt: Date.now(), createdBy: userName(), tabletUsed: TABLET};
+  }
   const formIdx = k => { const i = FORMS.forms.findIndex(f => f.key === k); return i < 0 ? 99 : i; };
   function formStates(job) { return FORMS.forms.filter(f => job.forms[f.key] && job.forms[f.key].enabled); }
   function jobStatus(job) {
@@ -299,6 +485,7 @@
 
   /* ---------- router ---------- */
   async function route() {
+    if (!USER) return;   // login screen is showing
     await flushSave();
     urls.forEach(u => URL.revokeObjectURL(u)); urls = [];
     const h = location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent);
@@ -325,7 +512,7 @@
   async function renderHome() {
     current = {customer: null, job: null, formKey: null};
     document.title = `${HOME_LABEL} – ${APP_TITLE}`;
-    bar([{label: HOME_LABEL}], `<button class="btn ghost" id="blankBtn">Blank PDFs</button><span class="lastbk" data-lastbk></span><button class="btn ghost" id="backupBtn">Backup</button><button class="btn ghost" id="restoreBtn">Restore</button><a class="btn ghost" id="adminBtn" href="#/settings">🔐 Admin</a>`);
+    bar([{label: HOME_LABEL}], `<button class="btn ghost" id="blankBtn">Blank PDFs</button><span class="lastbk" data-lastbk></span><button class="btn ghost" id="backupBtn">Backup</button><button class="btn ghost" id="restoreBtn">Restore</button>${isAdmin() ? '<a class="btn ghost" id="adminBtn" href="#/settings">🔐 Admin</a>' : ''}`);
     let customers = (await DB.all('customers')).sort((a, b) => (a.id === 'unassigned') - (b.id === 'unassigned') || a.name.localeCompare(b.name));
     const jobs = await DB.all('jobs'), byC = {};
     jobs.forEach(j => (byC[j.customerId] = byC[j.customerId] || []).push(j));
@@ -419,8 +606,8 @@
     if (v !== 'ok') return;
     const f = $('#dlgForm');
     const job = {id: DB.uid(), customerId: customer.id, wo: f.wo.value.trim(), date: f.date.value, manufacturer: f.manufacturer.value.trim(),
-                 model: f.model.value.trim(), serial: f.serial.value.trim(), createdAt: Date.now(), updatedAt: Date.now(), tabletId: TABLET, forms: {}};
-    for (const fm of FORMS.forms) if (f['form_' + fm.key].checked) job.forms[fm.key] = newFormState();
+                 model: f.model.value.trim(), serial: f.serial.value.trim(), createdAt: Date.now(), updatedAt: Date.now(), tabletId: TABLET, createdBy: userName(), forms: {}};
+    for (const fm of FORMS.forms) if (f['form_' + fm.key].checked) job.forms[fm.key] = newFormState(fm.key);
     await saveJob(job); await saveCustomer(customer);
     location.hash = P.job(customer.id, job.id);
   }
@@ -441,7 +628,7 @@
         <div class="row cols2" style="margin-top:12px"><label class="fld"><span>Customer</span><select id="moveCust">${customers.map(c => `<option value="${esc(c.id)}" ${c.id === cid ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>
           ${job.legacyCustomer ? `<div class="muted small" style="align-self:end">Customer name on this job before upgrade: <b>${esc(job.legacyCustomer)}</b></div>` : ''}</div>
         <p class="muted small">Customer name, work order, manufacturer, model and serial fill in automatically on both forms.</p>
-        <div class="details job-tablet"><div><div class="muted small">Created on</div><div><b data-jobtablet>${esc(job.tabletId || '—')}</b></div></div><div><div class="muted small">Created</div><div>${esc(fmtDate(job.createdAt))}</div></div></div>
+        <div class="details job-tablet"><div><div class="muted small">Created on</div><div><b data-jobtablet>${esc(job.tabletId || '—')}</b></div></div><div><div class="muted small">Created by</div><div><b data-jobuser>${esc(job.createdBy || '—')}</b></div></div><div><div class="muted small">Created</div><div>${esc(fmtDate(job.createdAt))}</div></div></div>
       </section>
       <section class="card">
         <div class="card-head"><h2>Forms</h2></div>
@@ -452,7 +639,7 @@
           return `<div class="formrow" data-formrow="${f.key}"><div class="fr-main"><div><b>${esc(f.title)}</b> ${badge(st.status)} <span class="muted small">rev ${st.revision}</span></div>
               <div class="muted small">${esc(f.docTitle)}</div>
               <div class="bar"><i style="width:${p.total ? Math.round(100 * p.done / p.total) : 0}%"></i></div>
-              <div class="muted small">${p.done} of ${p.total} required items complete${st.status === 'completed' ? ` · completed ${esc(fmtDate(st.completedAt))} by ${esc(st.signedBy)}${st.inspectedOn ? ` · Inspected on: ${esc(st.inspectedOn)}` : ''}` : ` · Tablet: ${esc(st.tabletUsed ?? TABLET)}`}</div></div>
+              <div class="muted small">${p.done} of ${p.total} required items complete${st.status === 'completed' ? ` · completed ${esc(fmtDate(st.completedAt))} by ${esc(st.signedBy)}${st.finalizedBy ? ` · finalized by ${esc(st.finalizedBy)}` : ''}${st.inspectedOn ? ` · Inspected on: ${esc(st.inspectedOn)}` : ''}` : ` · Tablet: ${esc(st.tabletUsed ?? TABLET)}`}</div></div>
             <div class="fr-actions"><button class="btn" data-export="${f.key}">${st.status === 'completed' ? 'Share final PDF' : 'Export PDF'}</button><a class="btn primary" href="${P.form(cid, jid, f.key)}">${st.status === 'completed' ? 'View' : 'Open'}</a></div></div>`;
         }).join('')}</div>
       </section>
@@ -484,7 +671,7 @@
       clearTimeout(saveTimer); saveTimer = null;
       await DB.deleteJob(job.id); toast('Job deleted'); location.hash = P.cust(cid);
     };
-    $$('[data-addform]').forEach(b => b.onclick = async () => { job.forms[b.dataset.addform] = job.forms[b.dataset.addform] || newFormState(); job.forms[b.dataset.addform].enabled = true; await saveJob(job); renderJob(cid, jid); });
+    $$('[data-addform]').forEach(b => b.onclick = async () => { job.forms[b.dataset.addform] = job.forms[b.dataset.addform] || newFormState(b.dataset.addform); job.forms[b.dataset.addform].enabled = true; await saveJob(job); renderJob(cid, jid); });
     $$('[data-export]').forEach(b => b.onclick = () => exportForm(job, b.dataset.export));
     const docById = i => docs.find(d => d.id === i);
     $$('[data-docview]').forEach(b => b.onclick = () => viewDoc(docById(b.dataset.docview)));
@@ -641,7 +828,7 @@
       <div class="form-top">
         <div class="form-meta"><h1>${esc(form.docTitle)}</h1><div>${badge(st.status)} <span class="muted small">rev ${st.revision}</span> <span class="muted small" id="progTxt"></span></div></div>
         ${locked ? '' : `<div class="tablet-row"><label class="fld"><span>Tablet used for inspection</span><input id="tabletUsed" type="text" maxlength="60" autocomplete="off" value="${esc(st.tabletUsed ?? TABLET)}"></label></div>`}
-        ${locked ? `<div class="lockbar">🔒 Completed ${esc(fmtDate(st.completedAt))}, signed by <b>${esc(st.signedBy)}</b>${st.inspectedOn ? ` · Inspected on: <b>${esc(st.inspectedOn)}</b>` : ''}. This form is read-only. The final PDF is saved in the job's documents. Tap <b>Reopen</b> to start revision ${st.revision + 1}.</div>` : ''}
+        ${locked ? `<div class="lockbar">🔒 Completed ${esc(fmtDate(st.completedAt))}, signed by <b>${esc(st.signedBy)}</b>${st.finalizedBy ? `, finalized by <b>${esc(st.finalizedBy)}</b>` : ''}${st.inspectedOn ? ` · Inspected on: <b>${esc(st.inspectedOn)}</b>` : ''}. This form is read-only. The final PDF is saved in the job's documents. Tap <b>Reopen</b> to start revision ${st.revision + 1}.</div>` : ''}
         ${st.history.length && !locked ? `<div class="infobar">Revision ${st.revision} (reopened). Earlier final PDFs are kept in the job's saved documents.</div>` : ''}
       </div>
       <nav class="chips">${form.sections.map(s => `<a href="#" data-jump="sec-${s.id}">${esc(/^[A-Z0-9]+\./.test(s.title) ? s.title.replace(/^([A-Z0-9]+)\.\s*/, '$1 · ') : s.title)}</a>`).join('')}<a href="#" data-jump="sec-photos-all">Photos</a></nav>
@@ -740,7 +927,7 @@
       return;
     }
     await flushSave();
-    const suggested = (st.values[form.signedByField] || '').trim();
+    const suggested = (st.values[form.signedByField] || '').trim() || userName();
     const now = new Date(), inspectedOn = (st.tabletUsed ?? TABLET ?? '').trim() || TABLET || 'Unknown';
     const v = await modal(`<h2>Finalize ${esc(form.title)}</h2>
       <p>All required items are complete${Object.keys(st.na).length ? ` (${Object.keys(st.na).length} marked N/A)` : ''}. Finalizing will:</p>
@@ -754,13 +941,13 @@
     try {
       const c = ctx(job, current.customer);
       const naLabels = REQS[key].filter(r => st.na[r.req.id] && reqState(job, key, r.req) !== 'skip').map(r => `${r.section}: ${r.req.label}`);
-      const out = await PdfExport.build({form, job: c, state: st, photos: await photosFor(job, key), final: {signedBy, completedAt: fmtDate(now), revision: st.revision, naLabels, inspectedOn}});
+      const out = await PdfExport.build({form, job: c, state: st, photos: await photosFor(job, key), final: {signedBy, completedAt: fmtDate(now), revision: st.revision, naLabels, inspectedOn, finalizedBy: userName(), appRev: REV_LABEL}});
       const blob = new Blob([out.bytes], {type: 'application/pdf'});
       const filename = PdfExport.filename(c, form, `_FINAL-rev${st.revision}`);
-      const doc = {id: DB.uid(), jobId: job.id, customerId: job.customerId, formKey: key, revision: st.revision, filename, createdAt: now.getTime(), signedBy, inspectedOn, pages: out.pages, size: blob.size, blob};
+      const doc = {id: DB.uid(), jobId: job.id, customerId: job.customerId, formKey: key, revision: st.revision, filename, createdAt: now.getTime(), signedBy, inspectedOn, finalizedBy: userName(), appRev: REV_LABEL, pages: out.pages, size: blob.size, blob};
       await DB.put('docs', doc);
-      Object.assign(st, {status: 'completed', completedAt: now.getTime(), signedBy, inspectedOn, tabletUsed: inspectedOn, snapshot: c});
-      st.history.push({revision: st.revision, completedAt: now.getTime(), signedBy, inspectedOn, docId: doc.id});
+      Object.assign(st, {status: 'completed', completedAt: now.getTime(), signedBy, inspectedOn, finalizedBy: userName(), tabletUsed: inspectedOn, snapshot: c});
+      st.history.push({revision: st.revision, completedAt: now.getTime(), signedBy, inspectedOn, finalizedBy: userName(), docId: doc.id});
       await saveJob(job);
       await renderForm(job.customerId, job.id, key);
       await fileReady(blob, filename, `Completed – final PDF saved (rev ${doc.revision})`);
@@ -772,7 +959,7 @@
     if (!ok) return;
     if (!await requireAdmin('Reopen completed form', `${FORM_BY_KEY[key].title} rev ${st.revision} → rev ${st.revision + 1} – WO ${job.wo}`)) return;
     Object.assign(st, {status: 'draft', revision: st.revision + 1, reopenedAt: Date.now(), tabletUsed: TABLET});
-    delete st.completedAt; delete st.signedBy; delete st.snapshot; delete st.inspectedOn;
+    delete st.completedAt; delete st.signedBy; delete st.snapshot; delete st.inspectedOn; delete st.finalizedBy;
     await saveJob(job); toast(`Reopened as revision ${st.revision}`); renderForm(job.customerId, job.id, key);
   }
 
@@ -834,11 +1021,11 @@
       files[`${folder}/Photos/${name}`] = [await u8(p.blob), store];
       capLines.push(`${name}\t${p.scope === 'job' ? 'Job photo' : (FORM_BY_KEY[p.scope.split(':')[0]] || {}).title + ' / ' + p.label}\t${p.caption || ''}`);
     }
-    const summary = [`Ram-Gear Manufacturing Incorporated – job folder`, `Customer: ${c.customer}`, `Work order: ${c.wo}`, `Date: ${c.date}`, `Gearbox: ${[c.manufacturer, c.model].filter(Boolean).join(' ')}  S/N ${c.serial}`, `Created on tablet: ${job.tabletId || '-'}`,
+    const summary = [`Ram-Gear Manufacturing Incorporated – job folder`, `Customer: ${c.customer}`, `Work order: ${c.wo}`, `Date: ${c.date}`, `Gearbox: ${[c.manufacturer, c.model].filter(Boolean).join(' ')}  S/N ${c.serial}`, `Created on tablet: ${job.tabletId || '-'}`, `Created by: ${job.createdBy || '-'}`,
       customer.contact || customer.phone || customer.email ? `Contact: ${[customer.contact, customer.phone, customer.email].filter(Boolean).join(' / ')}` : '', '',
-      'Forms:', ...formStates(job).map(f => { const st = job.forms[f.key]; return `  ${f.title}: ${st.status === 'completed' ? `Completed rev ${st.revision} ${fmtDate(st.completedAt)} by ${st.signedBy}, Inspected on: ${st.inspectedOn || '-'}` : `Draft (rev ${st.revision}), Tablet used for inspection: ${st.tabletUsed ?? TABLET}`}`; }),
+      'Forms:', ...formStates(job).map(f => { const st = job.forms[f.key]; return `  ${f.title}: ${st.status === 'completed' ? `Completed rev ${st.revision} ${fmtDate(st.completedAt)} by ${st.signedBy}, finalized by ${st.finalizedBy || '-'}, Inspected on: ${st.inspectedOn || '-'}` : `Draft (rev ${st.revision}), Tablet used for inspection: ${st.tabletUsed ?? TABLET}`}`; }),
       '', 'Saved documents:', ...(docs.length ? docs.map(d => `  ${d._zipName}  (rev ${d.revision}, ${fmtDate(d.createdAt)}, signed by ${d.signedBy}${d.inspectedOn ? `, inspected on ${d.inspectedOn}` : ''})`) : ['  none']),
-      '', `Photos: ${photos.length}`, '', `Exported ${new Date().toString()} from ${TABLET || 'this device'}`].join('\r\n');
+      '', `Photos: ${photos.length}`, '', `Exported ${new Date().toString()} from ${TABLET || 'this device'} by ${userName() || '-'}`, `App: Industrial Gearbox Data ${REV_LABEL}`].join('\r\n');
     files[`${folder}/job-summary.txt`] = fflate.strToU8(summary);
     if (capLines.length) files[`${folder}/Photos/captions.tsv`] = fflate.strToU8('file\tsection\tcaption\r\n' + capLines.join('\r\n'));
     const zip = fflate.zipSync(files, {level: 6});
@@ -851,10 +1038,10 @@
   async function backup() {
     toast('Preparing backup…', 5000);
     const customers = await DB.all('customers'), jobs = await DB.all('jobs'), photos = await DB.all('photos'), docs = await DB.all('docs');
-    const admin = await Admin.get(), auditLog = await DB.all('audit');
+    const users = await Auth.all(), auditLog = await DB.all('audit');   // users: salted hashes only
     const meta = await DB.updateMeta(() => ({lastBackupAt: Date.now(), snoozeUntil: 0}));   // a backup file is being generated
     const backupSettings = {lastBackupAt: meta.lastBackupAt, lastChangeAt: meta.lastChangeAt, intervalDays: meta.intervalDays};
-    const data = {app: 'ramgear-jobs', version: 3, exportedAt: new Date(meta.lastBackupAt).toISOString(), admin, audit: auditLog, backupSettings, device: {tabletId: TABLET}, customers, jobs,
+    const data = {app: 'ramgear-jobs', version: 3, exportedAt: new Date(meta.lastBackupAt).toISOString(), exportedBy: userName(), appRev: REV, appBuild: BUILD, users, audit: auditLog, backupSettings, device: {tabletId: TABLET}, customers, jobs,
       photos: await Promise.all(photos.map(async p => ({...p, blob: await blobToDataURL(p.blob), thumb: p.thumb ? await blobToDataURL(p.thumb) : null}))),
       docs: await Promise.all(docs.map(async d => ({...d, blob: await blobToDataURL(d.blob)})))};
     const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
@@ -872,7 +1059,7 @@
       const customers = data.customers || [];
       for (const j of data.jobs) if (DB.migrateJob(j) && !customers.some(c => c.id === 'unassigned')) customers.push(DB.unassigned());   // v1 backups
       const existing = new Set((await DB.all('jobs')).map(j => j.id)), clash = data.jobs.filter(j => existing.has(j.id)).length;
-      if (!await confirmBox('Restore backup?', `${customers.length} customers, ${data.jobs.length} jobs, ${(data.photos || []).length} photos, ${(data.docs || []).length} saved PDFs from ${esc(data.exportedAt)}.${clash ? ` <b>${clash} job(s) already on this device will be replaced</b> by the backup copy.` : ''} Other customers and jobs on this device are kept.${data.admin ? ` The backup's admin account (<b>${esc(data.admin.name)}</b>) and its PIN will replace this device's admin PIN.` : ''}`, 'Restore')) return;
+      if (!await confirmBox('Restore backup?', `${customers.length} customers, ${data.jobs.length} jobs, ${(data.photos || []).length} photos, ${(data.docs || []).length} saved PDFs from ${esc(data.exportedAt)}.${clash ? ` <b>${clash} job(s) already on this device will be replaced</b> by the backup copy.` : ''} Other customers and jobs on this device are kept.${Array.isArray(data.users) && data.users.length ? ` The backup's ${data.users.length} user account(s) are restored; accounts with the same username are replaced by the backup copy (including their password/PIN).` : data.admin ? ` The backup's admin account (<b>${esc(data.admin.name)}</b>) and its PIN will replace the matching user's password/PIN.` : ''}`, 'Restore')) return;
       if (!await requireAdmin('Restore backup (overwrites matching jobs)', `${f.name} – ${data.jobs.length} jobs from ${data.exportedAt}`)) return;
       for (const c of customers) await DB.put('customers', c);
       for (const j of data.jobs) { if (existing.has(j.id)) await DB.deleteJob(j.id); await DB.put('jobs', j); }
@@ -884,11 +1071,30 @@
       if (bs) await DB.updateMeta(cur => ({   // never move lastBackupAt back to an older date
         lastBackupAt: Math.max(cur.lastBackupAt || 0, +bs.lastBackupAt || 0),
         intervalDays: INTERVALS.includes(+bs.intervalDays) ? +bs.intervalDays : cur.intervalDays}));
-      if (data.admin && data.admin.hash && data.admin.salt) { await DB.put('settings', {...data.admin, key: 'admin'}); await audit('Admin account restored from backup', data.admin.name, 'done', data.admin.name); }
-      toast('Backup restored'); route();
+      // users: merge by username (backup copy wins); older backups carry a single admin PIN record instead
+      const bUsers = Array.isArray(data.users) ? data.users.filter(u => u && u.username && u.hash && u.salt)
+        : data.admin && data.admin.hash && data.admin.salt ? [{id: DB.uid(), username: Auth.norm(data.admin.name), displayName: data.admin.name, role: 'admin', disabled: false,
+            createdAt: data.admin.createdAt || Date.now(), updatedAt: Date.now(), createdBy: 'restored admin PIN', lastLoginAt: 0, algo: data.admin.algo, iterations: data.admin.iterations, salt: data.admin.salt, hash: data.admin.hash}] : [];
+      for (const bu of bUsers) {
+        const ex = await Auth.byUsername(bu.username);
+        if (ex && ex.id !== bu.id) await DB.del('users', ex.id);
+        await DB.put('users', {...bu, id: ex && ex.id !== bu.id && ex.id === USER.id ? ex.id : bu.id});
+      }
+      if (bUsers.length) await audit('User accounts restored from backup', bUsers.map(u => u.username).join(', '), 'done');
+      const me = await Auth.byUsername(USER.username);
+      if (me && !me.disabled) { USER = me; Auth.setSession({userId: me.id, lastActive: Date.now()}); renderUserBox(); }
+      toast('Backup restored');
+      if (!me || me.disabled || !(await activeAdmins(await Auth.all())).length) { await endSession('restore'); const u = await showLogin('Backup restored. Sign in again.'); await afterLogin(u, null); }
+      route();
     } catch (err) { modal(`<h2>Restore failed</h2><p>${esc(err.message)}</p>`, [{label: 'Close', value: 'cancel'}]); }
   });
 
+  /* ---------- revision / about ---------- */
+  $('#aboutBtn').textContent = `Rev ${REV}`; $('#loginRev').textContent = REV_LABEL;
+  $('#aboutBtn').onclick = () => modal(`<h2>About</h2><p><b>Industrial Gearbox Data</b><br>Ram-Gear Manufacturing Incorporated</p>
+    <div class="details"><div><div class="muted small">Revision</div><div id="aboutRev"><b>${esc(REV_LABEL)}</b></div></div><div><div class="muted small">Tablet ID</div><div>${esc(TABLET || '—')}</div></div>
+    <div><div class="muted small">Signed in as</div><div>${esc(USER ? `${USER.displayName} (${ROLE_LABEL[USER.role]})` : '—')}</div></div></div>
+    <p class="muted small">Works offline. All data stays on this tablet. See CHANGELOG.md for what changed in each revision.</p>`, [{label: 'Close', value: 'cancel'}]);
   /* ---------- boot ---------- */
   async function boot() {
     FORMS = await (await fetch('forms.json')).json();
@@ -899,9 +1105,13 @@
         if (b.type === 'table') for (const r of b.rows) if (r.req) REQS[f.key].push({req: r.req, section: s.title});
       }
     }
-    window.RG = {FORMS, REQS, DB, Admin, Camera};  // for debugging/tests
-    await loadTablet();
-    await ensureAdmin(); await ensureTablet();
+    window.RG = {FORMS, REQS, DB, Admin, Auth, Camera, whoami: () => USER && {username: USER.username, role: USER.role, name: USER.displayName}};  // for debugging/tests
+    await loadTablet(); await refreshIdle();
+    const migrated = await Auth.migrate();   // pre-login admin PIN -> first Admin user
+    if (migrated) await audit('Admin PIN migrated to user account', `${migrated.displayName} (username "${migrated.username}")`, 'done', migrated.displayName);
+    if (!(await Auth.all()).length) await firstRunSetup();
+    else if (!await resumeSession()) { const u = await showLogin(migrated ? `User accounts are now enabled. ${migrated.displayName}: sign in with your name and your existing admin PIN.` : ''); await afterLogin(u, null); }
+    await ensureTablet();
     const meta = await DB.getMeta();
     if (!meta.lastChangeAt) {   // installs from before the reminder existed: treat existing data as unbacked-up changes
       const t = [...await DB.all('customers'), ...await DB.all('jobs')].reduce((m, x) => Math.max(m, x.updatedAt || x.createdAt || 0), 0);

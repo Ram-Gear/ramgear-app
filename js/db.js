@@ -1,6 +1,6 @@
 /* IndexedDB storage (v3): customers > jobs; settings (admin PIN hash) and audit log; photos (blobs) and docs (saved final PDFs) keyed by job. All on-device. */
 const DB = (() => {
-  const NAME = 'ramgear', VER = 3;
+  const NAME = 'ramgear', VER = 4;
   let dbp = null;
   function open() {
     if (dbp) return dbp;
@@ -10,6 +10,7 @@ const DB = (() => {
         const db = r.result, t = r.transaction;
         if (!db.objectStoreNames.contains('customers')) db.createObjectStore('customers', {keyPath: 'id'});
         if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', {keyPath: 'key'});   // admin hash, lockout
+        if (!db.objectStoreNames.contains('users')) db.createObjectStore('users', {keyPath: 'id'});   // v4: local user accounts (hashes only)
         if (!db.objectStoreNames.contains('audit')) db.createObjectStore('audit', {keyPath: 'id'});
         const jobs = db.objectStoreNames.contains('jobs') ? t.objectStore('jobs') : db.createObjectStore('jobs', {keyPath: 'id'});
         if (!jobs.indexNames.contains('customerId')) jobs.createIndex('customerId', 'customerId');

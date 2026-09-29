@@ -18,27 +18,46 @@
 <body>
 <header class="appbar">
   <button class="appbar-back" id="backBtn" hidden aria-label="Back"></button>
-  <div class="appbar-title"><span class="brand">Ram-Gear Manufacturing Incorporated</span></div>
+  <div class="appbar-title"><span class="brand">Ram-Gear Manufacturing Incorporated</span> <button type="button" class="rev-tag" id="aboutBtn" title="About this app">Rev</button></div>
   <div class="appbar-actions" id="appbarActions"></div>
+  <div class="userbox" id="userBox"></div>
   <div class="crumbbar" id="appbarSub"></div>
 </header>
 <main id="view" tabindex="-1"></main>
+<section id="login" class="login" hidden aria-label="Sign in">
+  <div class="login-bg" aria-hidden="true"></div>
+  <form class="login-card" id="loginForm" autocomplete="on" novalidate>
+    <img class="login-logo" src="img/ramgear-logo.jpg" alt="Ram-Gear Manufacturing Inc logo" width="383" height="92">
+    <h1 class="login-company">Ram-Gear Manufacturing Incorporated</h1>
+    <address class="login-address">6150 E Hwy 44<br>Alice, TX 78332</address>
+    <p class="login-app"><b>Industrial Gearbox Data</b> <span id="loginTablet"></span></p>
+    <p class="login-msg" id="loginMsg" role="status" hidden></p>
+    <label class="fld"><span>Username</span><input name="username" id="loginUser" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required></label>
+    <label class="fld"><span>Password or PIN</span><input name="secret" id="loginSecret" type="password" autocomplete="current-password" required></label>
+    <p class="pin-error" id="loginErr" role="alert" hidden></p>
+    <button class="btn primary big" id="loginBtn" type="submit">Sign in</button>
+    <p class="login-foot">Accounts are managed by your Admin on this tablet. Works offline.</p>
+    <p class="login-rev" id="loginRev"></p>
+  </form>
+</section>
 <div id="toast" role="status" aria-live="polite"></div>
 <dialog id="dlg"><form method="dialog" id="dlgForm"></form></dialog>
 <input type="file" id="fileCamera" accept="image/*" capture="environment" hidden>
 <input type="file" id="fileGallery" accept="image/*" multiple hidden>
 <input type="file" id="fileRestore" accept="application/json,.json" hidden>
+<script src="js/version.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <script src="vendor/fflate.min.js"></script>
 <script src="js/db.js"></script>
 <script src="js/admin.js"></script>
+<script src="js/auth.js"></script>
 <script src="js/photos.js"></script>
 <script src="js/camera.js"></script>
 <script src="js/pdf.js"></script>
 <script src="js/app.js"></script>
 <script>
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW', e)));
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js', {updateViaCache: 'none'}).catch(e => console.warn('SW', e)));
 }
 </script>
 </body>

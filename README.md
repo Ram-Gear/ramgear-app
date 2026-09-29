@@ -5,15 +5,19 @@ Offline, on-device web app for Ram Gear gearbox shop forms:
 * **Teardown Evaluation** – `templates/gearbox-teardown-analysis.pdf` ("Ram Gear Gearbox Evaluation")
 * **Assembly Verification** – `templates/gearbox-assembly-checklist.pdf` ("Ram Gear Manufacturing Assembly Verification Data")
 
-No backend, no accounts, no analytics. Jobs, photos and saved PDFs live in the browser's IndexedDB on the tablet.
+No backend, no cloud accounts, no analytics. Sign-in uses local user accounts kept on each tablet. Jobs, photos and saved PDFs live in the browser's IndexedDB on the tablet.
 
 ## Files
 | Path | Purpose |
 |---|---|
 | `index.html`, `app.css` | Shell + styles (ram-gear.com palette: charcoal #2C2C2E header, teal #2E7386 primary, #4396AC accent) |
 | `js/app.js` | UI: home/job/form screens, autosave, photos, finalize/reopen, backup/restore |
-| `js/admin.js` | Local admin account: salted PBKDF2-SHA-256 PIN hash (Web Crypto), verification, 5-try / 30 s lockout |
-| `js/db.js` | IndexedDB v2 (`customers`, `jobs`, `photos`, `docs`); migrates v1 jobs into an "Unassigned" customer |
+| `js/version.js` | **Single source of truth for the revision** (`APP_REV`, `APP_BUILD`); also sets the service-worker cache name |
+| `js/auth.js` | Local user accounts (Admin / Technician), salted PBKDF2 hashes, login rate limit, session + idle timeout |
+| `js/admin.js` | PBKDF2 key derivation (Web Crypto) and the admin-approval lockout (5 tries / 30 s) |
+| `img/` | Login background (shop photo) and the Ram-Gear logo from ram-gear.com |
+| `CHANGELOG.md` | What changed in each revision |
+| `js/db.js` | IndexedDB v4 (`customers`, `jobs`, `photos`, `docs`, `settings`, `audit`, `users`); migrates v1 jobs into an "Unassigned" customer |
 | `js/camera.js` | In-app full-screen camera (getUserMedia): shutter, switch camera, review/retake/use + caption, multi-shot |
 | `js/photos.js` | Client-side compression (max 1600 px, JPEG 0.8) + thumbnails |
 | `js/pdf.js` | Fills the bundled AcroForm with pdf-lib, flattens finals, appends completion + photo pages |
@@ -28,7 +32,7 @@ No backend, no accounts, no analytics. Jobs, photos and saved PDFs live in the b
 ## Updating the forms
 1. Rebuild the PDFs (`gbx/make.py`, `gbx/make_teardown.py`).
 2. Update `tools/gen_forms.py` if sections/fields changed, then `python tools/gen_forms.py --copy-templates` (must print `OK`).
-3. Bump `VERSION` in `sw.js` so tablets pick up the new files.
+3. Bump `APP_BUILD` in `js/version.js` so tablets pick up the new files (see *Revision number*).
 
 ## Deploy to GitHub Pages (account `Ram-Gear`)
 All paths are relative, so it works at `https://ram-gear.github.io/<repo>/`.
@@ -37,7 +41,7 @@ All paths are relative, so it works at `https://ram-gear.github.io/<repo>/`.
 3. Open `https://ram-gear.github.io/<repo>/` once online on each tablet, then:
    * **iPad Safari:** Share → *Add to Home Screen*.
    * **Android Chrome:** menu → *Install app* / *Add to Home screen*.
-4. After any change, bump `VERSION` in `sw.js`; the tablet updates on the next online launch (reopen the app twice).
+4. After any change, bump `APP_BUILD` in `js/version.js` (see *Revision number*). The tablet updates on the next online launch (reopen the app twice).
 
 GitHub Pages serves HTTPS, which service workers, camera capture, and Web Share require.
 
@@ -72,12 +76,32 @@ Forms always appear in this order: **Teardown Evaluation first, then Assembly Ve
 * New jobs are stamped "Created on: <Tablet ID>", which is shown in the job folder. Each form has a **Tablet used for inspection** field, prefilled with this device's ID and editable while in Draft. At finalize that value is stamped as "Inspected on" and shown on the form, in the job folder, on the Completion record page of the final PDF and in `job-summary.txt`.
 * The backup file includes the Tablet ID. A restore only applies it to a device that has no Tablet ID yet.
 
+## Revision number
+* `js/version.js` is the only place the revision is defined: `APP_REV` (e.g. `'1.0'`) and `APP_BUILD` (build date + sequence, e.g. `'2026-09-29.1'`).
+* It is shown as "Rev 1.0 (build …)" on the login screen, in the header (**Rev** button → About), and on the Admin screen. It is also stamped on the Completion record page of final PDFs, in `job-summary.txt` and in backups (`appRev`, `appBuild`).
+* `sw.js` loads `js/version.js` with `importScripts`, and the offline cache name is `rg-rev<APP_REV>-<APP_BUILD>`. The page registers the worker with `updateViaCache: 'none'`, so a change to `version.js` alone triggers the update.
+* **How to bump:**
+  * For every deploy, increase `APP_BUILD`: today's date plus `.1`, `.2`, … for more deploys on the same day. This is required so tablets refresh their offline cache.
+  * For a release, also raise `APP_REV` (`1.0` → `1.1` for features and fixes, `2.0` for big changes) and add a section to `CHANGELOG.md`.
+
+## Sign-in and user accounts (per device)
+* The app opens to a Ram-Gear login screen: the logo, "Ram-Gear Manufacturing Incorporated", 6150 E Hwy 44, Alice, TX 78332 (as published on ram-gear.com), username, and password or PIN. It works offline because everything is local and cached.
+* A secret is either a 4–8 digit PIN or a password of at least 8 characters. Only salted PBKDF2-SHA-256 hashes (250,000 iterations) are stored in the IndexedDB `users` store.
+* There is no self sign-up. An **Admin** creates users and can edit, disable/enable or reset them under Admin screen › **Users**. Roles:
+  * **Admin**: everything, including user management and approving admin-only actions.
+  * **Technician**: can create, edit and finalize. Technicians cannot open the Admin screen.
+* You cannot disable yourself, and the last active Admin cannot be disabled or demoted.
+* First launch on a new tablet creates the first Admin (name = username) and asks for the Tablet ID. Tablets from the earlier admin-PIN version are migrated: the admin account becomes the first Admin user, who signs in with their existing name and PIN.
+* 5 failed sign-ins lock sign-in for 30 s. The lockout is saved on the device, and every attempt is audit-logged.
+* The header shows the signed-in user and a **Log out** button. The app locks after 15 minutes without activity. Admins can change this on the Admin screen (5, 10, 15, 30 or 60 min). After a lock, the same user continues where they left off.
+* The signed-in user is stamped on each job ("Created by"), each form ("created by", "finalized by", and the "Inspected by" field prefilled), the Completion record, `job-summary.txt` and every audit entry.
+* Backups include the users (hashes only). A restore replaces accounts with the same username.
+
 ## Admin approval (per device)
-* On first launch you are asked to create the admin account: a name plus a 4–8 digit PIN, entered twice. Only a salted PBKDF2-SHA-256 hash (250,000 iterations) is stored in IndexedDB `settings`; the PIN itself is never stored.
-* These actions need the admin PIN: deleting a customer, job, photo or saved PDF revision; reopening a completed form; restoring a backup; changing the PIN. Everyone else can still create, edit and finalize.
-* After 5 wrong PINs, approval is locked for 30 s. The lockout is saved, so reloading does not reset it.
-* Every attempt and approval is recorded in the audit log (action, item, admin, time, result) under **🔐 Admin** (`#/settings`).
-* Backups include the admin hash and the audit log. Restoring a backup adopts the backup's admin account and PIN.
+* These actions need an Admin's password or PIN, even when an Admin is signed in: deleting a customer, job, photo or saved PDF revision; reopening a completed form; restoring a backup; changing the Tablet ID; changing your own password. When a Technician is signed in, an Admin enters their username plus password or PIN.
+* After 5 wrong entries, approval is locked for 30 s. The lockout is saved, so reloading does not reset it.
+* Every attempt and approval is recorded in the audit log (time, action, item, user, approved by, tablet, result) under **🔐 Admin** (`#/settings`).
+* Backups include the users (hashes) and the audit log.
 * This protection is local to the device (no server). Someone who can clear the browser's site data can remove the local data, and with it the protection. It guards the workflow, not the device.
 
 Branding: the app header, page title and manifest name read "Ram-Gear Manufacturing Incorporated" (short name "Ram-Gear"). The generated photo and completion-record pages use it too. The PDF form templates are unchanged.

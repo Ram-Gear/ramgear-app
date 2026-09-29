@@ -32,5 +32,5 @@ const Admin = (() => {
     if (ls.fails >= MAX_FAILS) { ls.fails = 0; ls.until = now + LOCK_MS; await DB.put('settings', ls); return {ok: false, locked: LOCK_MS, justLocked: true}; }
     await DB.put('settings', ls); return {ok: false, left: MAX_FAILS - ls.fails};
   }
-  return {get, makeRecord, verify, check, validPin, lockState, MAX_FAILS, LOCK_MS};
+  return {get, makeRecord, verify, check, validPin, lockState, derive, MAX_FAILS, LOCK_MS};
 })();
