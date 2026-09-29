@@ -28,7 +28,9 @@
     const dlg = $('#dlg'), f = $('#dlgForm'); f.onclick = null; hideToast();
     f.innerHTML = `<div class="dlg-body">${html}</div><div class="dlg-actions">${buttons.map(b =>
       `<button value="${esc(b.value)}" class="btn ${b.cls || ''}" ${b.value === 'cancel' ? 'formnovalidate' : ''}>${esc(b.label)}</button>`).join('')}</div>`;
-    dlg.className = opts.wide ? 'wide' : '';
+    dlg.className = [opts.wide ? 'wide' : '', opts.cls || ''].join(' ').trim();
+    dlg.oncancel = opts.mandatory ? ev => ev.preventDefault() : null;
+    dlg.onkeydown = opts.mandatory ? ev => { if (ev.key === 'Escape') ev.preventDefault(); } : null;
     return new Promise(res => {
       const done = () => { dlg.removeEventListener('close', done); res(dlg.returnValue || 'cancel'); };
       dlg.addEventListener('close', done);
@@ -76,8 +78,97 @@
     else if (v === 'print') printPdf(blob, filename);
   }
 
+  /* ---------- admin approval (local, per device) ---------- */
+  async function audit(action, item, result = 'approved', adminName) {
+    const a = adminName || ((await Admin.get()) || {}).name || '';
+    await DB.put('audit', {id: DB.uid(), at: Date.now(), action, item: item || '', admin: a, result});
+  }
+  const pinInput = (name, label) => `<label class="fld"><span>${label}</span><input name="${name}" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" autocomplete="off" required class="pin"></label>`;
+  /* Shows the Admin approval dialog; resolves true only after the correct PIN. Every attempt is written to the audit log. */
+  async function requireAdmin(action, item) {
+    const rec = await Admin.get(); if (!rec) { await ensureAdmin(); return requireAdmin(action, item); }
+    let msg = '';
+    for (;;) {
+      const ls = await Admin.lockState(), lockedMs = ls.until - Date.now();
+      const lockMsg = lockedMs > 0 ? `Too many wrong PINs. Try again in ${Math.ceil(lockedMs / 1000)} s.` : '';
+      const v = await modal(`<h2>🔐 Admin approval required</h2>
+        <p><b>${esc(action)}</b>${item ? `<br><span class="muted">${esc(item)}</span>` : ''}</p>
+        <p class="muted small">Only the admin (<b>${esc(rec.name)}</b>) can approve this on this device.</p>
+        ${pinInput('pin', 'Admin PIN')}
+        ${msg || lockMsg ? `<p class="pin-error" role="alert">${esc(lockMsg || msg)}</p>` : ''}`,
+        [{label: 'Cancel', value: 'cancel'}, {label: 'Approve', value: 'ok', cls: 'primary'}], {cls: 'approval'});
+      if (v !== 'ok') { toast('Not approved – nothing was changed'); return false; }
+      const r = await Admin.check($('#dlgForm').pin.value);
+      if (r.ok) { await audit(action, item, 'approved', rec.name); return true; }
+      if (r.locked) { await audit(action, item, r.justLocked ? 'wrong PIN – locked 30 s' : 'blocked (locked out)', rec.name); msg = `Too many wrong PINs. Locked for ${Math.ceil(r.locked / 1000)} s.`; }
+      else { await audit(action, item, 'wrong PIN', rec.name); msg = `Incorrect PIN. ${r.left} attempt${r.left === 1 ? '' : 's'} left before a 30 s lockout.`; }
+    }
+  }
+  async function pinSetupDialog(title, intro, prevName, mandatory) {
+    let err = '';
+    for (;;) {
+      const v = await modal(`<h2>${esc(title)}</h2><p class="muted">${intro}</p>
+        <label class="fld"><span>Admin name</span><input name="aname" required autocomplete="off" value="${esc(prevName || '')}"></label>
+        <div class="grid2">${pinInput('pin1', 'New PIN (4–8 digits)')}${pinInput('pin2', 'Enter PIN again')}</div>
+        ${err ? `<p class="pin-error" role="alert">${esc(err)}</p>` : ''}`,
+        (mandatory ? [] : [{label: 'Cancel', value: 'cancel'}]).concat([{label: mandatory ? 'Create admin account' : 'Save new PIN', value: 'ok', cls: 'primary'}]), {mandatory});
+      if (v !== 'ok') { if (mandatory) continue; return null; }
+      const f = $('#dlgForm'), name = f.aname.value.trim(), p1 = f.pin1.value, p2 = f.pin2.value;
+      prevName = name;
+      if (!name) err = 'Enter the admin name.';
+      else if (!Admin.validPin(p1)) err = 'PIN must be 4 to 8 digits.';
+      else if (p1 !== p2) err = 'The two PINs do not match.';
+      else return {name, pin: p1};
+    }
+  }
+  async function ensureAdmin() {
+    if (await Admin.get()) return;
+    const r = await pinSetupDialog('Create the admin account',
+      'Deleting anything, reopening a completed form, restoring a backup and changing the PIN will need the admin PIN. Everyone else can still create, edit and finalize. The PIN is stored only as a salted hash on this device – it cannot be recovered, so keep it safe.', '', true);
+    const rec = await Admin.makeRecord(r.name, r.pin);
+    await DB.put('settings', rec); await audit('Admin account created', r.name, 'done', r.name);
+    toast('Admin account created');
+  }
+  async function changePin() {
+    const rec = await Admin.get();
+    if (!await requireAdmin('Change admin PIN', rec.name)) return;
+    const r = await pinSetupDialog('Change admin PIN', 'Enter the admin name and the new PIN twice.', rec.name, false);
+    if (!r) return;
+    await DB.put('settings', await Admin.makeRecord(r.name, r.pin, rec));
+    await audit('Admin PIN changed', r.name !== rec.name ? `${rec.name} → ${r.name}` : r.name, 'done', r.name);
+    toast('Admin PIN changed'); renderSettings();
+  }
+  async function renderSettings() {
+    current = {customer: null, job: null, formKey: null};
+    bar([crumbHome, {label: 'Admin & settings'}], '', {label: 'Customers', href: P.home()});
+    const rec = await Admin.get(), log = (await DB.all('audit')).sort((a, b) => b.at - a.at);
+    view.innerHTML = `
+      <section class="card" id="adminCard">
+        <div class="card-head"><h2>Admin</h2><span class="badge done">Protected</span></div>
+        <div class="details"><div><div class="muted small">Admin name</div><div><b>${esc(rec ? rec.name : '—')}</b></div></div>
+          <div><div class="muted small">Created</div><div>${esc(fmtDate(rec && rec.createdAt))}</div></div>
+          <div><div class="muted small">PIN last changed</div><div>${esc(fmtDate(rec && rec.updatedAt))}</div></div>
+          <div><div class="muted small">PIN storage</div><div>${esc(rec ? `${rec.algo}, ${rec.iterations.toLocaleString()} iterations, random salt` : '')}</div></div></div>
+        <p class="muted small">Admin approval is required to delete customers, jobs, photos or saved PDFs, to reopen a completed form, to restore a backup, and to change the PIN. 5 wrong PINs lock approval for 30 seconds. This protection is local to this device.</p>
+        <div class="fr-actions" style="justify-content:flex-start"><button class="btn primary" id="changePinBtn">Change PIN</button></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h2>Data</h2></div>
+        <div class="fr-actions" style="justify-content:flex-start"><button class="btn" id="sBackup">Backup all data</button><button class="btn" id="sRestore">Restore from backup</button><button class="btn" id="sBlank">Blank PDFs</button></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h2>Audit log</h2><span class="muted small">${log.length} entr${log.length === 1 ? 'y' : 'ies'} · included in backups</span></div>
+        ${log.length ? `<div class="tablewrap"><table class="tbl audit"><thead><tr><th>When</th><th>Action</th><th>Item</th><th>Admin</th><th>Result</th></tr></thead><tbody>
+          ${log.map(a => `<tr class="${a.result === 'approved' || a.result === 'done' ? '' : 'bad'}"><td>${esc(fmtDate(a.at))}</td><td>${esc(a.action)}</td><td>${esc(a.item)}</td><td>${esc(a.admin)}</td><td>${esc(a.result)}</td></tr>`).join('')}</tbody></table></div>`
+          : '<p class="muted">No entries yet.</p>'}
+      </section>`;
+    $('#changePinBtn').onclick = changePin;
+    $('#sBackup').onclick = backup; $('#sRestore').onclick = () => $('#fileRestore').click(); $('#sBlank').onclick = blankPdfs;
+  }
+
   /* ---------- model helpers ---------- */
   function newFormState() { return {enabled: true, status: 'draft', revision: 1, values: {}, na: {}, history: [], createdAt: Date.now()}; }
+  const formIdx = k => { const i = FORMS.forms.findIndex(f => f.key === k); return i < 0 ? 99 : i; };
   function formStates(job) { return FORMS.forms.filter(f => job.forms[f.key] && job.forms[f.key].enabled); }
   function jobStatus(job) {
     const fs = formStates(job); if (!fs.length) return 'draft';
@@ -148,6 +239,7 @@
       if (h[0] === 'c' && h[1] && h[2] === 'j' && h[3] && h[4] === 'f' && h[5]) await renderForm(h[1], h[3], h[5]);
       else if (h[0] === 'c' && h[1] && h[2] === 'j' && h[3]) await renderJob(h[1], h[3]);
       else if (h[0] === 'c' && h[1]) await renderCustomer(h[1]);
+      else if (h[0] === 'settings') await renderSettings();
       else await renderHome();
     } catch (e) { console.error(e); view.innerHTML = `<div class="card"><h2>Something went wrong</h2><p>${esc(e.message)}</p><a class="btn" href="#/">Customers</a></div>`; }
     view.focus({preventScroll: true});
@@ -163,7 +255,7 @@
   /* ---------- home: customers ---------- */
   async function renderHome() {
     current = {customer: null, job: null, formKey: null};
-    bar([{label: 'Customers'}], `<button class="btn ghost" id="blankBtn">Blank PDFs</button><button class="btn ghost" id="backupBtn">Backup</button><button class="btn ghost" id="restoreBtn">Restore</button>`);
+    bar([{label: 'Customers'}], `<button class="btn ghost" id="blankBtn">Blank PDFs</button><button class="btn ghost" id="backupBtn">Backup</button><button class="btn ghost" id="restoreBtn">Restore</button><a class="btn ghost" id="adminBtn" href="#/settings">🔐 Admin</a>`);
     let customers = (await DB.all('customers')).sort((a, b) => (a.id === 'unassigned') - (b.id === 'unassigned') || a.name.localeCompare(b.name));
     const jobs = await DB.all('jobs'), byC = {};
     jobs.forEach(j => (byC[j.customerId] = byC[j.customerId] || []).push(j));
@@ -233,12 +325,13 @@
           <div class="jc-main"><div class="jc-wo">WO ${esc(j.wo || '—')}</div><div class="jc-cust">${esc([j.manufacturer, j.model].filter(Boolean).join(' ') || 'Gearbox')}${j.serial ? ` <span class="muted small">S/N ${esc(j.serial)}</span>` : ''}${j.legacyCustomer ? ` <span class="muted small">(was: ${esc(j.legacyCustomer)})</span>` : ''}</div>
           <div class="jc-forms">${formStates(j).map(f => `<span class="formtag">${esc(f.title)} ${badge(j.forms[f.key].status)}</span>`).join('')}</div></div>
           <div class="jc-side">${badge(jobStatus(j))}<div class="muted small">${esc(j.date ? fmtDay(j.date + 'T12:00') : '')}</div></div></a>`).join('')
-        : `<div class="empty"><p>No jobs for this customer yet.</p><p class="muted">Tap <b>New job</b> to start an assembly verification or teardown evaluation.</p></div>`}</div>`;
+        : `<div class="empty"><p>No jobs for this customer yet.</p><p class="muted">Tap <b>New job</b> to start a teardown evaluation or assembly verification.</p></div>`}</div>`;
     $('#newJobBtn').onclick = () => newJob(customer);
     $('#editCustBtn').onclick = async () => { if (await editCustomer(customer)) renderCustomer(cid); };
     $('#delCustBtn').onclick = async () => {
       let np = 0, nd = 0; for (const j of jobs) { np += (await DB.byJob('photos', j.id)).length; nd += (await DB.byJob('docs', j.id)).length; }
       if (!await confirmBox('Delete customer?', `This permanently deletes <b>${esc(customer.name)}</b> and <b>all of their jobs (${jobs.length}), photos (${np}) and saved PDFs (${nd})</b> from this device. This cannot be undone. Consider a backup first.`, 'Delete customer and all jobs', true)) return;
+      if (!await requireAdmin('Delete customer', `${customer.name} (${jobs.length} jobs, ${np} photos, ${nd} saved PDFs)`)) return;
       await DB.deleteCustomer(cid); toast('Customer deleted'); location.hash = P.home();
     };
   }
@@ -265,7 +358,7 @@
     const {customer, job} = await load(cid, jid); if (!job) return;
     current = {customer, job, formKey: null};
     bar([crumbHome, {label: customer.name, href: P.cust(cid)}, {label: `WO ${job.wo}`}], `<button class="btn ghost" id="delJobBtn">Delete job</button>`, {label: customer.name, href: P.cust(cid)});
-    const docs = (await DB.byJob('docs', jid)).sort((a, b) => b.createdAt - a.createdAt);
+    const docs = (await DB.byJob('docs', jid)).sort((a, b) => formIdx(a.formKey) - formIdx(b.formKey) || b.revision - a.revision || b.createdAt - a.createdAt);
     const customers = (await DB.all('customers')).sort((a, b) => a.name.localeCompare(b.name));
     const jf = (k, label, type = 'text') => `<label class="fld"><span>${label}</span><input data-job="${k}" type="${type}" value="${esc(job[k] || '')}" autocomplete="off"></label>`;
     view.innerHTML = `
@@ -297,7 +390,7 @@
       <section class="card">
         <div class="card-head"><h2>Saved documents</h2><span class="muted small">Final PDFs created when a form is finalized · all revisions kept</span></div>
         ${docs.length ? `<div class="doclist">${docs.map(d => `<div class="docrow"><div><b>${esc(d.filename)}</b><div class="muted small">${esc((FORM_BY_KEY[d.formKey] || {}).title || d.formKey)} · revision ${d.revision} · ${esc(fmtDate(d.createdAt))} · signed by ${esc(d.signedBy)} · ${d.pages} pages · ${(d.size / 1024).toFixed(0)} KB</div></div>
-          <div class="fr-actions"><button class="btn" data-docview="${d.id}">View</button><button class="btn" data-docprint="${d.id}">Print</button><button class="btn primary" data-docshare="${d.id}">Share</button></div></div>`).join('')}</div>`
+          <div class="fr-actions"><button class="btn" data-docview="${d.id}">View</button><button class="btn" data-docprint="${d.id}">Print</button><button class="btn primary" data-docshare="${d.id}">Share</button><button class="btn danger-outline" data-docdel="${d.id}" aria-label="Delete saved PDF">Delete</button></div></div>`).join('')}</div>`
           : '<p class="muted">No saved documents yet. Finalize a form to save its PDF here.</p>'}
       </section>
       <section class="card">
@@ -314,6 +407,7 @@
     };
     $('#delJobBtn').onclick = async () => {
       if (!await confirmBox('Delete job?', `This permanently deletes <b>WO ${esc(job.wo)}</b> for ${esc(customer.name)} from this device, including all form data, photos and saved PDFs. This cannot be undone. Consider a backup first.`, 'Delete job', true)) return;
+      if (!await requireAdmin('Delete job', `WO ${job.wo} – ${customer.name}`)) return;
       clearTimeout(saveTimer); saveTimer = null;
       await DB.deleteJob(job.id); toast('Job deleted'); location.hash = P.cust(cid);
     };
@@ -323,6 +417,14 @@
     $$('[data-docview]').forEach(b => b.onclick = () => viewDoc(docById(b.dataset.docview)));
     $$('[data-docprint]').forEach(b => b.onclick = () => { const d = docById(b.dataset.docprint); printPdf(d.blob, d.filename); });
     $$('[data-docshare]').forEach(b => b.onclick = () => { const d = docById(b.dataset.docshare); shareOrDownload(d.blob, d.filename); });
+    $$('[data-docdel]').forEach(b => b.onclick = async () => {
+      const d = docById(b.dataset.docdel);
+      if (!await confirmBox('Delete saved PDF?', `Permanently delete <b>${esc(d.filename)}</b> (revision ${d.revision}) from this job? The form data is kept.`, 'Delete PDF', true)) return;
+      if (!await requireAdmin('Delete saved PDF revision', `${d.filename} (rev ${d.revision}) – WO ${job.wo}`)) return;
+      await DB.del('docs', d.id);
+      const h = ((job.forms[d.formKey] || {}).history || []).find(x => x.docId === d.id); if (h) { h.pdfDeleted = Date.now(); await saveJob(job); }
+      toast('Saved PDF deleted'); renderJob(cid, jid);
+    });
     $('#zipBtn').onclick = () => exportJobZip(job, customer);
     $('#combinedBtn').onclick = async () => { const r = await combinedPdf(job, customer); if (r) fileReady(r.blob, r.filename, 'Combined job PDF ready'); };
     await fillPhotoPanels(job);
@@ -360,6 +462,8 @@
       if (t.dataset.full) { const p = photos.find(x => x.id === t.dataset.full) || await DB.get('photos', t.dataset.full); if (p) modal(`<img class="full" src="${objUrl(p.blob)}" alt=""><p>${esc(p.caption || '')}</p><p class="muted small">${esc(p.label)} · ${p.w}×${p.h}</p>`, [{label: 'Close', value: 'cancel'}], {wide: true, noFocus: true}); return; }
       if (t.dataset.delphoto) {
         if (!await confirmBox('Delete photo?', 'This photo will be removed from the job.', 'Delete', true)) return;
+        const ph = photos.find(x => x.id === t.dataset.delphoto) || await DB.get('photos', t.dataset.delphoto) || {};
+        if (!await requireAdmin('Delete photo', `WO ${current.job.wo} – ${ph.label || ''}${ph.caption ? ': ' + ph.caption : ''}`)) return;
         await DB.del('photos', t.dataset.delphoto); t.closest('.thumb').remove(); toast('Photo deleted'); return;
       }
     };
@@ -563,6 +667,7 @@
     const st = job.forms[key];
     const ok = await confirmBox('Reopen form?', `This unlocks the form for editing as <b>revision ${st.revision + 1}</b>. The saved final PDF for revision ${st.revision} is kept unchanged in the job documents. You will need to finalize again to produce a new final PDF.`, `Reopen as rev ${st.revision + 1}`, true);
     if (!ok) return;
+    if (!await requireAdmin('Reopen completed form', `${FORM_BY_KEY[key].title} rev ${st.revision} → rev ${st.revision + 1} – WO ${job.wo}`)) return;
     Object.assign(st, {status: 'draft', revision: st.revision + 1, reopenedAt: Date.now()});
     delete st.completedAt; delete st.signedBy; delete st.snapshot;
     await saveJob(job); toast(`Reopened as revision ${st.revision}`); renderForm(job.customerId, job.id, key);
@@ -613,20 +718,23 @@
     const comb = await combinedPdf(job, customer); if (!comb) return;
     toast('Building zip…', 10000);
     const files = {}, store = {level: 0}, u8 = async b => new Uint8Array(await b.arrayBuffer());
-    const docs = (await DB.byJob('docs', job.id)).sort((a, b) => a.createdAt - b.createdAt);
-    for (const d of docs) files[`${folder}/Saved documents/${d.filename}`] = [await u8(d.blob), store];
+    // Teardown Evaluation first: sort by form order, then revision; numeric prefixes keep that order in file browsers.
+    const docs = (await DB.byJob('docs', job.id)).sort((a, b) => formIdx(a.formKey) - formIdx(b.formKey) || a.revision - b.revision || a.createdAt - b.createdAt);
+    docs.forEach((d, i) => { d._zipName = `${String(i + 1).padStart(2, '0')}_${d.filename}`; });
+    for (const d of docs) files[`${folder}/Saved documents/${d._zipName}`] = [await u8(d.blob), store];
     files[`${folder}/${comb.filename}`] = [new Uint8Array(comb.bytes), store];
-    const photos = (await DB.byJob('photos', job.id)).sort((a, b) => a.createdAt - b.createdAt), capLines = [];
+    const scopeRank = sc => sc === 'job' ? -1 : formIdx(sc.split(':')[0]);
+    const photos = (await DB.byJob('photos', job.id)).sort((a, b) => scopeRank(a.scope) - scopeRank(b.scope) || a.createdAt - b.createdAt), capLines = [];
     let n = 0;
     for (const p of photos) {
       n++; const name = `${String(n).padStart(2, '0')}_${S(p.scope === 'job' ? 'Job' : p.label)}${p.caption ? '_' + S(p.caption) : ''}.jpg`;
       files[`${folder}/Photos/${name}`] = [await u8(p.blob), store];
       capLines.push(`${name}\t${p.scope === 'job' ? 'Job photo' : (FORM_BY_KEY[p.scope.split(':')[0]] || {}).title + ' / ' + p.label}\t${p.caption || ''}`);
     }
-    const summary = [`Ram Gear job folder`, `Customer: ${c.customer}`, `Work order: ${c.wo}`, `Date: ${c.date}`, `Gearbox: ${[c.manufacturer, c.model].filter(Boolean).join(' ')}  S/N ${c.serial}`,
+    const summary = [`Ram-Gear Manufacturing Incorporated – job folder`, `Customer: ${c.customer}`, `Work order: ${c.wo}`, `Date: ${c.date}`, `Gearbox: ${[c.manufacturer, c.model].filter(Boolean).join(' ')}  S/N ${c.serial}`,
       customer.contact || customer.phone || customer.email ? `Contact: ${[customer.contact, customer.phone, customer.email].filter(Boolean).join(' / ')}` : '', '',
       'Forms:', ...formStates(job).map(f => { const st = job.forms[f.key]; return `  ${f.title}: ${st.status === 'completed' ? `Completed rev ${st.revision} ${fmtDate(st.completedAt)} by ${st.signedBy}` : `Draft (rev ${st.revision})`}`; }),
-      '', 'Saved documents:', ...(docs.length ? docs.map(d => `  ${d.filename}  (rev ${d.revision}, ${fmtDate(d.createdAt)}, signed by ${d.signedBy})`) : ['  none']),
+      '', 'Saved documents:', ...(docs.length ? docs.map(d => `  ${d._zipName}  (rev ${d.revision}, ${fmtDate(d.createdAt)}, signed by ${d.signedBy})`) : ['  none']),
       '', `Photos: ${photos.length}`, '', `Exported ${new Date().toString()}`].join('\r\n');
     files[`${folder}/job-summary.txt`] = fflate.strToU8(summary);
     if (capLines.length) files[`${folder}/Photos/captions.tsv`] = fflate.strToU8('file\tsection\tcaption\r\n' + capLines.join('\r\n'));
@@ -640,7 +748,8 @@
   async function backup() {
     toast('Preparing backup…', 5000);
     const customers = await DB.all('customers'), jobs = await DB.all('jobs'), photos = await DB.all('photos'), docs = await DB.all('docs');
-    const data = {app: 'ramgear-jobs', version: 2, exportedAt: new Date().toISOString(), customers, jobs,
+    const admin = await Admin.get(), auditLog = await DB.all('audit');
+    const data = {app: 'ramgear-jobs', version: 3, exportedAt: new Date().toISOString(), admin, audit: auditLog, customers, jobs,
       photos: await Promise.all(photos.map(async p => ({...p, blob: await blobToDataURL(p.blob), thumb: p.thumb ? await blobToDataURL(p.thumb) : null}))),
       docs: await Promise.all(docs.map(async d => ({...d, blob: await blobToDataURL(d.blob)})))};
     const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
@@ -657,11 +766,14 @@
       const customers = data.customers || [];
       for (const j of data.jobs) if (DB.migrateJob(j) && !customers.some(c => c.id === 'unassigned')) customers.push(DB.unassigned());   // v1 backups
       const existing = new Set((await DB.all('jobs')).map(j => j.id)), clash = data.jobs.filter(j => existing.has(j.id)).length;
-      if (!await confirmBox('Restore backup?', `${customers.length} customers, ${data.jobs.length} jobs, ${(data.photos || []).length} photos, ${(data.docs || []).length} saved PDFs from ${esc(data.exportedAt)}.${clash ? ` <b>${clash} job(s) already on this device will be replaced</b> by the backup copy.` : ''} Other customers and jobs on this device are kept.`, 'Restore')) return;
+      if (!await confirmBox('Restore backup?', `${customers.length} customers, ${data.jobs.length} jobs, ${(data.photos || []).length} photos, ${(data.docs || []).length} saved PDFs from ${esc(data.exportedAt)}.${clash ? ` <b>${clash} job(s) already on this device will be replaced</b> by the backup copy.` : ''} Other customers and jobs on this device are kept.${data.admin ? ` The backup's admin account (<b>${esc(data.admin.name)}</b>) and its PIN will replace this device's admin PIN.` : ''}`, 'Restore')) return;
+      if (!await requireAdmin('Restore backup (overwrites matching jobs)', `${f.name} – ${data.jobs.length} jobs from ${data.exportedAt}`)) return;
       for (const c of customers) await DB.put('customers', c);
       for (const j of data.jobs) { if (existing.has(j.id)) await DB.deleteJob(j.id); await DB.put('jobs', j); }
       for (const p of data.photos || []) await DB.put('photos', {...p, blob: await dataURLToBlob(p.blob), thumb: p.thumb ? await dataURLToBlob(p.thumb) : null});
       for (const d of data.docs || []) await DB.put('docs', {...d, blob: await dataURLToBlob(d.blob)});
+      for (const a of data.audit || []) await DB.put('audit', a);
+      if (data.admin && data.admin.hash && data.admin.salt) { await DB.put('settings', {...data.admin, key: 'admin'}); await audit('Admin account restored from backup', data.admin.name, 'done', data.admin.name); }
       toast('Backup restored'); route();
     } catch (err) { modal(`<h2>Restore failed</h2><p>${esc(err.message)}</p>`, [{label: 'Close', value: 'cancel'}]); }
   });
@@ -676,7 +788,8 @@
         if (b.type === 'table') for (const r of b.rows) if (r.req) REQS[f.key].push({req: r.req, section: s.title});
       }
     }
-    window.RG = {FORMS, REQS, DB};  // for debugging/tests
+    window.RG = {FORMS, REQS, DB, Admin};  // for debugging/tests
+    await ensureAdmin();
     route();
   }
   boot();

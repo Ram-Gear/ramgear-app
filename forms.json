@@ -2,1360 +2,6 @@
  "version": 1,
  "forms": [
   {
-   "key": "assembly",
-   "title": "Assembly Verification",
-   "fileTitle": "Assembly-Verification",
-   "header": "Ram Gear Manufacturing Assembly Verification Data",
-   "docTitle": "Double-Reduction Helical Gearbox Assembly Checklist",
-   "template": "templates/gearbox-assembly-checklist.pdf",
-   "signedByField": "signoff_inspector_name",
-   "sections": [
-    {
-     "id": "A",
-     "title": "A. Gearbox information",
-     "blocks": [
-      {
-       "type": "row",
-       "fields": [
-        {
-         "type": "field",
-         "name": "info_customer_name",
-         "label": "Customer name",
-         "link": "customer"
-        },
-        {
-         "type": "field",
-         "name": "info_work_order_number",
-         "label": "Work order number",
-         "link": "wo"
-        }
-       ],
-       "req": {
-        "id": "info_0",
-        "label": "Customer name / Work order number",
-        "all": [
-         "info_customer_name",
-         "info_work_order_number"
-        ]
-       }
-      },
-      {
-       "type": "row",
-       "fields": [
-        {
-         "type": "field",
-         "name": "info_manufacturer",
-         "label": "Manufacturer",
-         "link": "manufacturer"
-        },
-        {
-         "type": "field",
-         "name": "info_model",
-         "label": "Model",
-         "link": "model"
-        }
-       ],
-       "req": {
-        "id": "info_1",
-        "label": "Manufacturer / Model",
-        "all": [
-         "info_manufacturer",
-         "info_model"
-        ]
-       }
-      },
-      {
-       "type": "row",
-       "fields": [
-        {
-         "type": "field",
-         "name": "info_serial",
-         "label": "Serial number",
-         "link": "serial"
-        },
-        {
-         "type": "field",
-         "name": "info_ratio_overall",
-         "label": "Reduction ratio (overall)",
-         "suffix": ": 1"
-        }
-       ],
-       "req": {
-        "id": "info_2",
-        "label": "Serial number / Reduction ratio (overall)",
-        "all": [
-         "info_serial",
-         "info_ratio_overall"
-        ]
-       }
-      },
-      {
-       "type": "row",
-       "fields": [
-        {
-         "type": "field",
-         "name": "info_ratio_stage1",
-         "label": "Stage 1 ratio",
-         "suffix": ": 1"
-        },
-        {
-         "type": "field",
-         "name": "info_ratio_stage2",
-         "label": "Stage 2 ratio",
-         "suffix": ": 1"
-        }
-       ],
-       "req": {
-        "id": "info_3",
-        "label": "Stage 1 ratio / Stage 2 ratio",
-        "all": [
-         "info_ratio_stage1",
-         "info_ratio_stage2"
-        ]
-       }
-      },
-      {
-       "type": "row",
-       "fields": [
-        {
-         "type": "field",
-         "name": "info_oil_capacity",
-         "label": "Oil capacity (gal / L)"
-        },
-        {
-         "type": "field",
-         "name": "info_oil_grade",
-         "label": "Oil grade"
-        }
-       ],
-       "req": {
-        "id": "info_4",
-        "label": "Oil capacity (gal / L) / Oil grade",
-        "all": [
-         "info_oil_capacity",
-         "info_oil_grade"
-        ]
-       }
-      }
-     ],
-     "photos": true
-    },
-    {
-     "id": "s1",
-     "title": "1. Prep and inspection",
-     "blocks": [
-      {
-       "type": "check",
-       "name": "s1_item01",
-       "label": "Work order, drawings, BOM, and assembly spec on hand at current revision",
-       "fields": [],
-       "req": {
-        "id": "s1_item01",
-        "label": "1.1 Work order, drawings, BOM, and assembly spec on hand at current revision",
-        "all": [
-         "s1_item01"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s1_item02",
-       "label": "Clean covered work area, lifting gear rated and inspected",
-       "fields": [],
-       "req": {
-        "id": "s1_item02",
-        "label": "1.2 Clean covered work area, lifting gear rated and inspected",
-        "all": [
-         "s1_item02"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s1_item03",
-       "label": "Housing halves cleaned and deburred, oil galleries and drain/breather ports clear, no casting sand or chips",
-       "fields": [],
-       "req": {
-        "id": "s1_item03",
-        "label": "1.3 Housing halves cleaned and deburred, oil galleries and drain/breather ports clear, no casting sand or chips",
-        "all": [
-         "s1_item03"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s1_item04",
-       "label": "Split-line faces flat, no nicks, dowel holes undamaged",
-       "fields": [],
-       "req": {
-        "id": "s1_item04",
-        "label": "1.4 Split-line faces flat, no nicks, dowel holes undamaged",
-        "all": [
-         "s1_item04"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s1_item05",
-       "label": "Bearing bores measured (diameter and roundness) against spec:",
-       "fields": [
-        {
-         "name": "s1_bore_spec",
-         "label": "Spec / measured"
-        }
-       ],
-       "req": {
-        "id": "s1_item05",
-        "label": "1.5 Bearing bores measured (diameter and roundness) against spec:",
-        "all": [
-         "s1_item05",
-         "s1_bore_spec"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s1_item06",
-       "label": "Shafts checked for journal diameters, runout, keyway and thread condition",
-       "fields": [],
-       "req": {
-        "id": "s1_item06",
-        "label": "1.6 Shafts checked for journal diameters, runout, keyway and thread condition",
-        "all": [
-         "s1_item06"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s1_item07",
-       "label": "Gears inspected for tooth damage, burrs, correct hand of helix, mating sets matched by serial/match marks",
-       "fields": [],
-       "req": {
-        "id": "s1_item07",
-        "label": "1.7 Gears inspected for tooth damage, burrs, correct hand of helix, mating sets matched by serial/match marks",
-        "all": [
-         "s1_item07"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s1_item08",
-       "label": "Bearings checked for part number, cups and cones kept as matched sets in packaging until use",
-       "fields": [],
-       "req": {
-        "id": "s1_item08",
-        "label": "1.8 Bearings checked for part number, cups and cones kept as matched sets in packaging until use",
-        "all": [
-         "s1_item08"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s1_item09",
-       "label": "Seals, shims, gaskets, spacers, keys, fasteners counted against BOM",
-       "fields": [],
-       "req": {
-        "id": "s1_item09",
-        "label": "1.9 Seals, shims, gaskets, spacers, keys, fasteners counted against BOM",
-        "all": [
-         "s1_item09"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s1_item10",
-       "label": "Measuring tools calibrated (micrometers, bore gauges, dial indicators, torque wrench)",
-       "fields": [],
-       "req": {
-        "id": "s1_item10",
-        "label": "1.10 Measuring tools calibrated (micrometers, bore gauges, dial indicators, torque wrench)",
-        "all": [
-         "s1_item10"
-        ]
-       }
-      }
-     ],
-     "photos": true
-    },
-    {
-     "id": "s2",
-     "title": "2. Shaft subassemblies (input, intermediate, output)",
-     "blocks": [
-      {
-       "type": "check",
-       "name": "s2_item01",
-       "label": "Keys fitted to keyways with correct fit",
-       "fields": [],
-       "req": {
-        "id": "s2_item01",
-        "label": "2.1 Keys fitted to keyways with correct fit",
-        "all": [
-         "s2_item01"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s2_item02",
-       "label": "Gears/pinions installed by press or shrink fit per spec (induction or oven, never open flame)",
-       "fields": [
-        {
-         "name": "s2_heat_temp",
-         "label": "Heating temperature"
-        }
-       ],
-       "req": {
-        "id": "s2_item02",
-        "label": "2.2 Gears/pinions installed by press or shrink fit per spec (induction or oven, never open flame)",
-        "all": [
-         "s2_item02",
-         "s2_heat_temp"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s2_item03",
-       "label": "Gear fully seated against shoulder, feeler gauge shows no gap",
-       "fields": [],
-       "req": {
-        "id": "s2_item03",
-        "label": "2.3 Gear fully seated against shoulder, feeler gauge shows no gap",
-        "all": [
-         "s2_item03"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s2_item04",
-       "label": "Spacers and retaining rings/locknuts installed and locked",
-       "fields": [],
-       "req": {
-        "id": "s2_item04",
-        "label": "2.4 Spacers and retaining rings/locknuts installed and locked",
-        "all": [
-         "s2_item04"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s2_item05",
-       "label": "Cones heated and installed (typically about 250°F/120°C max, confirm with bearing maker) and held against shoulder until cool",
-       "fields": [],
-       "req": {
-        "id": "s2_item05",
-        "label": "2.5 Cones heated and installed (typically about 250°F/120°C max, confirm with bearing maker) and held against shoulder until cool",
-        "all": [
-         "s2_item05"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s2_item06",
-       "label": "Cone seating rechecked after cooling",
-       "fields": [],
-       "req": {
-        "id": "s2_item06",
-        "label": "2.6 Cone seating rechecked after cooling",
-        "all": [
-         "s2_item06"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s2_item07",
-       "label": "Runout of assembled gear checked:",
-       "fields": [
-        {
-         "name": "s2_gear_runout",
-         "label": "Runout"
-        }
-       ],
-       "req": {
-        "id": "s2_item07",
-        "label": "2.7 Runout of assembled gear checked:",
-        "all": [
-         "s2_item07",
-         "s2_gear_runout"
-        ]
-       }
-      }
-     ],
-     "photos": true
-    },
-    {
-     "id": "s3",
-     "title": "3. Housing preparation",
-     "blocks": [
-      {
-       "type": "check",
-       "name": "s3_item01",
-       "label": "Cups installed square in bores (press or chill), fully seated against shoulder, confirmed with feeler gauge",
-       "fields": [],
-       "req": {
-        "id": "s3_item01",
-        "label": "3.1 Cups installed square in bores (press or chill), fully seated against shoulder, confirmed with feeler gauge",
-        "all": [
-         "s3_item01"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s3_item02",
-       "label": "Seal bores clean, seals ready in correct orientation",
-       "fields": [],
-       "req": {
-        "id": "s3_item02",
-        "label": "3.2 Seal bores clean, seals ready in correct orientation",
-        "all": [
-         "s3_item02"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s3_item03",
-       "label": "Internal surfaces painted or coated if specified",
-       "fields": [],
-       "req": {
-        "id": "s3_item03",
-        "label": "3.3 Internal surfaces painted or coated if specified",
-        "all": [
-         "s3_item03"
-        ]
-       }
-      }
-     ],
-     "photos": true
-    },
-    {
-     "id": "s4",
-     "title": "4. Shaft installation and gear mesh",
-     "blocks": [
-      {
-       "type": "check",
-       "name": "s4_item01",
-       "label": "Shafts lowered in correct order (usually output, intermediate, input, per drawing)",
-       "fields": [],
-       "req": {
-        "id": "s4_item01",
-        "label": "4.1 Shafts lowered in correct order (usually output, intermediate, input, per drawing)",
-        "all": [
-         "s4_item01"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s4_item02",
-       "label": "Helix hands and thrust directions checked against drawing",
-       "fields": [],
-       "req": {
-        "id": "s4_item02",
-        "label": "4.2 Helix hands and thrust directions checked against drawing",
-        "all": [
-         "s4_item02"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s4_item03",
-       "label": "Mesh alignment confirmed, face widths centered, no axial offset beyond spec",
-       "fields": [],
-       "req": {
-        "id": "s4_item03",
-        "label": "4.3 Mesh alignment confirmed, face widths centered, no axial offset beyond spec",
-        "all": [
-         "s4_item03"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s4_item04",
-       "label": "Housing closed with sealant or gasket as specified, dowels installed before bolts",
-       "fields": [],
-       "req": {
-        "id": "s4_item04",
-        "label": "4.4 Housing closed with sealant or gasket as specified, dowels installed before bolts",
-        "all": [
-         "s4_item04"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s4_item05",
-       "label": "Split-line bolts torqued in sequence:",
-       "fields": [
-        {
-         "name": "s4_splitline_torque",
-         "label": "Torque / sequence"
-        }
-       ],
-       "req": {
-        "id": "s4_item05",
-        "label": "4.5 Split-line bolts torqued in sequence:",
-        "all": [
-         "s4_item05",
-         "s4_splitline_torque"
-        ]
-       }
-      }
-     ],
-     "photos": true
-    },
-    {
-     "id": "s5",
-     "title": "5. Bearing endplay or preload (each shaft)",
-     "blocks": [
-      {
-       "type": "check",
-       "name": "s5_item01",
-       "label": "Bearing caps installed with starting shim pack",
-       "fields": [],
-       "req": {
-        "id": "s5_item01",
-        "label": "5.1 Bearing caps installed with starting shim pack",
-        "all": [
-         "s5_item01"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s5_item02",
-       "label": "Shaft rotated while seating to get rollers onto the cone rib",
-       "fields": [],
-       "req": {
-        "id": "s5_item02",
-        "label": "5.2 Shaft rotated while seating to get rollers onto the cone rib",
-        "all": [
-         "s5_item02"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s5_item03",
-       "label": "Axial endplay measured with dial indicator (push-pull while rotating)",
-       "fields": [],
-       "req": {
-        "id": "s5_item03",
-        "label": "5.3 Axial endplay measured with dial indicator (push-pull while rotating)",
-        "all": [
-         "s5_item03"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s5_item04",
-       "label": "Shims adjusted to target endplay or preload (record final shim thickness below):",
-       "fields": [
-        {
-         "name": "s5_target_endplay",
-         "label": "Target"
-        }
-       ],
-       "req": {
-        "id": "s5_item04",
-        "label": "5.4 Shims adjusted to target endplay or preload (record final shim thickness below):",
-        "all": [
-         "s5_item04",
-         "s5_target_endplay"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s5_item05",
-       "label": "Rolling torque checked if preload specified:",
-       "fields": [
-        {
-         "name": "s5_rolling_torque",
-         "label": "Rolling torque"
-        }
-       ],
-       "req": {
-        "id": "s5_item05",
-        "label": "5.5 Rolling torque checked if preload specified:",
-        "all": [
-         "s5_item05",
-         "s5_rolling_torque"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s5_item06",
-       "label": "Cap bolts torqued:",
-       "fields": [
-        {
-         "name": "s5_cap_bolt_torque",
-         "label": "Torque"
-        }
-       ],
-       "req": {
-        "id": "s5_item06",
-        "label": "5.6 Cap bolts torqued:",
-        "all": [
-         "s5_item06",
-         "s5_cap_bolt_torque"
-        ]
-       }
-      },
-      {
-       "type": "table",
-       "title": "Bearing shim record",
-       "columns": [
-        "Shaft",
-        "Location",
-        "Starting shim (in/mm)",
-        "Final shim (in/mm)",
-        "Measured endplay/preload",
-        "Spec",
-        "OK"
-       ],
-       "labelCols": 2,
-       "rows": [
-        {
-         "label": [
-          "Input",
-          "Drive end"
-         ],
-         "cells": [
-          {
-           "kind": "text",
-           "name": "shim_input_de_start"
-          },
-          {
-           "kind": "text",
-           "name": "shim_input_de_final"
-          },
-          {
-           "kind": "text",
-           "name": "shim_input_de_measured"
-          },
-          {
-           "kind": "text",
-           "name": "shim_input_de_spec"
-          },
-          {
-           "kind": "check",
-           "name": "shim_input_de_ok"
-          }
-         ],
-         "req": {
-          "id": "shim_input_de",
-          "label": "Shim record: Input Drive end",
-          "all": [
-           "shim_input_de_final",
-           "shim_input_de_measured",
-           "shim_input_de_ok"
-          ]
-         }
-        },
-        {
-         "label": [
-          "Input",
-          "Non-drive end"
-         ],
-         "cells": [
-          {
-           "kind": "text",
-           "name": "shim_input_nde_start"
-          },
-          {
-           "kind": "text",
-           "name": "shim_input_nde_final"
-          },
-          {
-           "kind": "text",
-           "name": "shim_input_nde_measured"
-          },
-          {
-           "kind": "text",
-           "name": "shim_input_nde_spec"
-          },
-          {
-           "kind": "check",
-           "name": "shim_input_nde_ok"
-          }
-         ],
-         "req": {
-          "id": "shim_input_nde",
-          "label": "Shim record: Input Non-drive end",
-          "all": [
-           "shim_input_nde_final",
-           "shim_input_nde_measured",
-           "shim_input_nde_ok"
-          ]
-         }
-        },
-        {
-         "label": [
-          "Intermediate",
-          "Drive end"
-         ],
-         "cells": [
-          {
-           "kind": "text",
-           "name": "shim_intermediate_de_start"
-          },
-          {
-           "kind": "text",
-           "name": "shim_intermediate_de_final"
-          },
-          {
-           "kind": "text",
-           "name": "shim_intermediate_de_measured"
-          },
-          {
-           "kind": "text",
-           "name": "shim_intermediate_de_spec"
-          },
-          {
-           "kind": "check",
-           "name": "shim_intermediate_de_ok"
-          }
-         ],
-         "req": {
-          "id": "shim_intermediate_de",
-          "label": "Shim record: Intermediate Drive end",
-          "all": [
-           "shim_intermediate_de_final",
-           "shim_intermediate_de_measured",
-           "shim_intermediate_de_ok"
-          ]
-         }
-        },
-        {
-         "label": [
-          "Intermediate",
-          "Non-drive end"
-         ],
-         "cells": [
-          {
-           "kind": "text",
-           "name": "shim_intermediate_nde_start"
-          },
-          {
-           "kind": "text",
-           "name": "shim_intermediate_nde_final"
-          },
-          {
-           "kind": "text",
-           "name": "shim_intermediate_nde_measured"
-          },
-          {
-           "kind": "text",
-           "name": "shim_intermediate_nde_spec"
-          },
-          {
-           "kind": "check",
-           "name": "shim_intermediate_nde_ok"
-          }
-         ],
-         "req": {
-          "id": "shim_intermediate_nde",
-          "label": "Shim record: Intermediate Non-drive end",
-          "all": [
-           "shim_intermediate_nde_final",
-           "shim_intermediate_nde_measured",
-           "shim_intermediate_nde_ok"
-          ]
-         }
-        },
-        {
-         "label": [
-          "Output",
-          "Drive end"
-         ],
-         "cells": [
-          {
-           "kind": "text",
-           "name": "shim_output_de_start"
-          },
-          {
-           "kind": "text",
-           "name": "shim_output_de_final"
-          },
-          {
-           "kind": "text",
-           "name": "shim_output_de_measured"
-          },
-          {
-           "kind": "text",
-           "name": "shim_output_de_spec"
-          },
-          {
-           "kind": "check",
-           "name": "shim_output_de_ok"
-          }
-         ],
-         "req": {
-          "id": "shim_output_de",
-          "label": "Shim record: Output Drive end",
-          "all": [
-           "shim_output_de_final",
-           "shim_output_de_measured",
-           "shim_output_de_ok"
-          ]
-         }
-        },
-        {
-         "label": [
-          "Output",
-          "Non-drive end"
-         ],
-         "cells": [
-          {
-           "kind": "text",
-           "name": "shim_output_nde_start"
-          },
-          {
-           "kind": "text",
-           "name": "shim_output_nde_final"
-          },
-          {
-           "kind": "text",
-           "name": "shim_output_nde_measured"
-          },
-          {
-           "kind": "text",
-           "name": "shim_output_nde_spec"
-          },
-          {
-           "kind": "check",
-           "name": "shim_output_nde_ok"
-          }
-         ],
-         "req": {
-          "id": "shim_output_nde",
-          "label": "Shim record: Output Non-drive end",
-          "all": [
-           "shim_output_nde_final",
-           "shim_output_nde_measured",
-           "shim_output_nde_ok"
-          ]
-         }
-        }
-       ]
-      }
-     ],
-     "photos": true
-    },
-    {
-     "id": "s6",
-     "title": "6. Gear mesh verification",
-     "blocks": [
-      {
-       "type": "check",
-       "name": "s6_item01",
-       "label": "Backlash measured at each stage with dial indicator at several points (record below)",
-       "fields": [],
-       "req": {
-        "id": "s6_item01",
-        "label": "6.1 Backlash measured at each stage with dial indicator at several points (record below)",
-        "all": [
-         "s6_item01"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s6_item02",
-       "label": "Contact pattern checked with marking compound (Prussian blue or gear marking paste) under light load, centered on tooth flank without heavy edge contact",
-       "fields": [],
-       "req": {
-        "id": "s6_item02",
-        "label": "6.2 Contact pattern checked with marking compound (Prussian blue or gear marking paste) under light load, centered on tooth flank without heavy edge contact",
-        "all": [
-         "s6_item02"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s6_item03",
-       "label": "Shafts turn freely by hand, no binding through a full revolution of output",
-       "fields": [],
-       "req": {
-        "id": "s6_item03",
-        "label": "6.3 Shafts turn freely by hand, no binding through a full revolution of output",
-        "all": [
-         "s6_item03"
-        ]
-       }
-      },
-      {
-       "type": "table",
-       "title": "Backlash record (measured at 4 points 90° apart)",
-       "columns": [
-        "Stage",
-        "Mesh",
-        "0°",
-        "90°",
-        "180°",
-        "270°",
-        "Min",
-        "Max",
-        "Spec",
-        "OK"
-       ],
-       "labelCols": 2,
-       "rows": [
-        {
-         "label": [
-          "Stage 1",
-          "Input pinion to intermediate gear"
-         ],
-         "cells": [
-          {
-           "kind": "text",
-           "name": "backlash_stage1_deg000"
-          },
-          {
-           "kind": "text",
-           "name": "backlash_stage1_deg090"
-          },
-          {
-           "kind": "text",
-           "name": "backlash_stage1_deg180"
-          },
-          {
-           "kind": "text",
-           "name": "backlash_stage1_deg270"
-          },
-          {
-           "kind": "text",
-           "name": "backlash_stage1_min"
-          },
-          {
-           "kind": "text",
-           "name": "backlash_stage1_max"
-          },
-          {
-           "kind": "text",
-           "name": "backlash_stage1_spec"
-          },
-          {
-           "kind": "check",
-           "name": "backlash_stage1_ok"
-          }
-         ],
-         "req": {
-          "id": "backlash_stage1",
-          "label": "Backlash stage 1",
-          "all": [
-           "backlash_stage1_min",
-           "backlash_stage1_max",
-           "backlash_stage1_ok"
-          ]
-         }
-        },
-        {
-         "label": [
-          "Stage 2",
-          "Intermediate pinion to output gear"
-         ],
-         "cells": [
-          {
-           "kind": "text",
-           "name": "backlash_stage2_deg000"
-          },
-          {
-           "kind": "text",
-           "name": "backlash_stage2_deg090"
-          },
-          {
-           "kind": "text",
-           "name": "backlash_stage2_deg180"
-          },
-          {
-           "kind": "text",
-           "name": "backlash_stage2_deg270"
-          },
-          {
-           "kind": "text",
-           "name": "backlash_stage2_min"
-          },
-          {
-           "kind": "text",
-           "name": "backlash_stage2_max"
-          },
-          {
-           "kind": "text",
-           "name": "backlash_stage2_spec"
-          },
-          {
-           "kind": "check",
-           "name": "backlash_stage2_ok"
-          }
-         ],
-         "req": {
-          "id": "backlash_stage2",
-          "label": "Backlash stage 2",
-          "all": [
-           "backlash_stage2_min",
-           "backlash_stage2_max",
-           "backlash_stage2_ok"
-          ]
-         }
-        }
-       ]
-      },
-      {
-       "type": "row",
-       "fields": [
-        {
-         "type": "field",
-         "name": "backlash_checked_by",
-         "label": "Backlash checked by"
-        },
-        {
-         "type": "field",
-         "name": "backlash_date",
-         "label": "Date",
-         "input": "date"
-        }
-       ],
-       "req": {
-        "id": "backlash_signed",
-        "label": "Backlash checked by / date",
-        "all": [
-         "backlash_checked_by",
-         "backlash_date"
-        ]
-       }
-      }
-     ],
-     "photos": true
-    },
-    {
-     "id": "s7",
-     "title": "7. Seals, closures, fittings",
-     "blocks": [
-      {
-       "type": "check",
-       "name": "s7_item01",
-       "label": "Lip seals lubricated and installed with correct tool, lips undamaged and facing correct way",
-       "fields": [],
-       "req": {
-        "id": "s7_item01",
-        "label": "7.1 Lip seals lubricated and installed with correct tool, lips undamaged and facing correct way",
-        "all": [
-         "s7_item01"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s7_item02",
-       "label": "Shaft surfaces under seals polished, keyway edges covered with sleeve to protect lip",
-       "fields": [],
-       "req": {
-        "id": "s7_item02",
-        "label": "7.2 Shaft surfaces under seals polished, keyway edges covered with sleeve to protect lip",
-        "all": [
-         "s7_item02"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s7_item03",
-       "label": "Inspection covers, breather, drain plug, sight glass or dipstick, oil lines installed",
-       "fields": [],
-       "req": {
-        "id": "s7_item03",
-        "label": "7.3 Inspection covers, breather, drain plug, sight glass or dipstick, oil lines installed",
-        "all": [
-         "s7_item03"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s7_item04",
-       "label": "All fasteners torqued and torque-marked",
-       "fields": [],
-       "req": {
-        "id": "s7_item04",
-        "label": "7.4 All fasteners torqued and torque-marked",
-        "all": [
-         "s7_item04"
-        ]
-       }
-      }
-     ],
-     "photos": true
-    },
-    {
-     "id": "s8",
-     "title": "8. Lubrication and run-in",
-     "blocks": [
-      {
-       "type": "check",
-       "name": "s8_item01",
-       "label": "Filled with specified oil grade and quantity:",
-       "fields": [
-        {
-         "name": "s8_oil_fill",
-         "label": "Grade / quantity"
-        }
-       ],
-       "req": {
-        "id": "s8_item01",
-        "label": "8.1 Filled with specified oil grade and quantity:",
-        "all": [
-         "s8_item01",
-         "s8_oil_fill"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s8_item02",
-       "label": "No-load spin test: direction of rotation, speed, duration",
-       "fields": [
-        {
-         "name": "s8_spin_speed",
-         "label": "Speed"
-        },
-        {
-         "name": "s8_spin_duration",
-         "label": "Duration"
-        }
-       ],
-       "req": {
-        "id": "s8_item02",
-        "label": "8.2 No-load spin test: direction of rotation, speed, duration",
-        "all": [
-         "s8_item02",
-         "s8_spin_speed",
-         "s8_spin_duration"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s8_item03",
-       "label": "Bearing temperatures monitored, stabilize below:",
-       "fields": [
-        {
-         "name": "s8_bearing_temp_limit",
-         "label": "Temperature"
-        }
-       ],
-       "req": {
-        "id": "s8_item03",
-        "label": "8.3 Bearing temperatures monitored, stabilize below:",
-        "all": [
-         "s8_item03",
-         "s8_bearing_temp_limit"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s8_item04",
-       "label": "Noise and vibration checked, readings recorded:",
-       "fields": [
-        {
-         "name": "s8_noise_vib",
-         "label": "Readings"
-        }
-       ],
-       "req": {
-        "id": "s8_item04",
-        "label": "8.4 Noise and vibration checked, readings recorded:",
-        "all": [
-         "s8_item04",
-         "s8_noise_vib"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s8_item05",
-       "label": "Leak check at seals, split line, plugs",
-       "fields": [],
-       "req": {
-        "id": "s8_item05",
-        "label": "8.5 Leak check at seals, split line, plugs",
-        "all": [
-         "s8_item05"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s8_item06",
-       "label": "Contact pattern rechecked after run-in if required",
-       "fields": [],
-       "req": {
-        "id": "s8_item06",
-        "label": "8.6 Contact pattern rechecked after run-in if required",
-        "all": [
-         "s8_item06"
-        ]
-       }
-      }
-     ],
-     "photos": true
-    },
-    {
-     "id": "s9",
-     "title": "9. Final and documentation",
-     "blocks": [
-      {
-       "type": "check",
-       "name": "s9_item01",
-       "label": "Nameplate, rotation arrows, lifting points, oil fill tags attached",
-       "fields": [],
-       "req": {
-        "id": "s9_item01",
-        "label": "9.1 Nameplate, rotation arrows, lifting points, oil fill tags attached",
-        "all": [
-         "s9_item01"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s9_item02",
-       "label": "Shaft ends protected, keys taped or secured, openings capped",
-       "fields": [],
-       "req": {
-        "id": "s9_item02",
-        "label": "9.2 Shaft ends protected, keys taped or secured, openings capped",
-        "all": [
-         "s9_item02"
-        ]
-       }
-      },
-      {
-       "type": "check",
-       "name": "s9_item03",
-       "label": "Serial numbers, bearing lot numbers, shim thicknesses, endplay, backlash, torques, test data recorded",
-       "fields": [],
-       "req": {
-        "id": "s9_item03",
-        "label": "9.3 Serial numbers, bearing lot numbers, shim thicknesses, endplay, backlash, torques, test data recorded",
-        "all": [
-         "s9_item03"
-        ]
-       }
-      }
-     ],
-     "photos": true
-    },
-    {
-     "id": "notes",
-     "title": "Notes",
-     "photos": true,
-     "blocks": [
-      {
-       "type": "field",
-       "name": "notes",
-       "label": "Notes",
-       "multiline": true,
-       "rows": 6
-      }
-     ]
-    },
-    {
-     "id": "signoff",
-     "title": "Sign-off",
-     "photos": false,
-     "blocks": [
-      {
-       "type": "subhead",
-       "text": "Assembler"
-      },
-      {
-       "type": "row",
-       "fields": [
-        {
-         "type": "field",
-         "name": "signoff_assembler_name",
-         "label": "Name"
-        },
-        {
-         "type": "field",
-         "name": "signoff_assembler_signature",
-         "label": "Signature (type name)"
-        },
-        {
-         "type": "field",
-         "name": "signoff_assembler_date",
-         "label": "Date",
-         "input": "date"
-        }
-       ],
-       "req": {
-        "id": "signoff_assembler",
-        "label": "Assembler sign-off",
-        "all": [
-         "signoff_assembler_name",
-         "signoff_assembler_signature",
-         "signoff_assembler_date"
-        ]
-       }
-      },
-      {
-       "type": "subhead",
-       "text": "Inspector"
-      },
-      {
-       "type": "row",
-       "fields": [
-        {
-         "type": "field",
-         "name": "signoff_inspector_name",
-         "label": "Name"
-        },
-        {
-         "type": "field",
-         "name": "signoff_inspector_signature",
-         "label": "Signature (type name)"
-        },
-        {
-         "type": "field",
-         "name": "signoff_inspector_date",
-         "label": "Date",
-         "input": "date"
-        }
-       ],
-       "req": {
-        "id": "signoff_inspector",
-        "label": "Inspector sign-off",
-        "all": [
-         "signoff_inspector_name",
-         "signoff_inspector_signature",
-         "signoff_inspector_date"
-        ]
-       }
-      }
-     ]
-    }
-   ]
-  },
-  {
    "key": "teardown",
    "title": "Teardown Evaluation",
    "fileTitle": "Teardown-Evaluation",
@@ -3396,6 +2042,1360 @@
        "name": "k_customer_approval_date",
        "label": "Customer approval date",
        "input": "date"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "assembly",
+   "title": "Assembly Verification",
+   "fileTitle": "Assembly-Verification",
+   "header": "Ram Gear Manufacturing Assembly Verification Data",
+   "docTitle": "Double-Reduction Helical Gearbox Assembly Checklist",
+   "template": "templates/gearbox-assembly-checklist.pdf",
+   "signedByField": "signoff_inspector_name",
+   "sections": [
+    {
+     "id": "A",
+     "title": "A. Gearbox information",
+     "blocks": [
+      {
+       "type": "row",
+       "fields": [
+        {
+         "type": "field",
+         "name": "info_customer_name",
+         "label": "Customer name",
+         "link": "customer"
+        },
+        {
+         "type": "field",
+         "name": "info_work_order_number",
+         "label": "Work order number",
+         "link": "wo"
+        }
+       ],
+       "req": {
+        "id": "info_0",
+        "label": "Customer name / Work order number",
+        "all": [
+         "info_customer_name",
+         "info_work_order_number"
+        ]
+       }
+      },
+      {
+       "type": "row",
+       "fields": [
+        {
+         "type": "field",
+         "name": "info_manufacturer",
+         "label": "Manufacturer",
+         "link": "manufacturer"
+        },
+        {
+         "type": "field",
+         "name": "info_model",
+         "label": "Model",
+         "link": "model"
+        }
+       ],
+       "req": {
+        "id": "info_1",
+        "label": "Manufacturer / Model",
+        "all": [
+         "info_manufacturer",
+         "info_model"
+        ]
+       }
+      },
+      {
+       "type": "row",
+       "fields": [
+        {
+         "type": "field",
+         "name": "info_serial",
+         "label": "Serial number",
+         "link": "serial"
+        },
+        {
+         "type": "field",
+         "name": "info_ratio_overall",
+         "label": "Reduction ratio (overall)",
+         "suffix": ": 1"
+        }
+       ],
+       "req": {
+        "id": "info_2",
+        "label": "Serial number / Reduction ratio (overall)",
+        "all": [
+         "info_serial",
+         "info_ratio_overall"
+        ]
+       }
+      },
+      {
+       "type": "row",
+       "fields": [
+        {
+         "type": "field",
+         "name": "info_ratio_stage1",
+         "label": "Stage 1 ratio",
+         "suffix": ": 1"
+        },
+        {
+         "type": "field",
+         "name": "info_ratio_stage2",
+         "label": "Stage 2 ratio",
+         "suffix": ": 1"
+        }
+       ],
+       "req": {
+        "id": "info_3",
+        "label": "Stage 1 ratio / Stage 2 ratio",
+        "all": [
+         "info_ratio_stage1",
+         "info_ratio_stage2"
+        ]
+       }
+      },
+      {
+       "type": "row",
+       "fields": [
+        {
+         "type": "field",
+         "name": "info_oil_capacity",
+         "label": "Oil capacity (gal / L)"
+        },
+        {
+         "type": "field",
+         "name": "info_oil_grade",
+         "label": "Oil grade"
+        }
+       ],
+       "req": {
+        "id": "info_4",
+        "label": "Oil capacity (gal / L) / Oil grade",
+        "all": [
+         "info_oil_capacity",
+         "info_oil_grade"
+        ]
+       }
+      }
+     ],
+     "photos": true
+    },
+    {
+     "id": "s1",
+     "title": "1. Prep and inspection",
+     "blocks": [
+      {
+       "type": "check",
+       "name": "s1_item01",
+       "label": "Work order, drawings, BOM, and assembly spec on hand at current revision",
+       "fields": [],
+       "req": {
+        "id": "s1_item01",
+        "label": "1.1 Work order, drawings, BOM, and assembly spec on hand at current revision",
+        "all": [
+         "s1_item01"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s1_item02",
+       "label": "Clean covered work area, lifting gear rated and inspected",
+       "fields": [],
+       "req": {
+        "id": "s1_item02",
+        "label": "1.2 Clean covered work area, lifting gear rated and inspected",
+        "all": [
+         "s1_item02"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s1_item03",
+       "label": "Housing halves cleaned and deburred, oil galleries and drain/breather ports clear, no casting sand or chips",
+       "fields": [],
+       "req": {
+        "id": "s1_item03",
+        "label": "1.3 Housing halves cleaned and deburred, oil galleries and drain/breather ports clear, no casting sand or chips",
+        "all": [
+         "s1_item03"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s1_item04",
+       "label": "Split-line faces flat, no nicks, dowel holes undamaged",
+       "fields": [],
+       "req": {
+        "id": "s1_item04",
+        "label": "1.4 Split-line faces flat, no nicks, dowel holes undamaged",
+        "all": [
+         "s1_item04"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s1_item05",
+       "label": "Bearing bores measured (diameter and roundness) against spec:",
+       "fields": [
+        {
+         "name": "s1_bore_spec",
+         "label": "Spec / measured"
+        }
+       ],
+       "req": {
+        "id": "s1_item05",
+        "label": "1.5 Bearing bores measured (diameter and roundness) against spec:",
+        "all": [
+         "s1_item05",
+         "s1_bore_spec"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s1_item06",
+       "label": "Shafts checked for journal diameters, runout, keyway and thread condition",
+       "fields": [],
+       "req": {
+        "id": "s1_item06",
+        "label": "1.6 Shafts checked for journal diameters, runout, keyway and thread condition",
+        "all": [
+         "s1_item06"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s1_item07",
+       "label": "Gears inspected for tooth damage, burrs, correct hand of helix, mating sets matched by serial/match marks",
+       "fields": [],
+       "req": {
+        "id": "s1_item07",
+        "label": "1.7 Gears inspected for tooth damage, burrs, correct hand of helix, mating sets matched by serial/match marks",
+        "all": [
+         "s1_item07"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s1_item08",
+       "label": "Bearings checked for part number, cups and cones kept as matched sets in packaging until use",
+       "fields": [],
+       "req": {
+        "id": "s1_item08",
+        "label": "1.8 Bearings checked for part number, cups and cones kept as matched sets in packaging until use",
+        "all": [
+         "s1_item08"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s1_item09",
+       "label": "Seals, shims, gaskets, spacers, keys, fasteners counted against BOM",
+       "fields": [],
+       "req": {
+        "id": "s1_item09",
+        "label": "1.9 Seals, shims, gaskets, spacers, keys, fasteners counted against BOM",
+        "all": [
+         "s1_item09"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s1_item10",
+       "label": "Measuring tools calibrated (micrometers, bore gauges, dial indicators, torque wrench)",
+       "fields": [],
+       "req": {
+        "id": "s1_item10",
+        "label": "1.10 Measuring tools calibrated (micrometers, bore gauges, dial indicators, torque wrench)",
+        "all": [
+         "s1_item10"
+        ]
+       }
+      }
+     ],
+     "photos": true
+    },
+    {
+     "id": "s2",
+     "title": "2. Shaft subassemblies (input, intermediate, output)",
+     "blocks": [
+      {
+       "type": "check",
+       "name": "s2_item01",
+       "label": "Keys fitted to keyways with correct fit",
+       "fields": [],
+       "req": {
+        "id": "s2_item01",
+        "label": "2.1 Keys fitted to keyways with correct fit",
+        "all": [
+         "s2_item01"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s2_item02",
+       "label": "Gears/pinions installed by press or shrink fit per spec (induction or oven, never open flame)",
+       "fields": [
+        {
+         "name": "s2_heat_temp",
+         "label": "Heating temperature"
+        }
+       ],
+       "req": {
+        "id": "s2_item02",
+        "label": "2.2 Gears/pinions installed by press or shrink fit per spec (induction or oven, never open flame)",
+        "all": [
+         "s2_item02",
+         "s2_heat_temp"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s2_item03",
+       "label": "Gear fully seated against shoulder, feeler gauge shows no gap",
+       "fields": [],
+       "req": {
+        "id": "s2_item03",
+        "label": "2.3 Gear fully seated against shoulder, feeler gauge shows no gap",
+        "all": [
+         "s2_item03"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s2_item04",
+       "label": "Spacers and retaining rings/locknuts installed and locked",
+       "fields": [],
+       "req": {
+        "id": "s2_item04",
+        "label": "2.4 Spacers and retaining rings/locknuts installed and locked",
+        "all": [
+         "s2_item04"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s2_item05",
+       "label": "Cones heated and installed (typically about 250°F/120°C max, confirm with bearing maker) and held against shoulder until cool",
+       "fields": [],
+       "req": {
+        "id": "s2_item05",
+        "label": "2.5 Cones heated and installed (typically about 250°F/120°C max, confirm with bearing maker) and held against shoulder until cool",
+        "all": [
+         "s2_item05"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s2_item06",
+       "label": "Cone seating rechecked after cooling",
+       "fields": [],
+       "req": {
+        "id": "s2_item06",
+        "label": "2.6 Cone seating rechecked after cooling",
+        "all": [
+         "s2_item06"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s2_item07",
+       "label": "Runout of assembled gear checked:",
+       "fields": [
+        {
+         "name": "s2_gear_runout",
+         "label": "Runout"
+        }
+       ],
+       "req": {
+        "id": "s2_item07",
+        "label": "2.7 Runout of assembled gear checked:",
+        "all": [
+         "s2_item07",
+         "s2_gear_runout"
+        ]
+       }
+      }
+     ],
+     "photos": true
+    },
+    {
+     "id": "s3",
+     "title": "3. Housing preparation",
+     "blocks": [
+      {
+       "type": "check",
+       "name": "s3_item01",
+       "label": "Cups installed square in bores (press or chill), fully seated against shoulder, confirmed with feeler gauge",
+       "fields": [],
+       "req": {
+        "id": "s3_item01",
+        "label": "3.1 Cups installed square in bores (press or chill), fully seated against shoulder, confirmed with feeler gauge",
+        "all": [
+         "s3_item01"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s3_item02",
+       "label": "Seal bores clean, seals ready in correct orientation",
+       "fields": [],
+       "req": {
+        "id": "s3_item02",
+        "label": "3.2 Seal bores clean, seals ready in correct orientation",
+        "all": [
+         "s3_item02"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s3_item03",
+       "label": "Internal surfaces painted or coated if specified",
+       "fields": [],
+       "req": {
+        "id": "s3_item03",
+        "label": "3.3 Internal surfaces painted or coated if specified",
+        "all": [
+         "s3_item03"
+        ]
+       }
+      }
+     ],
+     "photos": true
+    },
+    {
+     "id": "s4",
+     "title": "4. Shaft installation and gear mesh",
+     "blocks": [
+      {
+       "type": "check",
+       "name": "s4_item01",
+       "label": "Shafts lowered in correct order (usually output, intermediate, input, per drawing)",
+       "fields": [],
+       "req": {
+        "id": "s4_item01",
+        "label": "4.1 Shafts lowered in correct order (usually output, intermediate, input, per drawing)",
+        "all": [
+         "s4_item01"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s4_item02",
+       "label": "Helix hands and thrust directions checked against drawing",
+       "fields": [],
+       "req": {
+        "id": "s4_item02",
+        "label": "4.2 Helix hands and thrust directions checked against drawing",
+        "all": [
+         "s4_item02"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s4_item03",
+       "label": "Mesh alignment confirmed, face widths centered, no axial offset beyond spec",
+       "fields": [],
+       "req": {
+        "id": "s4_item03",
+        "label": "4.3 Mesh alignment confirmed, face widths centered, no axial offset beyond spec",
+        "all": [
+         "s4_item03"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s4_item04",
+       "label": "Housing closed with sealant or gasket as specified, dowels installed before bolts",
+       "fields": [],
+       "req": {
+        "id": "s4_item04",
+        "label": "4.4 Housing closed with sealant or gasket as specified, dowels installed before bolts",
+        "all": [
+         "s4_item04"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s4_item05",
+       "label": "Split-line bolts torqued in sequence:",
+       "fields": [
+        {
+         "name": "s4_splitline_torque",
+         "label": "Torque / sequence"
+        }
+       ],
+       "req": {
+        "id": "s4_item05",
+        "label": "4.5 Split-line bolts torqued in sequence:",
+        "all": [
+         "s4_item05",
+         "s4_splitline_torque"
+        ]
+       }
+      }
+     ],
+     "photos": true
+    },
+    {
+     "id": "s5",
+     "title": "5. Bearing endplay or preload (each shaft)",
+     "blocks": [
+      {
+       "type": "check",
+       "name": "s5_item01",
+       "label": "Bearing caps installed with starting shim pack",
+       "fields": [],
+       "req": {
+        "id": "s5_item01",
+        "label": "5.1 Bearing caps installed with starting shim pack",
+        "all": [
+         "s5_item01"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s5_item02",
+       "label": "Shaft rotated while seating to get rollers onto the cone rib",
+       "fields": [],
+       "req": {
+        "id": "s5_item02",
+        "label": "5.2 Shaft rotated while seating to get rollers onto the cone rib",
+        "all": [
+         "s5_item02"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s5_item03",
+       "label": "Axial endplay measured with dial indicator (push-pull while rotating)",
+       "fields": [],
+       "req": {
+        "id": "s5_item03",
+        "label": "5.3 Axial endplay measured with dial indicator (push-pull while rotating)",
+        "all": [
+         "s5_item03"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s5_item04",
+       "label": "Shims adjusted to target endplay or preload (record final shim thickness below):",
+       "fields": [
+        {
+         "name": "s5_target_endplay",
+         "label": "Target"
+        }
+       ],
+       "req": {
+        "id": "s5_item04",
+        "label": "5.4 Shims adjusted to target endplay or preload (record final shim thickness below):",
+        "all": [
+         "s5_item04",
+         "s5_target_endplay"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s5_item05",
+       "label": "Rolling torque checked if preload specified:",
+       "fields": [
+        {
+         "name": "s5_rolling_torque",
+         "label": "Rolling torque"
+        }
+       ],
+       "req": {
+        "id": "s5_item05",
+        "label": "5.5 Rolling torque checked if preload specified:",
+        "all": [
+         "s5_item05",
+         "s5_rolling_torque"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s5_item06",
+       "label": "Cap bolts torqued:",
+       "fields": [
+        {
+         "name": "s5_cap_bolt_torque",
+         "label": "Torque"
+        }
+       ],
+       "req": {
+        "id": "s5_item06",
+        "label": "5.6 Cap bolts torqued:",
+        "all": [
+         "s5_item06",
+         "s5_cap_bolt_torque"
+        ]
+       }
+      },
+      {
+       "type": "table",
+       "title": "Bearing shim record",
+       "columns": [
+        "Shaft",
+        "Location",
+        "Starting shim (in/mm)",
+        "Final shim (in/mm)",
+        "Measured endplay/preload",
+        "Spec",
+        "OK"
+       ],
+       "labelCols": 2,
+       "rows": [
+        {
+         "label": [
+          "Input",
+          "Drive end"
+         ],
+         "cells": [
+          {
+           "kind": "text",
+           "name": "shim_input_de_start"
+          },
+          {
+           "kind": "text",
+           "name": "shim_input_de_final"
+          },
+          {
+           "kind": "text",
+           "name": "shim_input_de_measured"
+          },
+          {
+           "kind": "text",
+           "name": "shim_input_de_spec"
+          },
+          {
+           "kind": "check",
+           "name": "shim_input_de_ok"
+          }
+         ],
+         "req": {
+          "id": "shim_input_de",
+          "label": "Shim record: Input Drive end",
+          "all": [
+           "shim_input_de_final",
+           "shim_input_de_measured",
+           "shim_input_de_ok"
+          ]
+         }
+        },
+        {
+         "label": [
+          "Input",
+          "Non-drive end"
+         ],
+         "cells": [
+          {
+           "kind": "text",
+           "name": "shim_input_nde_start"
+          },
+          {
+           "kind": "text",
+           "name": "shim_input_nde_final"
+          },
+          {
+           "kind": "text",
+           "name": "shim_input_nde_measured"
+          },
+          {
+           "kind": "text",
+           "name": "shim_input_nde_spec"
+          },
+          {
+           "kind": "check",
+           "name": "shim_input_nde_ok"
+          }
+         ],
+         "req": {
+          "id": "shim_input_nde",
+          "label": "Shim record: Input Non-drive end",
+          "all": [
+           "shim_input_nde_final",
+           "shim_input_nde_measured",
+           "shim_input_nde_ok"
+          ]
+         }
+        },
+        {
+         "label": [
+          "Intermediate",
+          "Drive end"
+         ],
+         "cells": [
+          {
+           "kind": "text",
+           "name": "shim_intermediate_de_start"
+          },
+          {
+           "kind": "text",
+           "name": "shim_intermediate_de_final"
+          },
+          {
+           "kind": "text",
+           "name": "shim_intermediate_de_measured"
+          },
+          {
+           "kind": "text",
+           "name": "shim_intermediate_de_spec"
+          },
+          {
+           "kind": "check",
+           "name": "shim_intermediate_de_ok"
+          }
+         ],
+         "req": {
+          "id": "shim_intermediate_de",
+          "label": "Shim record: Intermediate Drive end",
+          "all": [
+           "shim_intermediate_de_final",
+           "shim_intermediate_de_measured",
+           "shim_intermediate_de_ok"
+          ]
+         }
+        },
+        {
+         "label": [
+          "Intermediate",
+          "Non-drive end"
+         ],
+         "cells": [
+          {
+           "kind": "text",
+           "name": "shim_intermediate_nde_start"
+          },
+          {
+           "kind": "text",
+           "name": "shim_intermediate_nde_final"
+          },
+          {
+           "kind": "text",
+           "name": "shim_intermediate_nde_measured"
+          },
+          {
+           "kind": "text",
+           "name": "shim_intermediate_nde_spec"
+          },
+          {
+           "kind": "check",
+           "name": "shim_intermediate_nde_ok"
+          }
+         ],
+         "req": {
+          "id": "shim_intermediate_nde",
+          "label": "Shim record: Intermediate Non-drive end",
+          "all": [
+           "shim_intermediate_nde_final",
+           "shim_intermediate_nde_measured",
+           "shim_intermediate_nde_ok"
+          ]
+         }
+        },
+        {
+         "label": [
+          "Output",
+          "Drive end"
+         ],
+         "cells": [
+          {
+           "kind": "text",
+           "name": "shim_output_de_start"
+          },
+          {
+           "kind": "text",
+           "name": "shim_output_de_final"
+          },
+          {
+           "kind": "text",
+           "name": "shim_output_de_measured"
+          },
+          {
+           "kind": "text",
+           "name": "shim_output_de_spec"
+          },
+          {
+           "kind": "check",
+           "name": "shim_output_de_ok"
+          }
+         ],
+         "req": {
+          "id": "shim_output_de",
+          "label": "Shim record: Output Drive end",
+          "all": [
+           "shim_output_de_final",
+           "shim_output_de_measured",
+           "shim_output_de_ok"
+          ]
+         }
+        },
+        {
+         "label": [
+          "Output",
+          "Non-drive end"
+         ],
+         "cells": [
+          {
+           "kind": "text",
+           "name": "shim_output_nde_start"
+          },
+          {
+           "kind": "text",
+           "name": "shim_output_nde_final"
+          },
+          {
+           "kind": "text",
+           "name": "shim_output_nde_measured"
+          },
+          {
+           "kind": "text",
+           "name": "shim_output_nde_spec"
+          },
+          {
+           "kind": "check",
+           "name": "shim_output_nde_ok"
+          }
+         ],
+         "req": {
+          "id": "shim_output_nde",
+          "label": "Shim record: Output Non-drive end",
+          "all": [
+           "shim_output_nde_final",
+           "shim_output_nde_measured",
+           "shim_output_nde_ok"
+          ]
+         }
+        }
+       ]
+      }
+     ],
+     "photos": true
+    },
+    {
+     "id": "s6",
+     "title": "6. Gear mesh verification",
+     "blocks": [
+      {
+       "type": "check",
+       "name": "s6_item01",
+       "label": "Backlash measured at each stage with dial indicator at several points (record below)",
+       "fields": [],
+       "req": {
+        "id": "s6_item01",
+        "label": "6.1 Backlash measured at each stage with dial indicator at several points (record below)",
+        "all": [
+         "s6_item01"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s6_item02",
+       "label": "Contact pattern checked with marking compound (Prussian blue or gear marking paste) under light load, centered on tooth flank without heavy edge contact",
+       "fields": [],
+       "req": {
+        "id": "s6_item02",
+        "label": "6.2 Contact pattern checked with marking compound (Prussian blue or gear marking paste) under light load, centered on tooth flank without heavy edge contact",
+        "all": [
+         "s6_item02"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s6_item03",
+       "label": "Shafts turn freely by hand, no binding through a full revolution of output",
+       "fields": [],
+       "req": {
+        "id": "s6_item03",
+        "label": "6.3 Shafts turn freely by hand, no binding through a full revolution of output",
+        "all": [
+         "s6_item03"
+        ]
+       }
+      },
+      {
+       "type": "table",
+       "title": "Backlash record (measured at 4 points 90° apart)",
+       "columns": [
+        "Stage",
+        "Mesh",
+        "0°",
+        "90°",
+        "180°",
+        "270°",
+        "Min",
+        "Max",
+        "Spec",
+        "OK"
+       ],
+       "labelCols": 2,
+       "rows": [
+        {
+         "label": [
+          "Stage 1",
+          "Input pinion to intermediate gear"
+         ],
+         "cells": [
+          {
+           "kind": "text",
+           "name": "backlash_stage1_deg000"
+          },
+          {
+           "kind": "text",
+           "name": "backlash_stage1_deg090"
+          },
+          {
+           "kind": "text",
+           "name": "backlash_stage1_deg180"
+          },
+          {
+           "kind": "text",
+           "name": "backlash_stage1_deg270"
+          },
+          {
+           "kind": "text",
+           "name": "backlash_stage1_min"
+          },
+          {
+           "kind": "text",
+           "name": "backlash_stage1_max"
+          },
+          {
+           "kind": "text",
+           "name": "backlash_stage1_spec"
+          },
+          {
+           "kind": "check",
+           "name": "backlash_stage1_ok"
+          }
+         ],
+         "req": {
+          "id": "backlash_stage1",
+          "label": "Backlash stage 1",
+          "all": [
+           "backlash_stage1_min",
+           "backlash_stage1_max",
+           "backlash_stage1_ok"
+          ]
+         }
+        },
+        {
+         "label": [
+          "Stage 2",
+          "Intermediate pinion to output gear"
+         ],
+         "cells": [
+          {
+           "kind": "text",
+           "name": "backlash_stage2_deg000"
+          },
+          {
+           "kind": "text",
+           "name": "backlash_stage2_deg090"
+          },
+          {
+           "kind": "text",
+           "name": "backlash_stage2_deg180"
+          },
+          {
+           "kind": "text",
+           "name": "backlash_stage2_deg270"
+          },
+          {
+           "kind": "text",
+           "name": "backlash_stage2_min"
+          },
+          {
+           "kind": "text",
+           "name": "backlash_stage2_max"
+          },
+          {
+           "kind": "text",
+           "name": "backlash_stage2_spec"
+          },
+          {
+           "kind": "check",
+           "name": "backlash_stage2_ok"
+          }
+         ],
+         "req": {
+          "id": "backlash_stage2",
+          "label": "Backlash stage 2",
+          "all": [
+           "backlash_stage2_min",
+           "backlash_stage2_max",
+           "backlash_stage2_ok"
+          ]
+         }
+        }
+       ]
+      },
+      {
+       "type": "row",
+       "fields": [
+        {
+         "type": "field",
+         "name": "backlash_checked_by",
+         "label": "Backlash checked by"
+        },
+        {
+         "type": "field",
+         "name": "backlash_date",
+         "label": "Date",
+         "input": "date"
+        }
+       ],
+       "req": {
+        "id": "backlash_signed",
+        "label": "Backlash checked by / date",
+        "all": [
+         "backlash_checked_by",
+         "backlash_date"
+        ]
+       }
+      }
+     ],
+     "photos": true
+    },
+    {
+     "id": "s7",
+     "title": "7. Seals, closures, fittings",
+     "blocks": [
+      {
+       "type": "check",
+       "name": "s7_item01",
+       "label": "Lip seals lubricated and installed with correct tool, lips undamaged and facing correct way",
+       "fields": [],
+       "req": {
+        "id": "s7_item01",
+        "label": "7.1 Lip seals lubricated and installed with correct tool, lips undamaged and facing correct way",
+        "all": [
+         "s7_item01"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s7_item02",
+       "label": "Shaft surfaces under seals polished, keyway edges covered with sleeve to protect lip",
+       "fields": [],
+       "req": {
+        "id": "s7_item02",
+        "label": "7.2 Shaft surfaces under seals polished, keyway edges covered with sleeve to protect lip",
+        "all": [
+         "s7_item02"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s7_item03",
+       "label": "Inspection covers, breather, drain plug, sight glass or dipstick, oil lines installed",
+       "fields": [],
+       "req": {
+        "id": "s7_item03",
+        "label": "7.3 Inspection covers, breather, drain plug, sight glass or dipstick, oil lines installed",
+        "all": [
+         "s7_item03"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s7_item04",
+       "label": "All fasteners torqued and torque-marked",
+       "fields": [],
+       "req": {
+        "id": "s7_item04",
+        "label": "7.4 All fasteners torqued and torque-marked",
+        "all": [
+         "s7_item04"
+        ]
+       }
+      }
+     ],
+     "photos": true
+    },
+    {
+     "id": "s8",
+     "title": "8. Lubrication and run-in",
+     "blocks": [
+      {
+       "type": "check",
+       "name": "s8_item01",
+       "label": "Filled with specified oil grade and quantity:",
+       "fields": [
+        {
+         "name": "s8_oil_fill",
+         "label": "Grade / quantity"
+        }
+       ],
+       "req": {
+        "id": "s8_item01",
+        "label": "8.1 Filled with specified oil grade and quantity:",
+        "all": [
+         "s8_item01",
+         "s8_oil_fill"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s8_item02",
+       "label": "No-load spin test: direction of rotation, speed, duration",
+       "fields": [
+        {
+         "name": "s8_spin_speed",
+         "label": "Speed"
+        },
+        {
+         "name": "s8_spin_duration",
+         "label": "Duration"
+        }
+       ],
+       "req": {
+        "id": "s8_item02",
+        "label": "8.2 No-load spin test: direction of rotation, speed, duration",
+        "all": [
+         "s8_item02",
+         "s8_spin_speed",
+         "s8_spin_duration"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s8_item03",
+       "label": "Bearing temperatures monitored, stabilize below:",
+       "fields": [
+        {
+         "name": "s8_bearing_temp_limit",
+         "label": "Temperature"
+        }
+       ],
+       "req": {
+        "id": "s8_item03",
+        "label": "8.3 Bearing temperatures monitored, stabilize below:",
+        "all": [
+         "s8_item03",
+         "s8_bearing_temp_limit"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s8_item04",
+       "label": "Noise and vibration checked, readings recorded:",
+       "fields": [
+        {
+         "name": "s8_noise_vib",
+         "label": "Readings"
+        }
+       ],
+       "req": {
+        "id": "s8_item04",
+        "label": "8.4 Noise and vibration checked, readings recorded:",
+        "all": [
+         "s8_item04",
+         "s8_noise_vib"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s8_item05",
+       "label": "Leak check at seals, split line, plugs",
+       "fields": [],
+       "req": {
+        "id": "s8_item05",
+        "label": "8.5 Leak check at seals, split line, plugs",
+        "all": [
+         "s8_item05"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s8_item06",
+       "label": "Contact pattern rechecked after run-in if required",
+       "fields": [],
+       "req": {
+        "id": "s8_item06",
+        "label": "8.6 Contact pattern rechecked after run-in if required",
+        "all": [
+         "s8_item06"
+        ]
+       }
+      }
+     ],
+     "photos": true
+    },
+    {
+     "id": "s9",
+     "title": "9. Final and documentation",
+     "blocks": [
+      {
+       "type": "check",
+       "name": "s9_item01",
+       "label": "Nameplate, rotation arrows, lifting points, oil fill tags attached",
+       "fields": [],
+       "req": {
+        "id": "s9_item01",
+        "label": "9.1 Nameplate, rotation arrows, lifting points, oil fill tags attached",
+        "all": [
+         "s9_item01"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s9_item02",
+       "label": "Shaft ends protected, keys taped or secured, openings capped",
+       "fields": [],
+       "req": {
+        "id": "s9_item02",
+        "label": "9.2 Shaft ends protected, keys taped or secured, openings capped",
+        "all": [
+         "s9_item02"
+        ]
+       }
+      },
+      {
+       "type": "check",
+       "name": "s9_item03",
+       "label": "Serial numbers, bearing lot numbers, shim thicknesses, endplay, backlash, torques, test data recorded",
+       "fields": [],
+       "req": {
+        "id": "s9_item03",
+        "label": "9.3 Serial numbers, bearing lot numbers, shim thicknesses, endplay, backlash, torques, test data recorded",
+        "all": [
+         "s9_item03"
+        ]
+       }
+      }
+     ],
+     "photos": true
+    },
+    {
+     "id": "notes",
+     "title": "Notes",
+     "photos": true,
+     "blocks": [
+      {
+       "type": "field",
+       "name": "notes",
+       "label": "Notes",
+       "multiline": true,
+       "rows": 6
+      }
+     ]
+    },
+    {
+     "id": "signoff",
+     "title": "Sign-off",
+     "photos": false,
+     "blocks": [
+      {
+       "type": "subhead",
+       "text": "Assembler"
+      },
+      {
+       "type": "row",
+       "fields": [
+        {
+         "type": "field",
+         "name": "signoff_assembler_name",
+         "label": "Name"
+        },
+        {
+         "type": "field",
+         "name": "signoff_assembler_signature",
+         "label": "Signature (type name)"
+        },
+        {
+         "type": "field",
+         "name": "signoff_assembler_date",
+         "label": "Date",
+         "input": "date"
+        }
+       ],
+       "req": {
+        "id": "signoff_assembler",
+        "label": "Assembler sign-off",
+        "all": [
+         "signoff_assembler_name",
+         "signoff_assembler_signature",
+         "signoff_assembler_date"
+        ]
+       }
+      },
+      {
+       "type": "subhead",
+       "text": "Inspector"
+      },
+      {
+       "type": "row",
+       "fields": [
+        {
+         "type": "field",
+         "name": "signoff_inspector_name",
+         "label": "Name"
+        },
+        {
+         "type": "field",
+         "name": "signoff_inspector_signature",
+         "label": "Signature (type name)"
+        },
+        {
+         "type": "field",
+         "name": "signoff_inspector_date",
+         "label": "Date",
+         "input": "date"
+        }
+       ],
+       "req": {
+        "id": "signoff_inspector",
+        "label": "Inspector sign-off",
+        "all": [
+         "signoff_inspector_name",
+         "signoff_inspector_signature",
+         "signoff_inspector_date"
+        ]
+       }
       }
      ]
     }

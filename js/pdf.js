@@ -4,6 +4,7 @@ const PdfExport = (() => {
   const NAVY = rgb(0x1f / 255, 0x3a / 255, 0x5f / 255), LIGHT = rgb(0xe8 / 255, 0xee / 255, 0xf5 / 255),
         GRID = rgb(0x9a / 255, 0xa8 / 255, 0xb8 / 255), GREY = rgb(0.27, 0.27, 0.27);
   const W = 612, H = 792, M = 42;
+  const BRAND = 'Ram-Gear Manufacturing Incorporated';   // app-generated pages only; template form headers are untouched
   const templateCache = {};
 
   // Standard Helvetica only encodes WinAnsi; map common characters and replace the rest.
@@ -114,7 +115,7 @@ const PdfExport = (() => {
     if (final || opts.flatten) af.flatten();
     if (final) {
       const pg = doc.addPage([W, H]);
-      header(pg, font, bold, form.header, woLine);
+      header(pg, font, bold, BRAND, woLine);
       let y = H - 92; sectionBar(pg, bold, y, 'Completion record'); y -= 38;
       const rows = [['Form', `${form.title} - ${form.docTitle}`], ['Status', 'Completed'], ['Revision', String(final.revision)],
                     ['Completed', final.completedAt], ['Signed by', final.signedBy], ['Customer', job.customer || ''], ['Work order', job.wo || '']];
@@ -134,7 +135,7 @@ const PdfExport = (() => {
     const total = Math.ceil(photos.length / 2);
     for (let i = 0; i < photos.length; i += 2) {
       const pg = doc.addPage([W, H]);
-      header(pg, font, bold, `${form.header} - Photos`, woLine);
+      header(pg, font, bold, BRAND, `Photos  |  ${woLine}`);
       const slotTop = H - 88, slotH = (slotTop - 62) / 2;
       for (let j = 0; j < 2 && i + j < photos.length; j++) {
         const ph = photos[i + j], top = slotTop - j * slotH;
@@ -152,7 +153,7 @@ const PdfExport = (() => {
       footer(pg, font, `Form: ${form.template.split('/').pop().replace('.pdf', '')}`, `Photo page ${i / 2 + 1} of ${total}`);
     }
     doc.setTitle(`${form.title} - WO ${job.wo || ''} - ${job.customer || ''}`);
-    doc.setProducer('Ram Gear Jobs (pdf-lib)'); doc.setModificationDate(new Date());
+    doc.setProducer('Ram-Gear Manufacturing Incorporated app (pdf-lib)'); doc.setModificationDate(new Date());
     const bytes = await doc.save({updateFieldAppearances: false});
     return {bytes, pages: doc.getPageCount(), formPages: baseCount};
   }
@@ -166,7 +167,7 @@ const PdfExport = (() => {
       const src = await PDFDocument.load(b);
       (await out.copyPages(src, src.getPageIndices())).forEach(pg => out.addPage(pg));
     }
-    out.setTitle(title || 'Ram Gear job'); out.setProducer('Ram Gear Jobs (pdf-lib)');
+    out.setTitle(title || 'Ram Gear job'); out.setProducer('Ram-Gear Manufacturing Incorporated app (pdf-lib)');
     return out.save();
   }
   return {build, filename, fieldKinds, clean, safe, combine};

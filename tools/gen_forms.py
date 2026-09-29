@@ -228,8 +228,9 @@ def validate(form, pdf):
     return not (missing or extra or wrong)
 
 if __name__ == "__main__":
-    forms = {"version": 1, "forms": [assembly(), teardown()]}
-    ok = validate(forms["forms"][0], PDF_A) & validate(forms["forms"][1], PDF_T)
+    # Order matters: the app lists forms in this order everywhere (Teardown Evaluation first).
+    forms = {"version": 1, "forms": [teardown(), assembly()]}
+    ok = validate(forms["forms"][0], PDF_T) & validate(forms["forms"][1], PDF_A)
     json.dump(forms, open(os.path.join(APP, "forms.json"), "w"), indent=1, ensure_ascii=False)
     if "--copy-templates" in sys.argv:
         shutil.copy(PDF_A, os.path.join(APP, "templates")); shutil.copy(PDF_T, os.path.join(APP, "templates"))

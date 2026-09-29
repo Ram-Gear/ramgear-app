@@ -14,9 +14,9 @@ h1{font-size:24px;margin:0 0 4px;color:var(--navy)} h2{font-size:20px;margin:0;c
 .appbar-back[hidden]{display:none}
 .appbar-back .chev{font-size:32px;line-height:1;margin-top:-4px}
 .appbar-back .blabel{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.appbar-title{font-size:19px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.appbar-title{flex:1 1 180px;min-width:0;font-size:clamp(15px,1.9vw,19px);font-weight:600;line-height:1.15;white-space:normal;overflow-wrap:anywhere}
 .brand{font-weight:800;letter-spacing:.3px} .sep{opacity:.6;margin:0 4px}
-.appbar-actions{display:flex;gap:8px;align-items:center}
+.appbar-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .save-ind{font-size:13px;opacity:.85;margin-right:6px;white-space:nowrap}
 /* buttons */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:var(--tap);padding:0 18px;border-radius:var(--radius);border:1.5px solid var(--navy);background:#fff;color:var(--navy);font-family:inherit;font-weight:600;font-size:16px;line-height:1;text-decoration:none;cursor:pointer;white-space:nowrap;user-select:none;-webkit-user-select:none}
@@ -179,3 +179,11 @@ select{width:100%;min-height:var(--tap);font-family:inherit;font-size:17px;paddi
 .custfile h1{margin:0}
 .details{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px 20px}
 .details a{color:var(--navy2);font-weight:600}
+
+.brand{display:block}
+@media (max-width:900px){.appbar .btn{padding:0 10px;font-size:15px}.save-ind{display:none}.appbar-back{max-width:150px}}
+.pin{font-size:24px!important;letter-spacing:.35em;text-align:center}
+.pin-error{color:var(--danger);font-weight:700;background:#fdecea;border:1px solid #f3c2bd;border-radius:8px;padding:10px 12px}
+dialog.approval .dlg-body h2{color:var(--danger)}
+.btn.danger-outline{border-color:var(--danger);color:var(--danger)}
+.tbl.audit{min-width:700px}.tbl.audit td{padding:8px;font-size:15px;vertical-align:top}.tbl.audit tr.bad td{color:var(--danger)}
