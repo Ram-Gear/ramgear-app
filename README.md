@@ -5,7 +5,17 @@ Offline, on-device web app for Ram Gear gearbox shop forms:
 * **Teardown Evaluation** – `templates/gearbox-teardown-analysis.pdf` ("Ram Gear Gearbox Evaluation")
 * **Assembly Verification** – `templates/gearbox-assembly-checklist.pdf` ("Ram Gear Manufacturing Assembly Verification Data")
 
-No backend, no cloud accounts, no analytics. Sign-in uses local user accounts kept on each tablet. Jobs, photos and saved PDFs live in the browser's IndexedDB on the tablet.
+> **Another shop that wants to use this app with its own data?** Read **[docs/SETUP-FOR-OTHER-SHOPS.md](docs/SETUP-FOR-OTHER-SHOPS.md)**. The hosted address `https://ram-gear.github.io/ramgear-app/` uses Ram-Gear's database and needs a Ram-Gear account.
+
+Offline-first: each tablet keeps everything in the browser's IndexedDB and works without internet. From Rev 1.2, tablets can also sync through the company cloud (Supabase: database, sign-in and a private file bucket). No analytics.
+
+## Cloud sync (Rev 1.2)
+* **Config:** `js/config.js` is the only place with the cloud settings: project URL + **publishable** key. Both are public by design; Row Level Security protects the data. No secret/service-role key or access token is anywhere in the app.
+* **Server setup:** `supabase/migrations/001_init.sql` creates the tables (members, tablets, customers, jobs, forms, files, audit) and the security rules: only signed-in, enabled members; the audit log is append-only. It also sets up the check-out lock, the finalized-form lock and the private bucket `ramgear-files`. `supabase/functions/rg-admin` is the Edge Function for user administration (bootstrap with a one-time setup code, admin-only create/edit/disable/reset, first-sign-in activation of users imported from a tablet). Public sign-ups are disabled in the project settings.
+* **Accounts:** the same username + password/PIN on every tablet. Each user has a Supabase Auth account (e-mail `u<hex of username>@users.invalid`, never used for mail; the password is derived from the PIN). The PBKDF2 hash of the PIN is shared through the `members` table, so any tablet can sign the user in offline.
+* **Sync:** push local changes, then pull remote changes, every 15 s while online and signed in, right after a change, and when the connection returns. Photos and final PDFs go to the private bucket. The first sync of a tablet uploads everything already on it.
+* **Conflicts:** opening a draft form checks it out ("In use on Tablet …", 30-minute lock kept alive while open). Other tablets see it read-only, with live updates. Finalized forms are locked by the database. If a change can't be applied (form in use elsewhere or finalized there), the server version wins, and this tablet's values are written to the audit log as "Sync conflict".
+* **Tablet steps:** first tablet: Admin › Cloud sync › Connect (setup code + your PIN). Other tablets: setup screen › **Connect to company cloud** (existing username + PIN) › Tablet ID.
 
 ## Files
 | Path | Purpose |

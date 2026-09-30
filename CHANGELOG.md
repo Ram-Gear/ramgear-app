@@ -2,6 +2,21 @@
 
 The revision number lives in `js/version.js` (see README › *Revision number*).
 
+## Rev 1.2 – 2026-09-30 (build 2026-09-30.2)
+
+**Cloud sync (Supabase), offline-first**
+- The tablet keeps working entirely offline, with IndexedDB as the primary store. When online and signed in, it pushes its changes and pulls everyone else's: users, customers, jobs, forms, photos, saved final PDFs and the audit log. Photos and PDFs go to a private storage bucket.
+- The first sync of a tablet uploads everything already on it, including users (as hashes). Imported users get their cloud sign-in the first time they sign in online.
+- New tablets: the setup screen has **Connect to company cloud**. Sign in with an existing username and PIN and everything downloads. This also recovers a tablet whose browser deleted its data.
+- Check-out lock: a draft form open on one tablet shows *"In use on Tablet A by …"* (read-only, updated live) on the others. The lock is released on leaving the form and expires after 30 minutes if a tablet disappears. Finalized forms are locked in the database on every tablet; reopen (Admin approval) creates a new revision as before.
+- Offline edits sync when the connection returns. The header shows ☁ Synced / Offline · N waiting / Sync problem. If a change can't be applied (form in use elsewhere or finalized there), the server version wins and this tablet's values go to the audit log.
+- User accounts apply to all tablets. An Admin adds, edits, disables and resets users on any tablet (needs internet) through the `rg-admin` Edge Function. The app contains only the publishable key, never a secret key. Public sign-up is disabled. The first cloud Admin needs a one-time setup code.
+- Admin screen: **Cloud sync** card with status, **Sync now**, the list of tablets (last seen, user, app revision) and **Disconnect this tablet**.
+- Zip export, combined PDF, final PDF download and backup/restore work unchanged, including on a tablet that received the job from another tablet.
+
+**For other shops**
+- `js/config.js` holds all cloud settings. `supabase/migrations/001_init.sql` and `supabase/functions/rg-admin` work for any Supabase project. The new guide [docs/SETUP-FOR-OTHER-SHOPS.md](docs/SETUP-FOR-OTHER-SHOPS.md) covers forking, GitHub Pages, their own Supabase project, branding, the first Admin and Tablet IDs.
+
 ## Rev 1.1 – 2026-09-30 (build 2026-09-30.1)
 
 **Fixed: "every time I open the app it asks me to create a new admin" (Firefox)**

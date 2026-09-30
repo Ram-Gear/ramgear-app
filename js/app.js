@@ -72,7 +72,7 @@
   function modal(html, buttons, opts = {}) {
     const dlg = $('#dlg'), f = $('#dlgForm'); f.onclick = null; hideToast();
     f.innerHTML = `<div class="dlg-body">${html}</div><div class="dlg-actions">${buttons.map(b =>
-      `<button value="${esc(b.value)}" class="btn ${b.cls || ''}" ${b.value === 'cancel' ? 'formnovalidate' : ''}>${esc(b.label)}</button>`).join('')}</div>`;
+      `<button value="${esc(b.value)}" class="btn ${b.cls || ''}" ${b.value === 'cancel' || b.novalidate ? 'formnovalidate' : ''}>${esc(b.label)}</button>`).join('')}</div>`;
     dlg.className = [opts.wide ? 'wide' : '', opts.cls || ''].join(' ').trim();
     dlg.oncancel = opts.mandatory ? ev => ev.preventDefault() : null;
     dlg.onkeydown = opts.mandatory ? ev => { if (ev.key === 'Escape') ev.preventDefault(); } : null;
@@ -217,13 +217,14 @@
     let err = '', prev = {name: '', tablet: TABLET};
     for (;;) {
       const sn = await storageStatus(false);
-      await modal(`<h2>Create the first Admin account</h2>${storageNotice(sn, true)}<p class="muted">This tablet has no user accounts yet. The first account is an <b>Admin</b>: it signs in, manages users (Admin screen › Users) and approves deleting, reopening and restoring. There is no self sign-up. Passwords/PINs are stored only as salted hashes on this device and cannot be recovered.</p>
+      const choice = await modal(`<h2>Create the first Admin account</h2>${storageNotice(sn, true)}${Cloud.configured ? `<p class="infobar">Additional tablet? Tap <b>Connect to company cloud</b> and sign in with your existing username and password/PIN – accounts and jobs are downloaded.</p>` : ''}<p class="muted">This tablet has no user accounts yet. The first account is an <b>Admin</b>: it signs in, manages users (Admin screen › Users) and approves deleting, reopening and restoring. There is no self sign-up. Passwords/PINs are stored only as salted hashes on this device and cannot be recovered.</p>
         <label class="fld"><span>Admin name (also the username)</span><input name="aname" required autocomplete="off" value="${esc(prev.name)}"></label>
         ${!TABLET ? tabletInput(prev.tablet) : ''}
         <div class="grid2">${secretInput('pin1', 'Password or PIN', 'new-password')}${secretInput('pin2', 'Enter it again', 'new-password')}</div>
         <p class="muted small">${Auth.secretRule}</p>
         ${err ? `<p class="pin-error" role="alert">${esc(err)}</p>` : ''}`,
-        [{label: 'Create admin account', value: 'ok', cls: 'primary'}], {mandatory: true});
+        (Cloud.configured ? [{label: 'Connect to company cloud', value: 'cloud', cls: 'accent', novalidate: true}] : []).concat([{label: 'Create admin account', value: 'ok', cls: 'primary'}]), {mandatory: true});
+      if (choice === 'cloud') { if (await cloudJoin()) return; err = ''; continue; }
       const f = $('#dlgForm'), name = f.aname.value.trim(), tablet = f.tablet ? f.tablet.value.trim() : null;
       prev = {name, tablet: tablet ?? TABLET};
       err = !name ? 'Enter the admin name.' : tablet === '' ? 'Enter a Tablet ID for this device (e.g. Shop Tablet 2).' : secretError(f.pin1.value, f.pin2.value);
@@ -246,6 +247,7 @@
   }
   function renderUserBox() {
     const box = $('#userBox'); if (!box) return;
+    renderCloudChip(Cloud.status());
     box.innerHTML = USER ? `<span class="user-chip" title="Signed in on ${esc(TABLET)}"><span aria-hidden="true">👤</span> <b id="userName">${esc(USER.displayName)}</b> <span class="role-tag">${ROLE_LABEL[USER.role]}</span></span><button class="btn ghost" id="logoutBtn">Log out</button>` : '';
     if (USER) $('#logoutBtn').onclick = logout;
   }
@@ -263,10 +265,16 @@
       f.onsubmit = async e => {
         e.preventDefault();
         const btn = $('#loginBtn'); btn.disabled = true;
-        const uname = f.username.value, r = await Auth.login(uname, f.secret.value);
+        const uname = f.username.value, secret = f.secret.value;
+        let r = await Auth.login(uname, secret);
+        if (!r.ok && !r.locked && Cloud.enabled() && navigator.onLine) {
+          // not known here (yet): a user added or a password changed on another tablet – check the cloud, download accounts, retry
+          try { $('#loginErr').hidden = true; await Cloud.signIn(uname, secret); await Cloud.sync('login'); r = await Auth.login(uname, secret); } catch (e) { console.warn('cloud sign-in', e); }
+        }
         btn.disabled = false; f.secret.value = '';
         if (r.ok) {
           startSession(r.user); await audit('Signed in', r.user.username, 'done');
+          if (Cloud.enabled()) Cloud.signIn(uname, secret).then(() => Cloud.sync('login')).catch(e => console.warn('cloud sign-in', e.message));
           f.onsubmit = null; res(r.user); return;
         }
         const who = r.user ? r.user.displayName : Auth.norm(uname);
@@ -285,6 +293,7 @@
   }
   async function endSession(reason) {
     await flushSave(); closeOverlays();
+    if (Cloud.enabled()) { await Promise.race([Cloud.sync('logout'), new Promise(r => setTimeout(r, 5000))]); await Cloud.signOut(); }
     const was = USER; USER = null; Auth.setSession(null); renderUserBox();
     return was;
   }
@@ -366,9 +375,139 @@
     if (!await requireAdmin('Change my password / PIN', USER.displayName)) return;
     const s = await newSecretDialog('Change my password / PIN', `Signed in as <b>${esc(USER.displayName)}</b>. Enter the new password or PIN twice.`);
     if (!s) return;
-    await Auth.setSecret(USER, s); await audit('Password/PIN changed', USER.displayName, 'done');
+    if (Cloud.enabled() && !await cloudReady('change your password / PIN')) return;
+    await Auth.setSecret(USER, s);
+    if (Cloud.enabled()) { try { await Cloud.setOwnPassword(USER, s); } catch (e) { modal(`<h2>Cloud update failed</h2><p>The new password/PIN works on this tablet, but the cloud account was not updated: ${esc(e.message)}</p>`, [{label: 'Close', value: 'cancel'}]); } }
+    await audit('Password/PIN changed', USER.displayName, 'done');
     toast('Password / PIN changed'); renderSettings();
   }
+  /* ---------- cloud sync (Rev 1.2) ---------- */
+  const syncText = s => !s.enabled ? '' : s.running ? '☁ Syncing…' : !s.online ? `☁ Offline${s.pending ? ` · ${s.pending} change${s.pending === 1 ? '' : 's'} waiting` : ''}`
+    : s.lastError ? '☁ Sync problem' : s.pending ? `☁ ${s.pending} to sync` : s.lastSyncAt ? `☁ Synced ${new Date(s.lastSyncAt).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'})}` : '☁ Connected';
+  function renderCloudChip(s) {
+    const c = $('#cloudChip'); if (!c) return;
+    c.hidden = !s.enabled || !USER; c.textContent = syncText(s);
+    c.classList.toggle('bad', !!s.lastError); c.classList.toggle('off', !s.online); c.title = s.lastError || 'Cloud sync';
+    const line = $('#cloudStatus'); if (line) line.textContent = syncText(s) + (s.lastError ? ` – ${s.lastError}` : '');
+  }
+  async function cloudProgress(title, work) {
+    const dlg = modal(`<h2>${esc(title)}</h2><p class="muted" id="cloudProg">Working… keep this screen open.</p>`, [], {mandatory: true, noFocus: true});
+    try { return await work(); } finally { const d = $('#dlg'); if (d.open) d.close('cancel'); await dlg; }
+  }
+  const cloudErr = (title, e) => modal(`<h2>${esc(title)}</h2><p>${esc(e.message || e)}</p><p class="muted small">Check the internet connection and try again.</p>`, [{label: 'Close', value: 'cancel'}]);
+  /* New tablet: sign in with an existing cloud account and download users + data. */
+  async function cloudJoin() {
+    let err = '', prev = {u: '', t: TABLET};
+    for (;;) {
+      const v = await modal(`<h2>Connect to company cloud</h2><p class="muted">Sign in with <b>your existing username and password/PIN</b> (the same you use on the other tablets). Accounts, customers, jobs, photos and saved PDFs are downloaded to this tablet, and changes sync automatically from now on.</p>
+        <label class="fld"><span>Username</span><input name="cuser" required autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(prev.u)}"></label>
+        ${secretInput('csecret', 'Password or PIN', 'current-password')}
+        ${!TABLET ? tabletInput(prev.t) : ''}
+        ${err ? `<p class="pin-error" role="alert">${esc(err)}</p>` : ''}`,
+        [{label: 'Back', value: 'cancel'}, {label: 'Connect', value: 'ok', cls: 'primary'}], {mandatory: true});
+      if (v !== 'ok') return null;
+      const f = $('#dlgForm'), uname = Auth.norm(f.cuser.value), secret = f.csecret.value, tablet = f.tablet ? f.tablet.value.trim() : TABLET;
+      prev = {u: uname, t: tablet};
+      if (!uname || !secret) { err = 'Enter your username and password/PIN.'; continue; }
+      if (!tablet) { err = 'Enter a Tablet ID for this device (e.g. Shop Tablet 3).'; continue; }
+      if (!navigator.onLine) { err = 'This tablet is offline. Connect to Wi-Fi first.'; continue; }
+      try {
+        const u = await cloudProgress('Connecting…', async () => {
+          await Cloud.signIn(uname, secret);
+          await saveTablet(tablet);
+          await Cloud.connect({email: uname});
+          const r = await Cloud.sync('join'); if (r.error) throw new Error(r.error);
+          const lu = await Auth.byUsername(uname);
+          if (!lu || !await Auth.verify(lu, secret)) throw new Error('Signed in, but the account could not be set up on this tablet. Ask an Admin to reset your password/PIN.');
+          return lu;
+        });
+        await DB.put('settings', {key: 'accounts', createdAt: Date.now(), by: 'cloud join'});
+        storageStatus(true);
+        startSession(u); await audit('Tablet connected to cloud', `${tablet} – signed in as ${u.username}`, 'done'); if (tablet) await audit('Tablet ID set', tablet, 'done');
+        toast('Connected – company data downloaded'); return u;
+      } catch (e) { await Cloud.disconnect().catch(() => {}); err = e.message; }
+    }
+  }
+  /* Existing tablet (signed-in Admin): connect and upload this tablet's data. The very first tablet also needs the setup code. */
+  async function cloudConnect() {
+    if (!navigator.onLine) return cloudErr('Offline', 'Connect to the internet first.');
+    let first;
+    try { first = !(await Cloud.bootstrapped()); } catch (e) { return cloudErr('Cloud not reachable', e); }
+    let err = '';
+    for (;;) {
+      const v = await modal(`<h2>Connect this tablet to the cloud</h2>
+        ${first ? `<p>This is the <b>first tablet</b> to connect. It creates the company's cloud Admin account (<b>${esc(USER.username)}</b>, same password/PIN as here) and uploads all users, customers, jobs, photos and saved PDFs from this tablet.</p>
+          <label class="fld"><span>Setup code (one-time, from the cloud setup)</span><input name="code" required autocomplete="off" autocapitalize="characters" spellcheck="false"></label>`
+          : `<p>Sign in with your cloud account. This tablet's customers, jobs, photos and saved PDFs are uploaded and merged with the company data; its users are added to the cloud (existing usernames keep the cloud account).</p>`}
+        ${secretInput('csecret', `Your password or PIN (${esc(USER.username)})`, 'current-password')}
+        ${err ? `<p class="pin-error" role="alert">${esc(err)}</p>` : ''}`,
+        [{label: 'Cancel', value: 'cancel'}, {label: 'Connect', value: 'ok', cls: 'primary'}]);
+      if (v !== 'ok') return;
+      const f = $('#dlgForm'), secret = f.csecret.value, code = f.code ? f.code.value.trim() : '';
+      if (!await Auth.verify(USER, secret)) { err = 'Wrong password or PIN.'; continue; }
+      try {
+        const res = await cloudProgress('Connecting and uploading…', async () => {
+          if (first) await Cloud.bootstrap(code, USER, secret);
+          await Cloud.signIn(USER.username, secret);
+          const mine = await Cloud.me(); if (!mine) throw new Error('This cloud account is not an active member.');
+          let imported = [];
+          if (mine.role === 'admin') imported = (await Cloud.importUsers((await Auth.all()).filter(u => u.id !== mine.id))).results || [];
+          await Cloud.connect({email: USER.username});
+          const r = await Cloud.sync('connect'); if (r.error) throw new Error(r.error);
+          return {imported, mine};
+        });
+        await audit('Tablet connected to cloud', `${TABLET} – ${first ? 'first tablet (cloud Admin created)' : 'joined'}; users: ${res.imported.map(x => `${x.username} ${x.result}`).join(', ') || 'none'}`, 'done');
+        toast('Connected – this tablet now syncs with the cloud', 4000); renderSettings(); return;
+      } catch (e) { await Cloud.disconnect().catch(() => {}); err = e.message; }
+    }
+  }
+  async function cloudCard() {
+    if (!Cloud.configured) return '';
+    const s = Cloud.status(), tabs = Cloud.tablets();
+    if (!s.enabled) return `<section class="card" id="cloudCard"><div class="card-head"><h2>Cloud sync</h2><span class="badge off">Off</span></div>
+      <p>Keep all tablets in step and keep a copy of everything off the tablet: users, customers, jobs, forms, photos and saved PDFs sync through the company cloud when online. The tablet keeps working offline; changes are sent when it is back online.</p>
+      <div class="fr-actions" style="justify-content:flex-start"><button class="btn primary" id="cloudConnectBtn">Connect this tablet to the cloud</button></div></section>`;
+    return `<section class="card" id="cloudCard"><div class="card-head"><h2>Cloud sync</h2><span class="badge done">On</span></div>
+      <div class="details"><div><div class="muted small">Status</div><div id="cloudStatus">${esc(syncText(s))}</div></div>
+        <div><div class="muted small">Connected</div><div>${esc(fmtDate(s.connectedAt))}</div></div><div><div class="muted small">This tablet</div><div>${esc(TABLET)}</div></div></div>
+      ${tabs.length ? `<div class="tablewrap"><table class="tbl"><thead><tr><th>Tablet</th><th>Last seen</th><th>Last user</th><th>App</th></tr></thead><tbody>${tabs.map(t => `<tr><td>${esc(t.name)}</td><td>${esc(fmtDate(Date.parse(t.last_seen_at)))}</td><td>${esc(t.last_user || '')}</td><td>${esc(t.app_rev || '')}</td></tr>`).join('')}</tbody></table></div>` : ''}
+      <p class="muted small">Forms are checked out while open ("In use on …"), so two tablets can't overwrite each other. Finalized forms are locked on every tablet. User accounts are managed here and apply to all tablets (needs internet).</p>
+      <div class="fr-actions" style="justify-content:flex-start"><button class="btn primary" id="cloudSyncBtn">Sync now</button><button class="btn danger-outline" id="cloudOffBtn">Disconnect this tablet</button></div></section>`;
+  }
+  function wireCloudCard() {
+    const c = $('#cloudConnectBtn'); if (c) c.onclick = cloudConnect;
+    const sn = $('#cloudSyncBtn'); if (sn) sn.onclick = async () => { const r = await Cloud.sync('manual'); toast(r.error ? `Sync problem: ${r.error}` : 'Synced', 3500); renderSettings(); };
+    const off = $('#cloudOffBtn'); if (off) off.onclick = async () => {
+      if (!await requireAdmin('Disconnect this tablet from the cloud', TABLET)) return;
+      await Cloud.disconnect(); await audit('Tablet disconnected from cloud', TABLET, 'done'); toast('Disconnected – data stays on this tablet'); renderSettings();
+    };
+  }
+  /* remote changes arrive while the app is open: patch the open job, refresh the screen (never while typing) */
+  let rerenderT = null;
+  function rerenderSoon() {
+    clearTimeout(rerenderT);
+    rerenderT = setTimeout(async () => {
+      const a = document.activeElement;
+      if (!USER || $('#dlg').open || Camera.isOpen() || $('.viewer') || (a && /INPUT|TEXTAREA|SELECT/.test(a.tagName) && view.contains(a))) return rerenderSoon();
+      const y = window.scrollY; REMOTE_RERENDER = true;
+      try { await route(); } finally { REMOTE_RERENDER = false; }
+      window.scrollTo(0, y);
+    }, 600);
+  }
+  let REMOTE_RERENDER = false;
+  function onRemote(kind, id, key, data) {
+    if (!USER) return;
+    const cj = current.job;
+    if (kind === 'user') { if (id === USER.id) { if (data.disabled) { toast('Your account was disabled by an Admin'); logout(); return; } USER = {...USER, ...data}; renderUserBox(); } return; }
+    if (cj && cj.id === id) {
+      const vf = current.formKey, heldHere = !!vf && Cloud.isHeld(id, vf);   // heldHere: this tablet is editing that form
+      if (kind === 'form') { if (vf === key && heldHere) return; cj.forms[key] = data; if (vf && vf !== key) return; }
+      else if (kind === 'job') { const forms = cj.forms; Object.keys(cj).forEach(k => { if (k !== 'forms') delete cj[k]; }); Object.assign(cj, data, {forms}); if (heldHere) return; }
+      else if (kind === 'file' && current.formKey) { fillPhotoPanels(cj); return; }
+    } else if (current.formKey) return;   // editing a form: changes elsewhere show when leaving it
+    rerenderSoon();
+  }
+
   /* ---------- Users (Admin screen) ---------- */
   const activeAdmins = users => users.filter(u => u.role === 'admin' && !u.disabled);
   async function userDialog(u) {
@@ -391,29 +530,49 @@
       return {...vals, secret: isNew ? f.pin1.value : null};
     }
   }
+  async function cloudReady(what) {
+    if (!Cloud.enabled()) return true;
+    if (navigator.onLine && await Cloud.session()) return true;
+    await modal(`<h2>Internet needed</h2><p>Cloud sync is on, so user accounts are managed in the cloud. Connect to the internet (and sign in again if needed) to ${esc(what)}.</p>`, [{label: 'Close', value: 'cancel'}]);
+    return false;
+  }
+  async function cloudUser(u, password) {   // send one user to the cloud (rg-admin Edge Function); false + message on failure
+    if (!Cloud.enabled()) return true;
+    try { await Cloud.upsertUser(u, password); Cloud.soon(200); return true; }
+    catch (e) { await modal(`<h2>Cloud update failed</h2><p>${esc(e.message)}</p>`, [{label: 'Close', value: 'cancel'}]); return false; }
+  }
   async function manageUser(action, id) {
     if (!isAdmin()) { toast('Only an Admin can manage users'); return; }
+    if (!await cloudReady('add or change users')) return;
     const users = await Auth.all(), u = users.find(x => x.id === id);
     if (action === 'new') {
       const r = await userDialog(null); if (!r) return;
       const nu = await Auth.create({username: r.uname, displayName: r.dname, role: r.role, secret: r.secret, createdBy: USER.displayName});
+      if (!await cloudUser(nu, r.secret)) { await DB.del('users', nu.id); return renderSettings(); }
       await audit('User created', `${nu.displayName} (${nu.username}, ${ROLE_LABEL[nu.role]})`, 'done'); toast(`User ${nu.username} created`);
     } else if (action === 'edit') {
       const r = await userDialog(u); if (!r) return;
       const changes = [r.dname !== u.displayName ? `name ${u.displayName} → ${r.dname}` : '', r.role !== u.role ? `role ${ROLE_LABEL[u.role]} → ${ROLE_LABEL[r.role]}` : ''].filter(Boolean).join(', ');
-      Object.assign(u, {displayName: r.dname, role: r.role, updatedAt: Date.now()}); await DB.put('users', u);
+      const before = {...u};
+      Object.assign(u, {displayName: r.dname, role: r.role, updatedAt: Date.now()});
+      if (!await cloudUser(u)) { await DB.put('users', before); return renderSettings(); }
+      await DB.put('users', u);
       if (u.id === USER.id) { USER = u; renderUserBox(); }
       await audit('User edited', `${u.username}${changes ? ': ' + changes : ' (no change)'}`, 'done'); toast('User saved');
     } else if (action === 'reset') {
       const s = await newSecretDialog(`Reset password / PIN – ${u.displayName}`, `Set a new password or PIN for <b>${esc(u.username)}</b> and tell them in person.`); if (!s) return;
-      await Auth.setSecret(u, s); await audit('User password/PIN reset', u.username, 'done'); toast(`Password / PIN reset for ${u.username}`);
+      const before = {...u}; await Auth.setSecret(u, s);
+      if (!await cloudUser(u, s)) { await DB.put('users', before); return renderSettings(); }
+      await audit('User password/PIN reset', u.username, 'done'); toast(`Password / PIN reset for ${u.username}`);
     } else if (action === 'disable' || action === 'enable') {
       if (action === 'disable') {
         if (u.id === USER.id) { toast('You cannot disable your own account'); return; }
         if (u.role === 'admin' && activeAdmins(users).filter(x => x.id !== u.id).length === 0) { toast('You cannot disable the only active Admin'); return; }
         if (!await confirmBox('Disable user?', `<b>${esc(u.displayName)}</b> (${esc(u.username)}) will no longer be able to sign in on this device. Their jobs, forms and audit entries are kept. You can enable the account again later.`, 'Disable user', true)) return;
       }
-      u.disabled = action === 'disable'; u.updatedAt = Date.now(); await DB.put('users', u);
+      u.disabled = action === 'disable'; u.updatedAt = Date.now();
+      if (!await cloudUser(u)) { u.disabled = !u.disabled; return renderSettings(); }
+      await DB.put('users', u);
       await audit(action === 'disable' ? 'User disabled' : 'User enabled', u.username, 'done'); toast(`User ${u.username} ${action}d`);
     }
     renderSettings();
@@ -438,8 +597,9 @@
         <p class="muted small">Admin approval (an Admin's password or PIN) is required to delete customers, jobs, photos or saved PDFs, to reopen a completed form, to restore a backup, and to change the Tablet ID or your password. 5 wrong entries lock approval for 30 seconds. All of this is local to this device.</p>
         <div class="fr-actions" style="justify-content:flex-start"><button class="btn primary" id="changePinBtn">Change my password / PIN</button></div>
       </section>
+      ${await cloudCard()}
       <section class="card" id="usersCard">
-        <div class="card-head"><h2>Users</h2><span class="muted small">${users.length} account${users.length === 1 ? '' : 's'} on this device · no self sign-up</span><button class="btn primary right" id="newUserBtn">+ New user</button></div>
+        <div class="card-head"><h2>Users</h2><span class="muted small">${users.length} account${users.length === 1 ? '' : 's'} ${Cloud.enabled() ? 'for all tablets (cloud)' : 'on this device'} · no self sign-up</span><button class="btn primary right" id="newUserBtn">+ New user</button></div>
         <div class="tablewrap"><table class="tbl users"><thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead><tbody>
           ${users.map(u => `<tr data-user="${esc(u.username)}" class="${u.disabled ? 'off' : ''}"><td><b>${esc(u.displayName)}</b>${u.id === USER.id ? ' <span class="muted small">(you)</span>' : ''}</td><td>${esc(u.username)}</td><td>${ROLE_LABEL[u.role]}</td>
             <td>${u.disabled ? '<span class="badge off">Disabled</span>' : '<span class="badge done">Active</span>'}</td><td>${esc(u.lastLoginAt ? fmtDate(u.lastLoginAt) : 'Never')}</td>
@@ -473,7 +633,7 @@
           ${log.map(a => `<tr class="${a.result === 'approved' || a.result === 'done' ? '' : 'bad'}"><td>${esc(fmtDate(a.at))}</td><td>${esc(a.action)}</td><td>${esc(a.item)}</td><td>${esc(a.user || '')}</td><td>${esc(a.result === 'done' ? '' : a.admin)}</td><td>${esc(a.tablet || '')}</td><td>${esc(a.result)}</td></tr>`).join('')}</tbody></table></div>`
           : '<p class="muted">No entries yet.</p>'}
       </section>`;
-    $('#changePinBtn').onclick = changePin; $('#changeTabletBtn').onclick = changeTablet;
+    $('#changePinBtn').onclick = changePin; $('#changeTabletBtn').onclick = changeTablet; wireCloudCard();
     $('#newUserBtn').onclick = () => manageUser('new');
     $$('[data-uact]').forEach(b => b.onclick = () => manageUser(b.dataset.uact, b.dataset.uid));
     $('#idleMin').onchange = async e => { const m = +e.target.value; await DB.put('settings', {key: 'session', idleMinutes: m}); await refreshIdle(); await audit('Auto-lock changed', `${m} minutes`, 'done'); toast(`Auto-lock after ${m} minutes`); };
@@ -562,6 +722,9 @@
   async function routeOnce() {
     if (!USER) return;   // login screen is showing
     await flushSave();
+    const nextHash = location.hash;
+    if (current.job && current.formKey && Cloud.isHeld(current.job.id, current.formKey) && !nextHash.endsWith(`/j/${encodeURIComponent(current.job.id)}/f/${current.formKey}`) && !nextHash.endsWith(`/j/${current.job.id}/f/${current.formKey}`))
+      Cloud.release(current.job.id, current.formKey);
     urls.forEach(u => URL.revokeObjectURL(u)); urls = [];
     const h = location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent);
     window.scrollTo(0, 0);
@@ -896,15 +1059,23 @@
     const form = FORM_BY_KEY[key];
     if (!form || !job.forms[key]) { location.hash = P.job(cid, jid); return; }
     current = {customer, job, formKey: key};
-    const st = job.forms[key], locked = st.status === 'completed';
+    let st = job.forms[key], inUse = null, offlineEdit = false;
+    if (st.status !== 'completed' && Cloud.enabled()) {
+      const lk = REMOTE_RERENDER && Cloud.isHeld(jid, key) ? {ok: true} : await Cloud.checkout(jid, key);
+      if (!lk.ok) inUse = lk.by; else offlineEdit = !!lk.offline;
+      const fresh = await DB.get('jobs', jid); if (fresh && fresh.forms[key]) { job.forms[key] = fresh.forms[key]; st = fresh.forms[key]; }   // newest copy after the pre-checkout sync
+    }
+    const completed = st.status === 'completed', locked = completed || !!inUse;
     bar([crumbHome, {label: customer.name, href: P.cust(cid)}, {label: `WO ${job.wo}`, href: P.job(cid, jid)}, {label: form.title}],
-      `<span class="save-ind" id="saveInd"></span><button class="btn ghost" id="exportBtn">${locked ? SHARE_FINAL : 'Export PDF'}</button>` +
-      (locked ? `<button class="btn warn" id="reopenBtn">Reopen</button>` : `<button class="btn accent" id="finalizeBtn">Finalize</button>`), {label: `WO ${job.wo}`, href: P.job(cid, jid)});
+      `<span class="save-ind" id="saveInd"></span><button class="btn ghost" id="exportBtn">${completed ? SHARE_FINAL : 'Export PDF'}</button>` +
+      (completed ? `<button class="btn warn" id="reopenBtn">Reopen</button>` : inUse ? `<button class="btn" id="lockRetryBtn">Check again</button>` : `<button class="btn accent" id="finalizeBtn">Finalize</button>`), {label: `WO ${job.wo}`, href: P.job(cid, jid)});
     view.innerHTML = `
       <div class="form-top">
         <div class="form-meta"><h1>${esc(form.docTitle)}</h1><div>${badge(st.status)} <span class="muted small">rev ${st.revision}</span> <span class="muted small" id="progTxt"></span></div></div>
         ${locked ? '' : `<div class="tablet-row"><label class="fld"><span>Tablet used for inspection</span><input id="tabletUsed" type="text" maxlength="60" autocomplete="off" value="${esc(st.tabletUsed ?? TABLET)}"></label></div>`}
-        ${locked ? `<div class="lockbar">🔒 Completed ${esc(fmtDate(st.completedAt))}, signed by <b>${esc(st.signedBy)}</b>${st.finalizedBy ? `, finalized by <b>${esc(st.finalizedBy)}</b>` : ''}${st.inspectedOn ? ` · Inspected on: <b>${esc(st.inspectedOn)}</b>` : ''}. This form is read-only. The final PDF is saved in the job's documents. Tap <b>Reopen</b> to start revision ${st.revision + 1}.</div>` : ''}
+        ${inUse ? `<div class="lockbar inuse" id="inUseBar">🔒 <b>In use on ${esc(inUse.name)}</b>${inUse.user ? ` by <b>${esc(inUse.user)}</b>` : ''}. Read-only here so nobody overwrites the other tablet's work. It opens for editing when they leave the form (or automatically after ${esc(new Date(inUse.until).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'}))} if that tablet went offline).</div>` : ''}
+        ${offlineEdit ? `<div class="infobar" id="offlineBar">Offline: your changes are saved on this tablet and sync when it is back online. The form can't be checked out while offline, so if someone edits it on another tablet at the same time, the first to sync wins and the other's changes go to the audit log.</div>` : ''}
+        ${completed ? `<div class="lockbar">🔒 Completed ${esc(fmtDate(st.completedAt))}, signed by <b>${esc(st.signedBy)}</b>${st.finalizedBy ? `, finalized by <b>${esc(st.finalizedBy)}</b>` : ''}${st.inspectedOn ? ` · Inspected on: <b>${esc(st.inspectedOn)}</b>` : ''}. This form is read-only. The final PDF is saved in the job's documents. Tap <b>Reopen</b> to start revision ${st.revision + 1}.</div>` : ''}
         ${st.history.length && !locked ? `<div class="infobar">Revision ${st.revision} (reopened). Earlier final PDFs are kept in the job's saved documents.</div>` : ''}
       </div>
       <nav class="chips">${form.sections.map(s => `<a href="#" data-jump="sec-${s.id}">${esc(/^[A-Z0-9]+\./.test(s.title) ? s.title.replace(/^([A-Z0-9]+)\.\s*/, '$1 · ') : s.title)}</a>`).join('')}<a href="#" data-jump="sec-photos-all">Photos</a></nav>
@@ -927,9 +1098,9 @@
         e.preventDefault(); toggleNA(job, key, na);
       });
       $('#finalizeBtn').onclick = () => finalize(job, key);
-    } else {
+    } else if (completed) {
       $('#reopenBtn').onclick = () => reopen(job, key);
-    }
+    } else $('#lockRetryBtn').onclick = () => renderForm(cid, jid, key);
     $('#exportBtn').onclick = () => exportForm(job, key);
     await fillPhotoPanels(job);
   }
@@ -1025,6 +1196,7 @@
       Object.assign(st, {status: 'completed', completedAt: now.getTime(), signedBy, inspectedOn, finalizedBy: userName(), tabletUsed: inspectedOn, snapshot: c});
       st.history.push({revision: st.revision, completedAt: now.getTime(), signedBy, inspectedOn, finalizedBy: userName(), docId: doc.id});
       await saveJob(job);
+      if (Cloud.enabled()) { await Cloud.release(job.id, key); Cloud.soon(100); }   // finalized: lock no longer needed (finalized forms are locked everywhere)
       await renderForm(job.customerId, job.id, key);
       await fileReady(blob, filename, `Completed – final PDF saved (rev ${doc.revision})`);
     } catch (e) { console.error(e); modal(`<h2>PDF failed</h2><p>${esc(e.message)}</p>`, [{label: 'Close', value: 'cancel'}]); }
@@ -1184,7 +1356,7 @@
         if (b.type === 'table') for (const r of b.rows) if (r.req) REQS[f.key].push({req: r.req, section: s.title});
       }
     }
-    window.RG = {FORMS, REQS, DB, Admin, Auth, Camera, toast, whoami: () => USER && {username: USER.username, role: USER.role, name: USER.displayName}};  // for debugging/tests
+    window.RG = {FORMS, REQS, DB, Admin, Auth, Camera, Cloud, toast, whoami: () => USER && {username: USER.username, role: USER.role, name: USER.displayName}};  // for debugging/tests
     /* Start-up decision. Any storage error shows an error screen – it is never treated as "no admin yet".
        Setup runs only when the device has no users, no legacy admin PIN, no customers and no jobs. */
     let h, migrated = null;
@@ -1201,6 +1373,9 @@
       }
     } catch (e) { console.error('storage', e); storageError(e); return; }
     window.RG.health = h; storageStatus(false);
+    await Cloud.init({tablet: () => TABLET, user: () => USER, audit: (a, i, r) => audit(a, i, r), onRemote});
+    Cloud.onStatus(renderCloudChip);
+    $('#cloudChip').onclick = async () => { if (isAdmin()) { location.hash = '#/settings'; return; } const r = await Cloud.sync('manual'); toast(r.error ? `Sync problem: ${r.error}` : 'Synced', 3500); };
     if (!h.users && !h.hadAccounts) await firstRunSetup();   // new device, or data from the first version (before accounts/admin PIN existed)
     else if (!h.users) {   // data but no accounts (should not happen): never re-run setup; offer restore of accounts from a backup
       const u = await showLogin('This device has job data but no user accounts, so setup will not run again. Restore a backup that includes the user accounts, then sign in.', '', true); await afterLogin(u, null);

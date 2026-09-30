@@ -80,7 +80,10 @@ const DB = (() => {
     const cur = {...META_DEFAULT, ...(await p(s.get('backup')) || {})}, next = {...cur, ...fn(cur), key: 'backup'};
     await p(s.put(next)); return next;
   });
-  const touch = store => DATA.has(store) ? updateMeta(() => ({lastChangeAt: Date.now()})) : null;
+  const touch = store => {
+    if (DATA.has(store) || store === 'audit') window.dispatchEvent(new CustomEvent('rg-local-change', {detail: {store}}));   // cloud sync picks it up
+    return DATA.has(store) ? updateMeta(() => ({lastChangeAt: Date.now()})) : null;
+  };
   const api = {
     async put(store, obj) { const r = await tx(store, 'readwrite', s => p(s.put(obj))); await touch(store); return r; },
     getMeta: async () => ({...META_DEFAULT, ...(await api.get('settings', 'backup') || {})}),

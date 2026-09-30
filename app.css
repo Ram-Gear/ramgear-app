@@ -286,3 +286,9 @@ body.locked .appbar,body.locked main,body.locked #toast{display:none}
 .store-line{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:10px}
 .store-error{background:#fdecea;border:1px solid #f3c2bd;border-radius:8px;padding:12px 14px;color:#5c1410}
 .store-error h2{color:var(--danger);margin-bottom:6px}
+/* cloud sync */
+.cloud-chip{flex:none;min-height:40px;border-radius:20px;border:1.5px solid rgba(255,255,255,.35);background:rgba(255,255,255,.1);color:#fff;font:600 14px/1 inherit;font-family:inherit;padding:0 12px;cursor:pointer;white-space:nowrap}
+.cloud-chip[hidden]{display:none}
+.cloud-chip.off{border-color:#f0c36d;color:#ffe2a8}
+.cloud-chip.bad{border-color:#ff9c94;color:#ffd0cb}
+.lockbar.inuse{background:#fff4e0;border-color:var(--warn);color:#4a2f00}
