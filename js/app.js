@@ -1283,6 +1283,24 @@
   /* ---------- backup / restore ---------- */
   const blobToDataURL = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
   const dataURLToBlob = async d => (await fetch(d)).blob();
+  /* Backup file name sorts by date and time and says which revision and tablet made it:
+     ramgear-backup-2026-09-30-0858-Rev1.3-ShopTablet1.json (local time, 24 h). Restore accepts any file name. */
+  function backupName(d = new Date()) {
+    const p = n => String(n).padStart(2, '0');
+    const tab = String(TABLET || '').normalize('NFKD').replace(/[^A-Za-z0-9._-]+/g, '').replace(/^[.-]+/, '').slice(0, 40);
+    return `ramgear-backup-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}-Rev${String(REV).replace(/[^A-Za-z0-9.]/g, '')}${tab ? '-' + tab : ''}.json`;
+  }
+  // "Save as…" (choose folder and name): Chrome/Edge File System Access API; other browsers use Download/Share
+  const CAN_SAVE_AS = typeof window.showSaveFilePicker === 'function';
+  async function saveAs(blob, name) {
+    try {
+      const h = await window.showSaveFilePicker({suggestedName: name, types: [{description: 'Ram-Gear backup (JSON)', accept: {'application/json': ['.json']}}]});
+      const w = await h.createWritable(); await w.write(blob); await w.close(); toast(`Saved ${h.name || name}`, 3000); return 'saved';
+    } catch (e) {
+      if (e.name === 'AbortError') { toast('Not saved'); return 'cancelled'; }
+      console.warn('save as failed, downloading', e); download(blob, name); return 'downloaded';
+    }
+  }
   async function backup() {
     toast('Preparing backup…', 5000);
     const customers = await DB.all('customers'), jobs = await DB.all('jobs'), photos = await DB.all('photos'), docs = await DB.all('docs');
@@ -1293,11 +1311,11 @@
       photos: await Promise.all(photos.map(async p => ({...p, blob: await blobToDataURL(p.blob), thumb: p.thumb ? await blobToDataURL(p.thumb) : null}))),
       docs: await Promise.all(docs.map(async d => ({...d, blob: await blobToDataURL(d.blob)})))};
     const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
-    const name = `ramgear-backup-${today()}.json`;
+    const name = backupName();
     refreshBackupInfo();
     const v = await modal(`<h2>Backup ready</h2><p>${customers.length} customers, ${jobs.length} jobs, ${photos.length} photos, ${docs.length} saved PDFs · ${(blob.size / 1048576).toFixed(1)} MB</p><p class="muted small">Save it to Files / Drive or send it to yourself. Restore it on any device with this app.</p>`,
-      [{label: 'Cancel', value: 'cancel'}, ...shareBtns()]);
-    if (v === 'share') shareOrDownload(blob, name); else if (v === 'dl') download(blob, name);
+      [{label: 'Cancel', value: 'cancel'}, ...(CAN_SAVE_AS ? [{label: 'Save as…', value: 'saveas'}] : []), ...shareBtns()]);
+    if (v === 'share') shareOrDownload(blob, name); else if (v === 'dl') download(blob, name); else if (v === 'saveas') saveAs(blob, name);
   }
   $('#fileRestore').addEventListener('change', async e => {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return;

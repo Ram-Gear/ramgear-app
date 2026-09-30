@@ -73,6 +73,10 @@ Forms always appear in this order: **Teardown Evaluation first, then Assembly Ve
 * If the camera can't be used (permission denied, no camera, camera busy, browser not supported, or the page isn't https), a message says why and offers **Use device camera / pick a file**, a file input with `capture=environment`. On Windows, camera access is under Settings › Privacy & security › Camera, plus the browser's site permissions.
 * **Choose from gallery** is always a normal file picker.
 
+## Backup files
+* Name: `ramgear-backup-<YYYY-MM-DD>-<HHMM>-Rev<rev>-<TabletID>.json` (local time, 24 h), so files sort in date order and show which revision and tablet made them. Restore accepts any name, including older `ramgear-backup-YYYY-MM-DD.json` files.
+* **Save as…** (Chrome/Edge): choose the folder and file name. Elsewhere use **Download** (or **Share** on tablets).
+
 ## Backup reminder
 
 * Every write to customers, jobs (including form edits and finalize), photos or saved PDFs stamps `lastChangeAt`. Generating a backup file stamps `lastBackupAt`. Both live in the IndexedDB `settings` store (key `backup`).
@@ -88,7 +92,7 @@ Forms always appear in this order: **Teardown Evaluation first, then Assembly Ve
 
 ## Revision number
 * `js/version.js` is the only place the revision is defined: `APP_REV` (e.g. `'1.0'`) and `APP_BUILD` (build date + sequence, e.g. `'2026-09-29.1'`).
-* It is shown as "Rev 1.1 (build …)" on the login screen, in the header (**Rev** button → About), and on the Admin screen. It is also stamped on the Completion record page of final PDFs, in `job-summary.txt` and in backups (`appRev`, `appBuild`).
+* It is shown as "Rev 1.3 (build …)" on the login screen, in the header (**Rev** button → About), and on the Admin screen. It is also stamped on the Completion record page of final PDFs, in `job-summary.txt` and in backups (`appRev`, `appBuild`).
 * `sw.js` loads `js/version.js` with `importScripts`, and the offline cache name is `rg-rev<APP_REV>-<APP_BUILD>`. The page registers the worker with `updateViaCache: 'none'`, so a change to `version.js` alone triggers the update.
 * **How to bump:**
   * For every deploy, increase `APP_BUILD`: today's date plus `.1`, `.2`, … for more deploys on the same day. This is required so tablets refresh their offline cache.

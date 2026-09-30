@@ -2,6 +2,12 @@
 
 The revision number lives in `js/version.js` (see README › *Revision number*).
 
+## Rev 1.3 – 2026-09-30 (build 2026-09-30.3)
+
+- Backup file names sort by date and time and show the revision and tablet: `ramgear-backup-2026-09-30-0858-Rev1.3-ShopTablet1.json` (local time, 24 h; the Tablet ID is reduced to letters, digits, `.`, `_` and `-`).
+- **Save as…** in the backup dialog lets you choose the folder and name (Chrome/Edge, where the browser supports it). Firefox and other browsers keep **Download** (and **Share** where available).
+- Restore accepts any backup file, including the old `ramgear-backup-YYYY-MM-DD.json` names. Cloud sync is unchanged.
+
 ## Rev 1.2 – 2026-09-30 (build 2026-09-30.2)
 
 **Cloud sync (Supabase), offline-first**
