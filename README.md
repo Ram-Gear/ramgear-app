@@ -5,6 +5,8 @@ Offline, on-device web app for Ram Gear gearbox shop forms:
 * **Teardown Evaluation** – `templates/gearbox-teardown-analysis.pdf` ("Ram Gear Gearbox Evaluation")
 * **Assembly Verification** – `templates/gearbox-assembly-checklist.pdf` ("Ram Gear Manufacturing Assembly Verification Data")
 
+> **Step-by-step help for users:** open **Help** in the app (top bar, sign-in screen or setup screen), or go to `https://ram-gear.github.io/ramgear-app/help.html`.
+
 > **Another shop that wants to use this app with its own data?** Read **[docs/SETUP-FOR-OTHER-SHOPS.md](docs/SETUP-FOR-OTHER-SHOPS.md)**. The hosted address `https://ram-gear.github.io/ramgear-app/` uses Ram-Gear's database and needs a Ram-Gear account.
 
 Offline-first: each tablet keeps everything in the browser's IndexedDB and works without internet. From Rev 1.2, tablets can also sync through the company cloud (Supabase: database, sign-in and a private file bucket). No analytics.
@@ -20,6 +22,7 @@ Offline-first: each tablet keeps everything in the browser's IndexedDB and works
 ## Files
 | Path | Purpose |
 |---|---|
+| `help.html` | Printable step-by-step Help page (linked from the top bar, sign-in and setup screens; cached for offline) |
 | `index.html`, `app.css` | Shell + styles (ram-gear.com palette: charcoal #2C2C2E header, teal #2E7386 primary, #4396AC accent) |
 | `js/app.js` | UI: home/job/form screens, autosave, photos, finalize/reopen, backup/restore |
 | `js/version.js` | **Single source of truth for the revision** (`APP_REV`, `APP_BUILD`); also sets the service-worker cache name |

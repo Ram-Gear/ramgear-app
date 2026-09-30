@@ -74,6 +74,13 @@
     f.innerHTML = `<div class="dlg-body">${html}</div><div class="dlg-actions">${buttons.map(b =>
       `<button value="${esc(b.value)}" class="btn ${b.cls || ''}" ${b.value === 'cancel' || b.novalidate ? 'formnovalidate' : ''}>${esc(b.label)}</button>`).join('')}</div>`;
     dlg.className = [opts.wide ? 'wide' : '', opts.cls || ''].join(' ').trim();
+    // Enter in a text field activates the dialog's main button (browsers would otherwise pick the FIRST button, usually Cancel)
+    f.onkeydown = ev => {
+      if (ev.key !== 'Enter' || ev.isComposing || ev.shiftKey || ev.altKey || ev.ctrlKey || ev.metaKey) return;
+      const t = ev.target; if (!t.matches || !t.matches('input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=button]):not([type=submit]),select')) return;
+      const btns = [...f.querySelectorAll('.dlg-actions button')], def = btns.find(b => /\b(primary|danger)\b/.test(b.className)) || btns.filter(b => b.value !== 'cancel').pop();
+      ev.preventDefault(); if (def && !def.disabled) def.click();
+    };
     dlg.oncancel = opts.mandatory ? ev => ev.preventDefault() : null;
     dlg.onkeydown = opts.mandatory ? ev => { if (ev.key === 'Escape') ev.preventDefault(); } : null;
     return new Promise(res => {
@@ -217,7 +224,7 @@
     let err = '', prev = {name: '', tablet: TABLET};
     for (;;) {
       const sn = await storageStatus(false);
-      const choice = await modal(`<h2>Create the first Admin account</h2>${storageNotice(sn, true)}${Cloud.configured ? `<p class="infobar">Additional tablet? Tap <b>Connect to company cloud</b> and sign in with your existing username and password/PIN – accounts and jobs are downloaded.</p>` : ''}<p class="muted">This tablet has no user accounts yet. The first account is an <b>Admin</b>: it signs in, manages users (Admin screen › Users) and approves deleting, reopening and restoring. There is no self sign-up. Passwords/PINs are stored only as salted hashes on this device and cannot be recovered.</p>
+      const choice = await modal(`<h2>Create the first Admin account</h2>${storageNotice(sn, true)}${Cloud.configured ? `<p class="infobar">Additional tablet? Tap <b>Connect to company cloud</b> and sign in with your existing username and password/PIN – accounts and jobs are downloaded.</p>` : ''}<p class="small"><a href="help.html" target="_blank" rel="noopener" id="setupHelp">Help &amp; setup guide</a></p><p class="muted">This tablet has no user accounts yet. The first account is an <b>Admin</b>: it signs in, manages users (Admin screen › Users) and approves deleting, reopening and restoring. There is no self sign-up. Passwords/PINs are stored only as salted hashes on this device and cannot be recovered.</p>
         <label class="fld"><span>Admin name (also the username)</span><input name="aname" required autocomplete="off" value="${esc(prev.name)}"></label>
         ${!TABLET ? tabletInput(prev.tablet) : ''}
         <div class="grid2">${secretInput('pin1', 'Password or PIN', 'new-password')}${secretInput('pin2', 'Enter it again', 'new-password')}</div>

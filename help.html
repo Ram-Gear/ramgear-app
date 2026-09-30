@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Help – Industrial Gearbox Data – Ram-Gear Manufacturing Incorporated</title>
+<meta name="theme-color" content="#2C2C2E">
+<link rel="icon" href="icons/favicon-64.png" type="image/png">
+<style>
+/* ram-gear.com colours (see app.css) */
+:root{--header:#2C2C2E;--accent:#4396AC;--primary:#2E7386;--steel:#3E555C;--light:#F3F5F6;--border:#D5D8DB;--bg:#E8EAED;--text:#2C2C2E;--link-dark:#9FD3E1;--warn:#b86e00}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:17px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header{background:var(--header);color:#fff;border-bottom:4px solid var(--accent);padding:14px 20px}
+header .row{max-width:900px;margin:0 auto;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+header img{height:44px;background:#fff;border-radius:6px;padding:3px}
+header h1{font-size:22px;margin:0;line-height:1.2}
+header .sub{color:var(--link-dark);font-size:15px}
+header .actions{margin-left:auto;display:flex;gap:8px}
+.btn{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:10px;border:1.5px solid rgba(255,255,255,.45);color:#fff;background:transparent;font:600 16px inherit;font-family:inherit;text-decoration:none;cursor:pointer}
+.btn.primary{background:var(--primary);border-color:var(--primary)}
+main{max-width:900px;margin:0 auto;padding:18px 16px 60px}
+.card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:18px 22px;margin:0 0 18px}
+h2{color:var(--primary);font-size:22px;margin:0 0 10px;scroll-margin-top:12px}
+h2 .num{display:inline-block;min-width:34px;height:34px;border-radius:17px;background:var(--primary);color:#fff;text-align:center;line-height:34px;font-size:18px;margin-right:8px}
+h3{font-size:18px;color:var(--steel);margin:18px 0 6px}
+a{color:var(--primary)}
+.toc ol{margin:0;padding-left:22px;columns:2;column-gap:30px}
+.toc li{margin:4px 0;break-inside:avoid}
+ol.steps{list-style:none;counter-reset:step;padding:0;margin:8px 0 4px}
+ol.steps>li{counter-increment:step;position:relative;padding:8px 0 8px 92px;border-top:1px solid var(--light);min-height:40px}
+ol.steps>li:first-child{border-top:0}
+ol.steps>li::before{content:"Step " counter(step);position:absolute;left:0;top:8px;width:78px;background:var(--light);border:1px solid var(--border);color:var(--primary);font-weight:700;border-radius:8px;text-align:center;padding:2px 0;font-size:15px}
+.note{background:var(--light);border-left:4px solid var(--accent);padding:10px 14px;border-radius:6px;margin:10px 0}
+.warn{background:#fff4e0;border-left:4px solid var(--warn);padding:10px 14px;border-radius:6px;margin:10px 0}
+code,kbd{background:var(--light);border:1px solid var(--border);border-radius:5px;padding:1px 5px;font-size:15px;word-break:break-all}
+table{border-collapse:collapse;width:100%;margin:8px 0}
+th,td{border:1px solid var(--border);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--header);color:#fff;font-size:15px}
+td:first-child{white-space:nowrap;font-weight:600}
+ul.need li{margin:4px 0}
+footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
+@media (max-width:640px){
+  table,tbody,tr,th,td{display:block;width:auto} table tr:first-child{display:none}
+  table tr{border:1px solid var(--border);border-radius:8px;margin:0 0 10px;padding:8px 10px} td{border:0;padding:3px 0} td:first-child{white-space:normal}
+  td:nth-child(2)::before{content:"Meaning: ";font-weight:600} td:nth-child(3)::before{content:"What to do: ";font-weight:600}
+}
+@media (max-width:640px){.toc ol{columns:1}ol.steps>li{padding-left:0;padding-top:34px}ol.steps>li::before{top:6px}header .actions{margin-left:0}}
+@media print{
+  body{background:#fff;font-size:12pt}
+  header{background:#fff;color:#000;border-bottom:3px solid var(--accent)}
+  header .sub{color:var(--steel)} header .actions{display:none}
+  .card{border:none;padding:0 0 10px;page-break-inside:auto}
+  h2{page-break-after:avoid} ol.steps>li{page-break-inside:avoid}
+  a{color:#000;text-decoration:none} a[href^="http"]::after{content:" (" attr(href) ")";font-size:10pt;color:#444}
+  th{background:#eee;color:#000}
+}
+</style>
+<script src="js/version.js"></script>
+</head>
+<body>
+<header><div class="row">
+  <img src="img/ramgear-logo.jpg" alt="Ram-Gear Manufacturing Inc logo">
+  <div><h1>Industrial Gearbox Data – Help</h1><div class="sub">Ram-Gear Manufacturing Incorporated · <span id="rev">Rev</span></div></div>
+  <div class="actions"><button class="btn" type="button" onclick="window.print()">Print</button><a class="btn primary" href="./">Open the app</a></div>
+</div></header>
+<main>
+<section class="card toc" aria-label="Contents">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#before">Before you start</a></li>
+    <li><a href="#first">Set up the first tablet (Admin)</a></li>
+    <li><a href="#more">Add more tablets or a Windows PC</a></li>
+    <li><a href="#firefox">Firefox settings</a></li>
+    <li><a href="#daily">Daily use &amp; sync status</a></li>
+    <li><a href="#backup">Backups &amp; restore</a></li>
+    <li><a href="#cleared">If browser data is cleared</a></li>
+    <li><a href="#othershop">Setting up for another shop</a></li>
+  </ol>
+</section>
+
+<section class="card" id="before">
+  <h2><span class="num">1</span>Before you start</h2>
+  <p>You need:</p>
+  <ul class="need">
+    <li>The app address: <a href="https://ram-gear.github.io/ramgear-app/">https://ram-gear.github.io/ramgear-app/</a></li>
+    <li>A tablet or Windows PC with <b>Chrome</b>, <b>Edge</b> or <b>Firefox</b>. Chrome or Edge is recommended because the app can be installed like a normal program.</li>
+    <li>Internet for the first setup. After that the app also works offline.</li>
+    <li>Your <b>username</b> and <b>password or PIN</b>. Your Admin gives you these in person; there is no self sign-up.</li>
+    <li>A <b>Tablet ID</b> for the device, which is simply its name, for example <code>Shop Tablet 2</code> or <code>Office PC</code>. It is printed on every job and finalized form.</li>
+    <li>First tablet only: the one-time <b>setup code</b>. You get it from the Ram-Gear Admin; it is not written anywhere in the app or this page.</li>
+  </ul>
+</section>
+
+<section class="card" id="first">
+  <h2><span class="num">2</span>Set up the first tablet (Admin)</h2>
+  <p>Do this once, on the Admin's tablet, which is usually the one that already has the shop's jobs on it.</p>
+  <ol class="steps">
+    <li>Open <a href="https://ram-gear.github.io/ramgear-app/">https://ram-gear.github.io/ramgear-app/</a> in Chrome or Edge.</li>
+    <li>Install the app. Chrome: click the install icon at the right end of the address bar, then <b>Install</b>. Edge: menu <b>…</b> › <b>Apps</b> › <b>Install this site as an app</b>.</li>
+    <li>Sign in with your Admin username and password/PIN. On a brand-new device, fill in <b>Create the first Admin account</b> instead: your name, the Tablet ID and a password/PIN.</li>
+    <li>Tap <b>Admin</b> in the top bar.</li>
+    <li>Find the <b>Cloud sync</b> box and tap <b>Connect this tablet to the cloud</b>.</li>
+    <li>Type the <b>setup code</b> you received from the Ram-Gear Admin.</li>
+    <li>Type <b>your own</b> password or PIN and tap <b>Connect</b>.</li>
+    <li>Wait until the Cloud sync box shows <b>On</b>. Everything on this tablet (users, customers, jobs, photos, final PDFs) is now uploaded.</li>
+    <li>Under <b>Users</b>, tap <b>+ New user</b> for each person who needs access. Give them their username and password/PIN in person.</li>
+  </ol>
+  <div class="note">The setup code works only once. After the first tablet is connected, all other devices sign in with a normal username and password/PIN.</div>
+</section>
+
+<section class="card" id="more">
+  <h2><span class="num">3</span>Add more tablets or a Windows PC</h2>
+  <ol class="steps">
+    <li>Open <a href="https://ram-gear.github.io/ramgear-app/">https://ram-gear.github.io/ramgear-app/</a> in Chrome or Edge. If you use Firefox, first do <a href="#firefox">section 4</a>.</li>
+    <li>Install the app (Chrome: install icon in the address bar; Edge: <b>…</b> › <b>Apps</b> › <b>Install this site as an app</b>).</li>
+    <li>On the <b>Create the first Admin account</b> screen, tap <b>Connect to company cloud</b>. Do <b>not</b> create a new admin.</li>
+    <li>Type your username.</li>
+    <li>Type your password or PIN.</li>
+    <li>Type a Tablet ID for this device, for example <code>Shop Tablet 3</code> or <code>Office PC</code>.</li>
+    <li>Tap <b>Connect</b> and wait while the company data downloads.</li>
+    <li>Check that the cloud status in the top bar shows <b>☁ Synced</b> and a time.</li>
+  </ol>
+  <div class="note">Other people can sign in on this device with their own username and PIN. Accounts are the same on every tablet.</div>
+</section>
+
+<section class="card" id="firefox">
+  <h2><span class="num">4</span>Firefox settings</h2>
+  <p>Only needed on devices that use Firefox. Without these settings, Firefox may delete the app's data every time it closes, and the app then asks for setup again.</p>
+  <ol class="steps">
+    <li>Open the Firefox menu <b>☰</b> › <b>Settings</b>.</li>
+    <li>Click <b>Privacy &amp; Security</b>.</li>
+    <li>Under <b>Cookies and Site Data</b>, click <b>Manage Exceptions…</b>.</li>
+    <li>Type <code>https://ram-gear.github.io</code> in the address box.</li>
+    <li>Click <b>Allow</b>. Use Allow, not "Allow for Session".</li>
+    <li>Click <b>Save Changes</b>.</li>
+    <li>Scroll to <b>History</b> and make sure <b>Firefox will</b> is set to <b>Remember history</b>, not "Never remember history". Don't use a Private Window for the app.</li>
+    <li>Click <b>General</b>, scroll to <b>Files and Applications</b> › <b>Downloads</b>, and select <b>Always ask you where to save files</b>. Firefox then asks where to put backups and PDFs.</li>
+    <li>Close Firefox, open it again and open the app. You should see the <b>sign-in</b> screen, not setup.</li>
+  </ol>
+</section>
+
+<section class="card" id="daily">
+  <h2><span class="num">5</span>Daily use &amp; sync status</h2>
+  <ol class="steps">
+    <li>Open the app from its icon.</li>
+    <li>Sign in with your username and password/PIN.</li>
+    <li>Check the cloud status in the top bar (see the table below).</li>
+    <li>Open the customer, the job and then the form you work on.</li>
+    <li>If the form says <b>In use on …</b>, someone else has it open. Wait, or ask them to leave the form, then tap <b>Check again</b>.</li>
+    <li>When you are done with a form, leave it with the back button so others can edit it.</li>
+    <li>Tap <b>Log out</b> when you walk away from the device. It also locks by itself after a few minutes without use.</li>
+  </ol>
+  <h3>What the cloud status means</h3>
+  <table>
+    <tr><th>Shows</th><th>Meaning</th><th>What to do</th></tr>
+    <tr><td>☁ Synced 9:15 AM</td><td>Everything is up to date with the cloud as of that time.</td><td>Nothing.</td></tr>
+    <tr><td>☁ Syncing…</td><td>Sending or receiving changes right now.</td><td>Keep working; it finishes by itself.</td></tr>
+    <tr><td>☁ 3 to sync</td><td>Online, with 3 changes about to be sent.</td><td>Nothing. It usually clears within seconds.</td></tr>
+    <tr><td>☁ Offline · 3 changes waiting</td><td>No internet. Your work is saved on this device and is sent when the connection is back.</td><td>Keep working. Reconnect Wi-Fi when you can, and don't clear the browser's data while changes are waiting.</td></tr>
+    <tr><td>☁ Sync problem</td><td>The cloud refused a change or couldn't be reached.</td><td>Check the internet, then tap the status (Admins: Admin › Cloud sync › <b>Sync now</b>). If it stays, log out and sign in again, and tell the Admin what the message says.</td></tr>
+    <tr><td>In use on Shop Tablet 2</td><td>That form is open on another device, so it is read-only here and updates live.</td><td>Wait until they leave the form. A lock on a device that went offline expires after 30 minutes.</td></tr>
+  </table>
+</section>
+
+<section class="card" id="backup">
+  <h2><span class="num">6</span>Backups &amp; restore</h2>
+  <p>The cloud keeps a copy of everything, but a backup file is still your safety net.</p>
+  <h3>Make a backup</h3>
+  <ol class="steps">
+    <li>Tap <b>Backup</b> in the top bar of the home screen, or go to <b>Admin</b> › <b>Backup all data</b>.</li>
+    <li>In Chrome or Edge, tap <b>Save as…</b> and choose a folder, for example a USB drive or a OneDrive folder. Otherwise, tap <b>Download</b> (the file goes to the <b>Downloads</b> folder; Firefox asks where if you did step 8 of section 4) or <b>Share</b> on a tablet (Drive, Files, e-mail).</li>
+    <li>Keep the suggested file name. It looks like <code>ramgear-backup-2026-09-30-0858-Rev1.4-ShopTablet1.json</code>: date, time (24 h), app revision and Tablet ID, so the files sort in date order.</li>
+    <li>Keep a copy somewhere other than the tablet.</li>
+  </ol>
+  <h3>Restore a backup</h3>
+  <div class="warn"><b>Careful when cloud sync is on:</b> restored jobs are sent to the cloud and can replace <b>newer</b> changes made on other tablets for the same jobs. Finalized forms stay locked. Restore only when data is really lost, on one device, after talking to the Admin. If a device only lost its own copy, use <a href="#cleared">section 7</a> instead.</div>
+  <ol class="steps">
+    <li>Sign in as an Admin and tap <b>Admin</b>.</li>
+    <li>Tap <b>Restore from backup</b>.</li>
+    <li>Choose the backup file. Older names like <code>ramgear-backup-2026-09-29.json</code> also work.</li>
+    <li>Read the summary (customers, jobs, photos, PDFs) and tap <b>Restore</b>.</li>
+    <li>Approve with the Admin password/PIN.</li>
+    <li>Wait until the cloud status shows <b>☁ Synced</b>.</li>
+  </ol>
+</section>
+
+<section class="card" id="cleared">
+  <h2><span class="num">7</span>If browser data is cleared</h2>
+  <p>The app keeps its data in the browser. If that data is deleted (by "clear browsing data", a privacy setting, or a Private/Incognito window), the app opens with <b>Create the first Admin account</b> as if it were new. With cloud sync, everything that was synced is still safe in the cloud.</p>
+  <ol class="steps">
+    <li>Do <b>not</b> create a new admin account.</li>
+    <li>Tap <b>Connect to company cloud</b>.</li>
+    <li>Type your username and password/PIN.</li>
+    <li>Type the same Tablet ID the device had before.</li>
+    <li>Tap <b>Connect</b> and wait for the download.</li>
+    <li>Fix the browser setting so it doesn't happen again: in Firefox follow <a href="#firefox">section 4</a>. In Chrome or Edge, don't clear site data on exit and don't use Incognito/InPrivate.</li>
+  </ol>
+  <div class="warn">Changes that were still <b>waiting</b> (the device was offline) when the data was cleared are lost. Without cloud sync, restore the newest backup file instead (<a href="#backup">section 6</a>).</div>
+</section>
+
+<section class="card" id="othershop">
+  <h2><span class="num">8</span>Setting up for another shop</h2>
+  <p>This address, <code>https://ram-gear.github.io/ramgear-app/</code>, uses <b>Ram-Gear's</b> database and needs a Ram-Gear account. Another shop that wants the app with <b>its own data</b> makes its own copy:</p>
+  <ol class="steps">
+    <li>Fork the app on GitHub and turn on GitHub Pages. This gives the shop its own web address.</li>
+    <li>Create a Supabase project for the shop and run the included SQL setup, which creates the tables, security rules and a private file bucket.</li>
+    <li>Turn off public sign-ups and install the included user-admin function with the shop's own setup code.</li>
+    <li>Put the project URL and publishable key in the one config file, <code>js/config.js</code>.</li>
+    <li>Change the logo, name, address, background photo and colours.</li>
+    <li>Create the first Admin, connect it to the cloud and name the tablets, as in sections 2 and 3.</li>
+  </ol>
+  <p>Full instructions: <a href="https://github.com/Ram-Gear/ramgear-app/blob/main/docs/SETUP-FOR-OTHER-SHOPS.md">docs/SETUP-FOR-OTHER-SHOPS.md on GitHub</a>.</p>
+</section>
+<footer>Ram-Gear Manufacturing Incorporated · 6150 E Hwy 44, Alice, TX 78332 · <span id="rev2"></span></footer>
+</main>
+<script>
+  const r = self.APP_REV_LABEL || '';
+  document.getElementById('rev').textContent = r; document.getElementById('rev2').textContent = 'App ' + r;
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js', {updateViaCache: 'none'}).catch(() => {});
+</script>
+</body>
+</html>

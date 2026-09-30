@@ -2,6 +2,16 @@
 
 The revision number lives in `js/version.js` (see README › *Revision number*).
 
+## Rev 1.4 – 2026-09-30 (build 2026-09-30.4)
+
+- New **Help** page (`help.html`) with a table of contents and numbered step-by-step instructions: before you start, set up the first tablet, add more tablets or a PC, Firefox settings, daily use and sync status, backups and restore, if browser data is cleared, and setting up for another shop.
+- Open it from **Help** in the top bar (every user), **Help & setup guide** on the sign-in screen, or the link on the first-run setup screen. It opens in a new tab, shows the app revision, prints cleanly and works offline once the app has loaded once.
+- Keyboard: pressing **Enter** in a dialog field now presses the dialog's main button (Create, Save, Approve…). Before, browsers pressed the first button, which was usually **Cancel**, or **Connect to company cloud** on the first-run screen. Enter on the sign-in screen signs in.
+- Layout checked on laptop/desktop (1366×768, 1920×1080), tablet portrait/landscape (768×1024, 1280×800) and phone (390×844) in Chrome and Firefox. Content stays capped at 1100 px on wide screens.
+  - On phones the top bar scrolls away instead of staying pinned (it took about a third of the screen), and its buttons are more compact.
+  - The Help page's status table turns into cards on phones instead of running off the side.
+- The "Saving… / Saved 9:44 AM" text in the form's top bar has a fixed width, so the buttons no longer shift while you click (in Firefox a click on **Finalize** could be lost).
+
 ## Rev 1.3 – 2026-09-30 (build 2026-09-30.3)
 
 - Backup file names sort by date and time and show the revision and tablet: `ramgear-backup-2026-09-30-0858-Rev1.3-ShopTablet1.json` (local time, 24 h; the Tablet ID is reduced to letters, digits, `.`, `_` and `-`).

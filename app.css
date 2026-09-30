@@ -23,7 +23,7 @@ h1{font-size:24px;margin:0 0 4px;color:var(--navy)} h2{font-size:20px;margin:0;c
 .appbar-title{flex:1 1 180px;min-width:0;font-size:clamp(15px,1.9vw,19px);font-weight:600;line-height:1.15;white-space:normal;overflow-wrap:anywhere}
 .brand{font-weight:800;letter-spacing:.3px} .sep{opacity:.6;margin:0 4px}
 .appbar-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
-.save-ind{font-size:13px;opacity:.85;margin-right:6px;white-space:nowrap}
+.save-ind{font-size:13px;opacity:.85;margin-right:6px;white-space:nowrap;display:inline-block;min-width:118px;text-align:right}
 /* buttons */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:var(--tap);padding:0 18px;border-radius:var(--radius);border:1.5px solid var(--navy);background:#fff;color:var(--navy);font-family:inherit;font-weight:600;font-size:16px;line-height:1;text-decoration:none;cursor:pointer;white-space:nowrap;user-select:none;-webkit-user-select:none}
 .btn:active{transform:translateY(1px)}
@@ -292,3 +292,18 @@ body.locked .appbar,body.locked main,body.locked #toast{display:none}
 .cloud-chip.off{border-color:#f0c36d;color:#ffe2a8}
 .cloud-chip.bad{border-color:#ff9c94;color:#ffd0cb}
 .lockbar.inuse{background:#fff4e0;border-color:var(--warn);color:#4a2f00}
+.help-link{flex:none;display:inline-flex;align-items:center;min-height:40px;padding:0 12px;border-radius:20px;border:1.5px solid rgba(255,255,255,.35);color:var(--link-on-dark);font-weight:600;font-size:15px;text-decoration:none}
+.help-link:hover{background:rgba(255,255,255,.1)}
+.login-foot a{color:var(--navy);font-weight:600}
+/* ---------- Rev 1.4 layout: phones and small windows ---------- */
+/* Phones: the header wraps to several rows, so it scrolls away instead of covering a third of the screen;
+   the form's section chips then stick to the very top. */
+@media (max-width:600px){
+  .appbar{position:relative;gap:6px;padding:calc(6px + var(--safe-top)) 10px 6px}
+  .appbar .brand{font-size:15px}
+  .appbar .btn,.appbar .help-link,.cloud-chip{min-height:40px;padding:0 10px;font-size:14px}
+  .appbar-back{min-height:44px}
+  .chips{top:0}
+  .sec{scroll-margin-top:64px}
+  .card{padding:14px}
+}
