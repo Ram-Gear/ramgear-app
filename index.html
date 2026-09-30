@@ -36,6 +36,7 @@
     <label class="fld"><span>Password or PIN</span><input name="secret" id="loginSecret" type="password" autocomplete="current-password" required></label>
     <p class="pin-error" id="loginErr" role="alert" hidden></p>
     <button class="btn primary big" id="loginBtn" type="submit">Sign in</button>
+    <button class="btn" id="loginRestoreBtn" type="button" hidden>Restore accounts from a backup</button>
     <p class="login-foot">Accounts are managed by your Admin on this tablet. Works offline.</p>
     <p class="login-rev" id="loginRev"></p>
   </form>
@@ -58,6 +59,13 @@
 <script>
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js', {updateViaCache: 'none'}).catch(e => console.warn('SW', e)));
+  // A new app version took over (update): reload right away if nobody is signed in (login screen), otherwise offer it.
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || window.__rgReloading) return;
+    if (document.body.classList.contains('locked') && !document.querySelector('#dlg[open]')) { window.__rgReloading = true; location.reload(); }
+    else if (window.RG && RG.toast) RG.toast('App updated – it will use the new version next time it is opened (or reload now).', 6000);
+  });
 }
 </script>
 </body>

@@ -1,4 +1,4 @@
-/* IndexedDB storage (v3): customers > jobs; settings (admin PIN hash) and audit log; photos (blobs) and docs (saved final PDFs) keyed by job. All on-device. */
+/* IndexedDB storage (v4): customers > jobs; settings (admin PIN hash) and audit log; photos (blobs) and docs (saved final PDFs) keyed by job. All on-device. */
 const DB = (() => {
   const NAME = 'ramgear', VER = 4;
   let dbp = null;
@@ -26,11 +26,30 @@ const DB = (() => {
           };
         }
       };
-      r.onsuccess = () => res(r.result);
-      r.onerror = () => rej(r.error);
-      r.onblocked = () => console.warn('DB upgrade blocked by another open tab');
+      r.onsuccess = () => {
+        const db = r.result;
+        // A newer version of the app (another tab, or after an update) wants to upgrade: release the connection so it is not blocked.
+        db.onversionchange = () => { db.close(); dbp = null; window.dispatchEvent(new CustomEvent('rg-db-versionchange')); };
+        res(db);
+      };
+      r.onerror = () => { dbp = null; rej(r.error || new Error('IndexedDB open failed')); };
+      r.onblocked = () => { console.warn('DB upgrade blocked by another open tab'); window.dispatchEvent(new CustomEvent('rg-db-blocked')); };
     });
     return dbp;
+  }
+  /* One read-only look at what is stored, used at start-up. Throws on any storage error (never treated as "empty"). */
+  async function health() {
+    const db = await open(), stores = ['users', 'customers', 'jobs', 'settings'];
+    for (const st of stores) if (!db.objectStoreNames.contains(st)) throw new Error(`Storage is missing the "${st}" store`);
+    return new Promise((res, rej) => {
+      const t = db.transaction(stores, 'readonly'), out = {};
+      for (const st of ['users', 'customers', 'jobs']) { const q = t.objectStore(st).count(); q.onsuccess = () => { out[st] = q.result; }; }
+      const a = t.objectStore('settings').get('admin'); a.onsuccess = () => { out.legacyAdmin = !!(a.result && a.result.hash); };
+      const m = t.objectStore('settings').get('accounts'); m.onsuccess = () => { if (m.result) out.hadAccounts = true; };
+      // jobs made by Rev 1.0+ carry a createdBy stamp, so accounts existed on this device even without the marker
+      const c = t.objectStore('jobs').openCursor(); c.onsuccess = () => { const cur = c.result; out.hadAccounts = out.hadAccounts || false; if (!cur) return; if (cur.value.createdBy) out.hadAccounts = true; else cur.continue(); };
+      t.oncomplete = () => res(out); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error('Storage read aborted'));
+    });
   }
   function unassigned() {
     return {id: 'unassigned', name: 'Unassigned', contact: '', phone: '', email: '', address: '',
@@ -87,7 +106,7 @@ const DB = (() => {
       for (const j of await api.byCustomer(customerId)) await api.deleteJob(j.id);
       await api.del('customers', customerId);
     },
-    migrateJob, unassigned,
+    migrateJob, unassigned, health,
     uid: () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
   };
   return api;

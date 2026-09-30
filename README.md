@@ -78,11 +78,20 @@ Forms always appear in this order: **Teardown Evaluation first, then Assembly Ve
 
 ## Revision number
 * `js/version.js` is the only place the revision is defined: `APP_REV` (e.g. `'1.0'`) and `APP_BUILD` (build date + sequence, e.g. `'2026-09-29.1'`).
-* It is shown as "Rev 1.0 (build …)" on the login screen, in the header (**Rev** button → About), and on the Admin screen. It is also stamped on the Completion record page of final PDFs, in `job-summary.txt` and in backups (`appRev`, `appBuild`).
+* It is shown as "Rev 1.1 (build …)" on the login screen, in the header (**Rev** button → About), and on the Admin screen. It is also stamped on the Completion record page of final PDFs, in `job-summary.txt` and in backups (`appRev`, `appBuild`).
 * `sw.js` loads `js/version.js` with `importScripts`, and the offline cache name is `rg-rev<APP_REV>-<APP_BUILD>`. The page registers the worker with `updateViaCache: 'none'`, so a change to `version.js` alone triggers the update.
 * **How to bump:**
   * For every deploy, increase `APP_BUILD`: today's date plus `.1`, `.2`, … for more deploys on the same day. This is required so tablets refresh their offline cache.
   * For a release, also raise `APP_REV` (`1.0` → `1.1` for features and fixes, `2.0` for big changes) and add a section to `CHANGELOG.md`.
+
+## Keeping data on the device (Firefox, Chrome, Edge)
+Everything is stored in the browser's IndexedDB for `https://ram-gear.github.io`. If the browser deletes site data when it closes, the accounts and jobs are gone and the app shows first-run setup again. The setup screen then says so and shows these steps:
+* **Firefox:** Settings › Privacy & Security › Cookies and Site Data. Either turn off **Delete cookies and site data when Firefox is closed**, or use **Manage Exceptions…** › `https://ram-gear.github.io` › **Allow** (not "Allow for Session") › Save Changes. History must not be "Never remember history", and don't use a Private Window.
+* **Chrome:** Settings › Privacy and security › Site settings › Additional content settings › On-device site data. Choose "Allow sites to save data on your device", or add the site under "Allowed to save data". Don't use Incognito.
+* **Edge:** Settings › Cookies and site permissions › Manage and delete cookies and site data. Turn off "Clear cookies and site data when you close all windows", or add the site under Allow. Don't use InPrivate.
+* The app requests persistent storage (`navigator.storage.persist()`), which protects against automatic cleanup when the disk is low. It does **not** override the "delete on close" settings above. The Admin screen shows the status, and home shows a warning while storage is not persistent.
+* Setup never runs when the device already has accounts or jobs. A storage read error shows an error screen with **Try again**, not setup.
+* Keep taking backups (Admin › Backup all data). A backup is the only way to recover after the browser wipes the data.
 
 ## Sign-in and user accounts (per device)
 * The app opens to a Ram-Gear login screen: the logo, "Ram-Gear Manufacturing Incorporated", 6150 E Hwy 44, Alice, TX 78332 (as published on ram-gear.com), username, and password or PIN. It works offline because everything is local and cached.

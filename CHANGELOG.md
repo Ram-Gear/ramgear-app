@@ -2,6 +2,22 @@
 
 The revision number lives in `js/version.js` (see README › *Revision number*).
 
+## Rev 1.1 – 2026-09-30 (build 2026-09-30.1)
+
+**Fixed: "every time I open the app it asks me to create a new admin" (Firefox)**
+- Cause: the app's login, user and database code was working. Accounts and jobs survived full browser restarts in Chrome, Edge (Chromium) and Firefox with normal settings. But when Firefox is set to **"Delete cookies and site data when Firefox is closed"** or **"Never remember history"** (or a private window is used), Firefox erases the app's IndexedDB data every time it closes. The app then found an empty device and silently showed first-run setup again.
+- The setup screen now says *"Seeing this setup screen again?"*, explains that the browser deleted the data, and gives the exact steps for the browser in use. Firefox: Settings › Privacy & Security › Cookies and Site Data › turn off "Delete cookies and site data when Firefox is closed", or Manage Exceptions… › add `https://ram-gear.github.io` › **Allow**. Chrome/Edge have equivalent steps.
+- The app asks the browser for persistent storage (`navigator.storage.persist()`) when the first admin is created, and from a **Keep data on this device** button. A home-screen warning appears while storage is not persistent, and the Admin screen shows the storage status with a **Request persistent storage** button.
+- Setup now only runs on a device that has never had accounts. It never runs when user accounts, a legacy admin PIN, or Rev 1.0+ jobs exist. If jobs exist but the accounts are gone, the login screen offers **Restore accounts from a backup** instead.
+- A storage read error (IndexedDB can't be opened, e.g. blocked by a privacy mode or another tab) now shows "Can't open this app's storage" with a **Try again** button, never the setup screen. Database upgrades close the old connection in other tabs (`onversionchange`) so they cannot get stuck.
+- A newly downloaded version takes over automatically on the login screen (service worker `controllerchange`).
+
+**Firefox / Chrome / Edge**
+- The whole e2e suite runs in Playwright Chromium and Playwright Firefox with persistent profiles. It covers the main flow, login/admin, camera (fake media), PDF export, zip, backup/restore, the backup reminder, restarts, upgrades and clear-on-close.
+- Browsers that can't share files (desktop Firefox) show **Download** instead of **Share** ("Download final PDF"). Sharing still falls back to a download elsewhere.
+- Login screen: the cursor no longer jumps to the other field while the user is typing. In Firefox this could put the PIN into the username box.
+- Screen changes run one at a time, so a quick tap while the Admin screen is loading can't mix two screens.
+
 ## Rev 1.0 – 2026-09-29 (build 2026-09-29.1)
 
 First numbered release.

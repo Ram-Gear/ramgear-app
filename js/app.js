@@ -44,6 +44,20 @@
     $('#bbNow').onclick = backup;
     $('#bbLater').onclick = async () => { await DB.updateMeta(() => ({snoozeUntil: Date.now() + DAY})); host.hidden = true; host.innerHTML = ''; toast('We’ll remind you again in 24 hours'); };
   }
+  async function showStorageBanner() {
+    const host = $('#storageBanner'); if (!host) return;
+    const st = await storageStatus(false), pref = (await DB.get('settings', 'storageWarn')) || {};
+    if (st.persisted !== false || pref.dismissedUntil > Date.now()) { host.hidden = true; return; }
+    host.hidden = false;
+    host.innerHTML = `${storageNotice(st, false)}<div class="bb-actions"><button class="btn primary" id="sbPersist">Keep data on this device</button><button class="btn" id="sbLater">Hide for 14 days</button></div>`;
+    $('#sbPersist').onclick = async () => {
+      const r = await storageStatus(true);
+      await audit('Persistent storage requested', `${r.browser}: ${r.persisted ? 'granted' : 'not granted'}`, 'done');
+      if (r.persisted) { toast('Persistent storage granted – the browser will keep this data'); host.hidden = true; }
+      else toast(`${r.browser} did not grant persistent storage. Follow the steps shown to add an exception.`, 5000);
+    };
+    $('#sbLater').onclick = async () => { await DB.put('settings', {key: 'storageWarn', dismissedUntil: Date.now() + 14 * DAY}); host.hidden = true; };
+  }
   async function refreshBackupInfo() {
     const m = await DB.getMeta();
     $$('[data-lastbk]').forEach(el => { el.textContent = `Last backup: ${lastBackupText(m)}`; });
@@ -75,6 +89,11 @@
     modal(`<h2>${esc(title)}</h2><p>${msg}</p>`, [{label: 'Cancel', value: 'cancel'}, {label: okLabel, value: 'ok', cls: danger ? 'danger' : 'primary'}]).then(v => v === 'ok');
 
   /* ---------- sharing ---------- */
+  // Web Share with files: iPad/Android/Chrome+Edge on Windows. Desktop Firefox (and some desktop browsers) can't share files,
+  // so there the Share buttons are replaced by Download.
+  const CAN_SHARE_FILES = (() => { try { return !!(navigator.canShare && navigator.canShare({files: [new File(['x'], 'x.pdf', {type: 'application/pdf'})]})); } catch (e) { return false; } })();
+  const shareBtns = () => CAN_SHARE_FILES ? [{label: 'Download', value: 'dl'}, {label: 'Share', value: 'share', cls: 'primary'}] : [{label: 'Download', value: 'dl', cls: 'primary'}];
+  const SHARE_FINAL = CAN_SHARE_FILES ? 'Share final PDF' : 'Download final PDF', SHARE = CAN_SHARE_FILES ? 'Share' : 'Download';
   async function shareOrDownload(blob, filename, title) {
     const file = new File([blob], filename, {type: blob.type || 'application/octet-stream'});
     if (navigator.canShare && navigator.canShare({files: [file]})) {
@@ -103,12 +122,51 @@
     // Separate tap so the share sheet keeps the user gesture (required on iPad Safari).
     const v = await modal(`<h2>${esc(heading || 'File ready')}</h2><p class="mono">${esc(filename)}</p><p class="muted">${(blob.size / 1024).toFixed(0)} KB</p>`,
       [{label: 'Close', value: 'cancel'}].concat(isPdf ? [{label: 'Open', value: 'open'}, {label: 'Print', value: 'print'}] : [])
-        .concat([{label: 'Download', value: 'dl'}, {label: 'Share', value: 'share', cls: 'primary'}]));
+        .concat(shareBtns()));
     if (v === 'share') await shareOrDownload(blob, filename);
     else if (v === 'dl') download(blob, filename);
     else if (v === 'open') openBlob(blob);
     else if (v === 'print') printPdf(blob, filename);
   }
+
+  /* ---------- storage persistence (warn when the browser may delete this app's data) ---------- */
+  const BROWSER = /Firefox\//.test(navigator.userAgent) ? 'Firefox' : /Edg\//.test(navigator.userAgent) ? 'Edge' : /Chrome\//.test(navigator.userAgent) ? 'Chrome' : /Safari\//.test(navigator.userAgent) ? 'Safari' : 'this browser';
+  let STORAGE = {persisted: null, supported: !!(navigator.storage && navigator.storage.persisted), browser: BROWSER};
+  async function storageStatus(request) {
+    if (!STORAGE.supported) return STORAGE;
+    try {
+      let ok = await navigator.storage.persisted();
+      if (!ok && request && navigator.storage.persist) ok = await navigator.storage.persist();
+      STORAGE = {...STORAGE, persisted: ok, checkedAt: Date.now()};
+    } catch (e) { STORAGE = {...STORAGE, persisted: null, error: e.message}; }
+    return STORAGE;
+  }
+  const HOST = location.origin;
+  function storageHelp() {
+    if (BROWSER === 'Firefox') return `<b>Firefox:</b> open <b>Settings › Privacy &amp; Security › Cookies and Site Data</b>. Either turn off <b>“Delete cookies and site data when Firefox is closed”</b>, or click <b>Manage Exceptions…</b>, enter <code>${esc(HOST)}</code>, click <b>Allow</b> (not “Allow for Session”), then <b>Save Changes</b>. Also check that <b>History</b> is not set to “Never remember history”, and that this is not a Private Window.`;
+    if (BROWSER === 'Edge') return `<b>Edge:</b> open <b>Settings › Cookies and site permissions › Manage and delete cookies and site data</b>. Turn off <b>“Clear cookies and site data when you close all windows”</b>, or add <code>${esc(HOST)}</code> under <b>Allow</b>. Don't use an InPrivate window. Installing the app (⊕ in the address bar) also keeps its data.`;
+    if (BROWSER === 'Chrome') return `<b>Chrome:</b> open <b>Settings › Privacy and security › Site settings › Additional content settings › On-device site data</b>. Choose <b>“Allow sites to save data on your device”</b>, or add <code>${esc(HOST)}</code> under <b>Allowed to save data on your device</b>. Don't use an Incognito window. Installing the app also keeps its data.`;
+    return 'Allow this site to keep its data in the browser settings, and do not use a private window.';
+  }
+  function storageNotice(st, setup) {
+    if (st.persisted === true && !setup) return '';   // note: persistent storage does not stop "delete site data on close" settings, so setup always explains
+    return `<div class="store-warn" role="note"><b>${setup ? 'Seeing this setup screen again?' : 'Your data may be deleted when the browser closes.'}</b>
+      ${setup ? ` Then ${esc(st.browser)} deleted this app's data (accounts, jobs, photos) when it was closed, usually because of a privacy setting.` : ` ${esc(st.browser)} has not granted persistent storage to this app.`}
+      To keep your data: ${storageHelp()}</div>`;
+  }
+  function showFatal(title, html) {
+    document.body.classList.add('locked'); const scr = $('#login'); scr.hidden = false;
+    $('#loginForm').innerHTML = `<img class="login-logo" src="img/ramgear-logo.jpg" alt="Ram-Gear Manufacturing Inc logo" width="383" height="92">
+      <h1 class="login-company">Ram-Gear Manufacturing Incorporated</h1><div class="store-error" id="storageError" role="alert"><h2>${esc(title)}</h2>${html}</div>
+      <button class="btn primary big" type="button" id="retryBtn">Try again</button><p class="login-rev">${esc(REV_LABEL)}</p>`;
+    $('#retryBtn').onclick = () => location.reload();
+  }
+  function storageError(e) {
+    showFatal("Can't open this app's storage", `<p>The app could not read its data on this device, so it will <b>not</b> ask you to set it up again (that could hide your existing accounts and jobs).</p>
+      <p class="muted small">Details: ${esc((e && (e.name ? e.name + ': ' : '') + (e.message || e)) || 'unknown error')}</p>
+      <ul><li>Close other tabs or windows that have this app open, then tap <b>Try again</b>.</li><li>Don't use a private / InPrivate / Incognito window. Private windows may block or discard storage.</li><li>${storageHelp()}</li></ul>`);
+  }
+  window.addEventListener('rg-db-versionchange', () => { if (USER) toast('The app was updated in another tab – reloading…', 4000); setTimeout(() => location.reload(), 800); });
 
   /* ---------- users, session, admin approval (local, per device) ---------- */
   let USER = null;            // signed-in user record
@@ -158,7 +216,8 @@
   async function firstRunSetup() {
     let err = '', prev = {name: '', tablet: TABLET};
     for (;;) {
-      await modal(`<h2>Create the first Admin account</h2><p class="muted">This tablet has no user accounts yet. The first account is an <b>Admin</b>: it signs in, manages users (Admin screen › Users) and approves deleting, reopening and restoring. There is no self sign-up. Passwords/PINs are stored only as salted hashes on this device and cannot be recovered.</p>
+      const sn = await storageStatus(false);
+      await modal(`<h2>Create the first Admin account</h2>${storageNotice(sn, true)}<p class="muted">This tablet has no user accounts yet. The first account is an <b>Admin</b>: it signs in, manages users (Admin screen › Users) and approves deleting, reopening and restoring. There is no self sign-up. Passwords/PINs are stored only as salted hashes on this device and cannot be recovered.</p>
         <label class="fld"><span>Admin name (also the username)</span><input name="aname" required autocomplete="off" value="${esc(prev.name)}"></label>
         ${!TABLET ? tabletInput(prev.tablet) : ''}
         <div class="grid2">${secretInput('pin1', 'Password or PIN', 'new-password')}${secretInput('pin2', 'Enter it again', 'new-password')}</div>
@@ -169,8 +228,11 @@
       prev = {name, tablet: tablet ?? TABLET};
       err = !name ? 'Enter the admin name.' : tablet === '' ? 'Enter a Tablet ID for this device (e.g. Shop Tablet 2).' : secretError(f.pin1.value, f.pin2.value);
       if (err) continue;
+      const persistP = storageStatus(true);   // ask the browser to keep this site's data (Firefox shows a prompt); runs with the click gesture
       if (tablet) await saveTablet(tablet);
       const u = await Auth.create({username: name, displayName: name, role: 'admin', secret: f.pin1.value, createdBy: 'first-run setup'});
+      await DB.put('settings', {key: 'accounts', createdAt: Date.now(), by: 'first-run setup'});
+      persistP.then(st => audit('Persistent storage requested', `${st.browser}: ${st.persisted ? 'granted' : 'not granted'}`, 'done')).catch(() => {});
       startSession(u);
       await audit('Admin account created', `${u.displayName} (username "${u.username}")`, 'done');
       if (tablet) await audit('Tablet ID set', tablet, 'done');
@@ -187,8 +249,9 @@
     box.innerHTML = USER ? `<span class="user-chip" title="Signed in on ${esc(TABLET)}"><span aria-hidden="true">👤</span> <b id="userName">${esc(USER.displayName)}</b> <span class="role-tag">${ROLE_LABEL[USER.role]}</span></span><button class="btn ghost" id="logoutBtn">Log out</button>` : '';
     if (USER) $('#logoutBtn').onclick = logout;
   }
-  function showLogin(message, username) {
+  function showLogin(message, username, recovery) {
     return new Promise(res => {
+      const rb = $('#loginRestoreBtn'); rb.hidden = !recovery; rb.onclick = () => $('#fileRestore').click();
       const scr = $('#login'), f = $('#loginForm');
       document.body.classList.add('locked'); scr.hidden = false;
       $('#loginTablet').textContent = TABLET ? `Tablet: ${TABLET}` : '';
@@ -196,7 +259,7 @@
       const m = $('#loginMsg'); m.textContent = message || ''; m.hidden = !message;
       const err = $('#loginErr'); err.hidden = true; err.textContent = '';
       f.username.value = username || ''; f.secret.value = '';
-      setTimeout(() => (username ? f.secret : f.username).focus(), 60);
+      setTimeout(() => { if (!f.contains(document.activeElement)) (username ? f.secret : f.username).focus(); }, 60);   // never move the cursor once the user has started typing
       f.onsubmit = async e => {
         e.preventDefault();
         const btn = $('#loginBtn'); btn.disabled = true;
@@ -395,6 +458,9 @@
       </section>
       <section class="card">
         <div class="card-head"><h2>Data</h2></div>
+        <div class="store-line" id="storeLine"><b>Storage:</b> ${STORAGE.persisted === true ? `✓ persistent (${esc(STORAGE.browser)} will keep this data)` : STORAGE.persisted === false ? `⚠ not persistent – ${esc(STORAGE.browser)} may delete this data` : 'status unknown'}
+          <button class="btn" id="sPersist" type="button">Request persistent storage</button></div>
+        ${STORAGE.persisted === false ? storageNotice(STORAGE, false) : ''}
         <div class="fr-actions" style="justify-content:flex-start;align-items:center"><button class="btn" id="sBackup">Backup all data</button><span class="muted" data-lastbk>Last backup: ${esc(lastBackupText(meta))}</span></div>
         <label class="fld bk-interval"><span>Backup reminder</span>
           <select id="bkInterval">${INTERVALS.map(d => `<option value="${d}" ${d === meta.intervalDays ? 'selected' : ''}>Every ${d} day${d > 1 ? 's' : ''}</option>`).join('')}</select></label>
@@ -413,6 +479,7 @@
     $('#idleMin').onchange = async e => { const m = +e.target.value; await DB.put('settings', {key: 'session', idleMinutes: m}); await refreshIdle(); await audit('Auto-lock changed', `${m} minutes`, 'done'); toast(`Auto-lock after ${m} minutes`); };
     $('#bkInterval').onchange = async e => { const d = +e.target.value; await DB.updateMeta(() => ({intervalDays: d})); toast(`Backup reminder: every ${d} day${d > 1 ? 's' : ''}`); };
     $('#sBackup').onclick = backup; $('#sRestore').onclick = () => $('#fileRestore').click(); $('#sBlank').onclick = blankPdfs;
+    $('#sPersist').onclick = async () => { const r = await storageStatus(true); await audit('Persistent storage requested', `${r.browser}: ${r.persisted ? 'granted' : 'not granted'}`, 'done'); toast(r.persisted ? 'Persistent storage granted' : `${r.browser} did not grant persistent storage`, 4000); renderSettings(); };
   }
 
   /* ---------- model helpers ---------- */
@@ -484,7 +551,15 @@
   if (window.ResizeObserver) new ResizeObserver(setBarH).observe($('.appbar')); else window.addEventListener('resize', setBarH);
 
   /* ---------- router ---------- */
+  // Renders run one at a time: a hash change during a slow render (e.g. Admin screen) re-renders once it finishes,
+  // instead of two renders writing into the view at the same time.
+  let routing = null, routeAgain = false;
   async function route() {
+    if (routing) { routeAgain = true; return routing; }
+    routing = (async () => { do { routeAgain = false; await routeOnce(); } while (routeAgain); })();
+    try { await routing; } finally { routing = null; }
+  }
+  async function routeOnce() {
     if (!USER) return;   // login screen is showing
     await flushSave();
     urls.forEach(u => URL.revokeObjectURL(u)); urls = [];
@@ -519,6 +594,7 @@
     customers = customers.filter(c => c.id !== 'unassigned' || (byC[c.id] || []).length);   // hide empty Unassigned
     view.innerHTML = `
       <section class="backup-banner" id="backupBanner" role="status" aria-live="polite" hidden></section>
+      <section class="storage-banner" id="storageBanner" hidden></section>
       <section class="home-head">
         <div><h1>${HOME_LABEL}</h1><p class="muted">${customers.length} customer${customers.length === 1 ? '' : 's'} · ${jobs.length} job${jobs.length === 1 ? '' : 's'} · data stays on this tablet · back up regularly</p></div>
         <button class="btn primary big" id="newCustBtn">+ New customer</button>
@@ -534,7 +610,7 @@
       }).join('') : `<div class="empty"><p>No customers yet.</p><p class="muted">Tap <b>New customer</b>, then add jobs to the customer's file.</p></div>`}</div>
       <p class="muted small center" id="storageInfo"></p>`;
     $('#newCustBtn').onclick = async () => { const c = await editCustomer(null); if (c) location.hash = P.cust(c.id); };
-    refreshBackupInfo(); showBackupBanner();
+    refreshBackupInfo(); showBackupBanner(); showStorageBanner();
     $('#blankBtn').onclick = blankPdfs; $('#backupBtn').onclick = backup; $('#restoreBtn').onclick = () => $('#fileRestore').click();
     const s = $('#custSearch'); s.oninput = () => { const q = s.value.toLowerCase().trim(); $$('.custcard').forEach(c => c.hidden = !c.dataset.search.includes(q)); };
     if (navigator.storage && navigator.storage.estimate) navigator.storage.estimate().then(async e => {
@@ -640,7 +716,7 @@
               <div class="muted small">${esc(f.docTitle)}</div>
               <div class="bar"><i style="width:${p.total ? Math.round(100 * p.done / p.total) : 0}%"></i></div>
               <div class="muted small">${p.done} of ${p.total} required items complete${st.status === 'completed' ? ` · completed ${esc(fmtDate(st.completedAt))} by ${esc(st.signedBy)}${st.finalizedBy ? ` · finalized by ${esc(st.finalizedBy)}` : ''}${st.inspectedOn ? ` · Inspected on: ${esc(st.inspectedOn)}` : ''}` : ` · Tablet: ${esc(st.tabletUsed ?? TABLET)}`}</div></div>
-            <div class="fr-actions"><button class="btn" data-export="${f.key}">${st.status === 'completed' ? 'Share final PDF' : 'Export PDF'}</button><a class="btn primary" href="${P.form(cid, jid, f.key)}">${st.status === 'completed' ? 'View' : 'Open'}</a></div></div>`;
+            <div class="fr-actions"><button class="btn" data-export="${f.key}">${st.status === 'completed' ? SHARE_FINAL : 'Export PDF'}</button><a class="btn primary" href="${P.form(cid, jid, f.key)}">${st.status === 'completed' ? 'View' : 'Open'}</a></div></div>`;
         }).join('')}</div>
       </section>
       <section class="card">
@@ -650,7 +726,7 @@
       <section class="card">
         <div class="card-head"><h2>Saved documents</h2><span class="muted small">Final PDFs created when a form is finalized · all revisions kept</span></div>
         ${docs.length ? `<div class="doclist">${docs.map(d => `<div class="docrow"><div><b>${esc(d.filename)}</b><div class="muted small">${esc((FORM_BY_KEY[d.formKey] || {}).title || d.formKey)} · revision ${d.revision} · ${esc(fmtDate(d.createdAt))} · signed by ${esc(d.signedBy)}${d.inspectedOn ? ` · inspected on ${esc(d.inspectedOn)}` : ''} · ${d.pages} pages · ${(d.size / 1024).toFixed(0)} KB</div></div>
-          <div class="fr-actions"><button class="btn" data-docview="${d.id}">View</button><button class="btn" data-docprint="${d.id}">Print</button><button class="btn primary" data-docshare="${d.id}">Share</button><button class="btn danger-outline" data-docdel="${d.id}" aria-label="Delete saved PDF">Delete</button></div></div>`).join('')}</div>`
+          <div class="fr-actions"><button class="btn" data-docview="${d.id}">View</button><button class="btn" data-docprint="${d.id}">Print</button><button class="btn primary" data-docshare="${d.id}">${SHARE}</button><button class="btn danger-outline" data-docdel="${d.id}" aria-label="Delete saved PDF">Delete</button></div></div>`).join('')}</div>`
           : '<p class="muted">No saved documents yet. Finalize a form to save its PDF here.</p>'}
       </section>
       <section class="card">
@@ -692,7 +768,7 @@
   function viewDoc(d) {
     const u = objUrl(d.blob);
     const ov = document.createElement('div'); ov.className = 'viewer';
-    ov.innerHTML = `<div class="viewer-bar"><b>${esc(d.filename)}</b><span class="grow"></span><button class="btn" data-a="open">Open in new tab</button><button class="btn" data-a="print">Print</button><button class="btn" data-a="share">Share</button><button class="btn primary" data-a="close">Close</button></div><iframe src="${u}" title="PDF preview"></iframe>`;
+    ov.innerHTML = `<div class="viewer-bar"><b>${esc(d.filename)}</b><span class="grow"></span><button class="btn" data-a="open">Open in new tab</button><button class="btn" data-a="print">Print</button><button class="btn" data-a="share">${SHARE}</button><button class="btn primary" data-a="close">Close</button></div><iframe src="${u}" title="PDF preview"></iframe>`;
     document.body.appendChild(ov);
     ov.onclick = e => { const a = e.target.dataset && e.target.dataset.a; if (!a) return;
       if (a === 'close') ov.remove(); else if (a === 'open') openBlob(d.blob); else if (a === 'print') printPdf(d.blob, d.filename); else if (a === 'share') shareOrDownload(d.blob, d.filename); };
@@ -822,7 +898,7 @@
     current = {customer, job, formKey: key};
     const st = job.forms[key], locked = st.status === 'completed';
     bar([crumbHome, {label: customer.name, href: P.cust(cid)}, {label: `WO ${job.wo}`, href: P.job(cid, jid)}, {label: form.title}],
-      `<span class="save-ind" id="saveInd"></span><button class="btn ghost" id="exportBtn">${locked ? 'Share final PDF' : 'Export PDF'}</button>` +
+      `<span class="save-ind" id="saveInd"></span><button class="btn ghost" id="exportBtn">${locked ? SHARE_FINAL : 'Export PDF'}</button>` +
       (locked ? `<button class="btn warn" id="reopenBtn">Reopen</button>` : `<button class="btn accent" id="finalizeBtn">Finalize</button>`), {label: `WO ${job.wo}`, href: P.job(cid, jid)});
     view.innerHTML = `
       <div class="form-top">
@@ -1048,7 +1124,7 @@
     const name = `ramgear-backup-${today()}.json`;
     refreshBackupInfo();
     const v = await modal(`<h2>Backup ready</h2><p>${customers.length} customers, ${jobs.length} jobs, ${photos.length} photos, ${docs.length} saved PDFs · ${(blob.size / 1048576).toFixed(1)} MB</p><p class="muted small">Save it to Files / Drive or send it to yourself. Restore it on any device with this app.</p>`,
-      [{label: 'Cancel', value: 'cancel'}, {label: 'Download', value: 'dl'}, {label: 'Share', value: 'share', cls: 'primary'}]);
+      [{label: 'Cancel', value: 'cancel'}, ...shareBtns()]);
     if (v === 'share') shareOrDownload(blob, name); else if (v === 'dl') download(blob, name);
   }
   $('#fileRestore').addEventListener('change', async e => {
@@ -1060,7 +1136,9 @@
       for (const j of data.jobs) if (DB.migrateJob(j) && !customers.some(c => c.id === 'unassigned')) customers.push(DB.unassigned());   // v1 backups
       const existing = new Set((await DB.all('jobs')).map(j => j.id)), clash = data.jobs.filter(j => existing.has(j.id)).length;
       if (!await confirmBox('Restore backup?', `${customers.length} customers, ${data.jobs.length} jobs, ${(data.photos || []).length} photos, ${(data.docs || []).length} saved PDFs from ${esc(data.exportedAt)}.${clash ? ` <b>${clash} job(s) already on this device will be replaced</b> by the backup copy.` : ''} Other customers and jobs on this device are kept.${Array.isArray(data.users) && data.users.length ? ` The backup's ${data.users.length} user account(s) are restored; accounts with the same username are replaced by the backup copy (including their password/PIN).` : data.admin ? ` The backup's admin account (<b>${esc(data.admin.name)}</b>) and its PIN will replace the matching user's password/PIN.` : ''}`, 'Restore')) return;
-      if (!await requireAdmin('Restore backup (overwrites matching jobs)', `${f.name} – ${data.jobs.length} jobs from ${data.exportedAt}`)) return;
+      const recovery = !USER;   // only reachable from the login screen when this device has data but no user accounts at all
+      if (recovery) { const h = await DB.health(); if (h.users > 0) throw new Error('Sign in first: this device already has user accounts.'); if (!Array.isArray(data.users) && !data.admin) throw new Error('This backup has no user accounts.'); }
+      else if (!await requireAdmin('Restore backup (overwrites matching jobs)', `${f.name} – ${data.jobs.length} jobs from ${data.exportedAt}`)) return;
       for (const c of customers) await DB.put('customers', c);
       for (const j of data.jobs) { if (existing.has(j.id)) await DB.deleteJob(j.id); await DB.put('jobs', j); }
       for (const p of data.photos || []) await DB.put('photos', {...p, blob: await dataURLToBlob(p.blob), thumb: p.thumb ? await dataURLToBlob(p.thumb) : null});
@@ -1078,9 +1156,10 @@
       for (const bu of bUsers) {
         const ex = await Auth.byUsername(bu.username);
         if (ex && ex.id !== bu.id) await DB.del('users', ex.id);
-        await DB.put('users', {...bu, id: ex && ex.id !== bu.id && ex.id === USER.id ? ex.id : bu.id});
+        await DB.put('users', {...bu, id: ex && ex.id !== bu.id && USER && ex.id === USER.id ? ex.id : bu.id});
       }
-      if (bUsers.length) await audit('User accounts restored from backup', bUsers.map(u => u.username).join(', '), 'done');
+      if (bUsers.length) await audit('User accounts restored from backup', bUsers.map(u => u.username).join(', ') + (recovery ? ' (recovery from login screen: no accounts on this device)' : ''), 'done');
+      if (recovery) { toast('Backup restored – sign in'); setTimeout(() => location.reload(), 600); return; }
       const me = await Auth.byUsername(USER.username);
       if (me && !me.disabled) { USER = me; Auth.setSession({userId: me.id, lastActive: Date.now()}); renderUserBox(); }
       toast('Backup restored');
@@ -1105,11 +1184,27 @@
         if (b.type === 'table') for (const r of b.rows) if (r.req) REQS[f.key].push({req: r.req, section: s.title});
       }
     }
-    window.RG = {FORMS, REQS, DB, Admin, Auth, Camera, whoami: () => USER && {username: USER.username, role: USER.role, name: USER.displayName}};  // for debugging/tests
-    await loadTablet(); await refreshIdle();
-    const migrated = await Auth.migrate();   // pre-login admin PIN -> first Admin user
-    if (migrated) await audit('Admin PIN migrated to user account', `${migrated.displayName} (username "${migrated.username}")`, 'done', migrated.displayName);
-    if (!(await Auth.all()).length) await firstRunSetup();
+    window.RG = {FORMS, REQS, DB, Admin, Auth, Camera, toast, whoami: () => USER && {username: USER.username, role: USER.role, name: USER.displayName}};  // for debugging/tests
+    /* Start-up decision. Any storage error shows an error screen – it is never treated as "no admin yet".
+       Setup runs only when the device has no users, no legacy admin PIN, no customers and no jobs. */
+    let h, migrated = null;
+    try {
+      let blocked = null;
+      const onBlocked = () => { blocked = setTimeout(() => storageError(new Error('Another tab with an older version of this app is blocking the update. Close the other tab.')), 4000); };
+      window.addEventListener('rg-db-blocked', onBlocked, {once: true});
+      h = await DB.health(); clearTimeout(blocked);
+      await loadTablet(); await refreshIdle();
+      if (!h.users && h.legacyAdmin) {
+        migrated = await Auth.migrate();   // pre-login admin PIN -> first Admin user
+        if (migrated) { await audit('Admin PIN migrated to user account', `${migrated.displayName} (username "${migrated.username}")`, 'done', migrated.displayName); await DB.put('settings', {key: 'accounts', createdAt: Date.now(), by: 'admin PIN migration'}); }
+        h = await DB.health();
+      }
+    } catch (e) { console.error('storage', e); storageError(e); return; }
+    window.RG.health = h; storageStatus(false);
+    if (!h.users && !h.hadAccounts) await firstRunSetup();   // new device, or data from the first version (before accounts/admin PIN existed)
+    else if (!h.users) {   // data but no accounts (should not happen): never re-run setup; offer restore of accounts from a backup
+      const u = await showLogin('This device has job data but no user accounts, so setup will not run again. Restore a backup that includes the user accounts, then sign in.', '', true); await afterLogin(u, null);
+    }
     else if (!await resumeSession()) { const u = await showLogin(migrated ? `User accounts are now enabled. ${migrated.displayName}: sign in with your name and your existing admin PIN.` : ''); await afterLogin(u, null); }
     await ensureTablet();
     const meta = await DB.getMeta();

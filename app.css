@@ -16,7 +16,7 @@ h1{font-size:24px;margin:0 0 4px;color:var(--navy)} h2{font-size:20px;margin:0;c
 /* app bar */
 .appbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:10px;background:var(--header);border-bottom:3px solid var(--brand-accent);color:#fff;padding:calc(8px + var(--safe-top)) 16px 8px;min-height:60px;box-shadow:0 2px 6px rgba(0,0,0,.2)}
 .appbar a{color:#fff}
-.appbar-back{display:inline-flex;align-items:center;gap:4px;flex:none;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.35);border-radius:10px;color:#fff;min-height:48px;padding:0 14px 0 8px;cursor:pointer;font-family:inherit;font-size:16px;font-weight:600;max-width:220px}
+.appbar-back{display:inline-flex;align-items:center;gap:4px;flex:none;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.35);border-radius:10px;color:#fff;min-height:48px;padding:0 14px 0 8px;cursor:pointer;font-family:inherit;font-size:16px;font-weight:600;max-width:240px}
 .appbar-back[hidden]{display:none}
 .appbar-back .chev{font-size:32px;line-height:1;margin-top:-4px}
 .appbar-back .blabel{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -276,3 +276,13 @@ body.locked .appbar,body.locked main,body.locked #toast{display:none}
 .card-head .right{margin-left:auto}
 .rev-tag{display:inline-block;vertical-align:middle;margin-left:6px;font:600 12px/1 inherit;font-family:inherit;color:var(--link-on-dark);background:transparent;border:1px solid rgba(159,211,225,.6);border-radius:999px;padding:4px 8px;cursor:pointer}
 .login-rev{margin:-4px 0 0;text-align:center;font-size:12px;color:var(--steel)}
+/* storage persistence warnings */
+.store-warn{background:#fff4e0;border:1.5px solid var(--warn);border-radius:8px;padding:12px 14px;color:#4a2f00;font-size:15px;line-height:1.45;margin:0 0 12px}
+.store-warn code,.store-error code{background:rgba(0,0,0,.06);padding:1px 4px;border-radius:4px}
+.store-ok{color:var(--ok);font-weight:600;margin:0 0 10px}
+.storage-banner{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+.storage-banner[hidden]{display:none}
+.storage-banner .store-warn{margin:0}
+.store-line{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:10px}
+.store-error{background:#fdecea;border:1px solid #f3c2bd;border-radius:8px;padding:12px 14px;color:#5c1410}
+.store-error h2{color:var(--danger);margin-bottom:6px}
