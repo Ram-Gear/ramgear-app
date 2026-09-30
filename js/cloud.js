@@ -7,7 +7,7 @@ const Cloud = (() => {
   const C = (self.RG_CONFIG && self.RG_CONFIG.cloud) || {};
   const configured = !!(C.url && C.publishableKey && self.supabase);
   const BUCKET = C.bucket || 'ramgear-files', FN = C.adminFunction || 'rg-admin', LOCK_MIN = 30;
-  let sb = null, cfg = null, running = null, again = false, timer = null, lastError = '', lastSyncAt = 0, pending = 0, online = navigator.onLine;
+  let sb = null, cfg = null, running = null, again = false, timer = null, lastError = '', lastSyncAt = 0, pending = 0, online = navigator.onLine, problem = '';
   const LOCKS = {}, listeners = new Set(), held = new Map();
   let TABLETS = [], hooks = {tablet: () => '', user: () => null, onRemote: () => {}, audit: async () => {}};
   const client = () => sb || (sb = supabase.createClient(C.url, C.publishableKey, {auth: {persistSession: true, autoRefreshToken: true, storageKey: 'rg-cloud-auth'}}));
@@ -31,7 +31,7 @@ const Cloud = (() => {
   const enabled = () => !!(configured && cfg && cfg.enabled);
   const deviceId = () => cfg && cfg.deviceId;
   function emit() { const s = status(); listeners.forEach(f => { try { f(s); } catch (e) { /* ignore */ } }); }
-  function status() { return {configured, enabled: enabled(), online, running: !!running, lastSyncAt, lastError, pending, email: cfg && cfg.email, connectedAt: cfg && cfg.connectedAt}; }
+  function status() { return {configured, enabled: enabled(), online, running: !!running, lastSyncAt, lastError, problem, pending, email: cfg && cfg.email, connectedAt: cfg && cfg.connectedAt}; }
 
   async function session() { if (!configured) return null; try { const {data} = await client().auth.getSession(); return data.session; } catch (e) { return null; } }
   async function fn(action, body = {}) {
@@ -171,14 +171,14 @@ const Cloud = (() => {
     await pullMembers(st);
     for (const r of await rowsSince('customers', st)) {
       const k = `customers:${r.id}`, local = await DB.get('customers', r.id);
-      if (r.deleted) { if (local) { await DB.del('customers', r.id); changed.push(['customer', r.id]); } delete H[k]; continue; }
+      if (r.deleted) { if (local && H[k] !== undefined && hash(plain(local)) === H[k]) { await DB.del('customers', r.id); changed.push(['customer', r.id]); } delete H[k]; continue; }   // local edits / never-synced records are kept (and pushed again)
       const h = hash(r.data); if (H[k] === h) continue;
       if (local && H[k] !== undefined && hash(plain(local)) !== H[k]) continue;   // changed here too: this tablet's version is pushed next
       await DB.put('customers', r.data); H[k] = h; changed.push(['customer', r.id]); hooks.onRemote('customer', r.id, null, r.data);
     }
     for (const r of await rowsSince('jobs', st)) {
       const k = `jobs:${r.id}`, local = await DB.get('jobs', r.id);
-      if (r.deleted) { if (local) { await DB.deleteJob(r.id); changed.push(['job', r.id]); hooks.onRemote('jobdeleted', r.id); } delete H[k]; continue; }
+      if (r.deleted) { if (local && H[k] !== undefined && hash(plain(jobCore(local))) === H[k]) { await DB.deleteJob(r.id); changed.push(['job', r.id]); hooks.onRemote('jobdeleted', r.id); } delete H[k]; continue; }
       const h = hash(r.data); if (H[k] === h) continue;
       if (local && H[k] !== undefined && hash(plain(jobCore(local))) !== H[k]) continue;
       await DB.put('jobs', {...r.data, forms: (local && local.forms) || {}}); H[k] = h; changed.push(['job', r.id]); hooks.onRemote('job', r.id, null, r.data);
@@ -194,7 +194,7 @@ const Cloud = (() => {
     }
     for (const r of await rowsSince('files', st)) {
       const store = (r.meta && r.meta._store) || (r.kind === 'pdf' ? 'docs' : 'photos'), k = `files:${r.id}`;
-      if (r.deleted) { if (await DB.get(store, r.id)) { await DB.del(store, r.id); changed.push(['file', r.job_id]); hooks.onRemote('file', r.job_id); } delete H[k]; delete H['blob:' + r.id]; continue; }
+      if (r.deleted) { if (H[k] !== undefined && await DB.get(store, r.id)) { await DB.del(store, r.id); changed.push(['file', r.job_id]); hooks.onRemote('file', r.job_id); } delete H[k]; delete H['blob:' + r.id]; continue; }
       const {_store, _blobs = [], ...meta} = r.meta || {}, h = hash({meta, bf: _blobs});
       if (H[k] === h) continue;
       const local = await DB.get(store, r.id), rec = {...meta};
@@ -222,6 +222,27 @@ const Cloud = (() => {
     for (const s of ['photos', 'docs']) for (const r of await DB.all(s)) if (H['files:' + r.id] !== hash({meta: plain(r), bf: blobFields(r)})) n++;
     pending = n; emit(); return n;
   }
+  /* Rev 1.4.1: before syncing, make sure the cloud still knows this account. A cloud that lost its data (reset / emptied) or this
+     user's membership never causes anything to be deleted on this device: sync simply stops with a clear message, and an Admin
+     can "Re-upload all data from this device". Records missing from the cloud are never deleted locally (only explicit
+     tombstones for records this device synced unchanged). */
+  const MSG = {
+    reset: 'The company cloud is empty (it was reset or its data was removed). Everything on this device is safe and nothing was deleted here. An Admin taps Admin › Cloud sync › Re-upload all data from this device.',
+    nomember: 'Your cloud account no longer exists in the company cloud. Everything on this device is safe. An Admin taps Admin › Cloud sync › Re-upload all data from this device (or re-adds your account).',
+    disabled: 'Your cloud account is disabled. Everything on this device is safe. Ask an Admin.'};
+  async function diagnose(signedIn) {
+    if (signedIn) {
+      let mine = null, err = null;
+      try { mine = await me(); } catch (e) { err = e; }
+      if (err) throw err;
+      if (mine && !mine.disabled) return;
+      if (mine && mine.disabled) { problem = 'disabled'; throw new Error(MSG.disabled); }
+    }
+    let boot = true; try { boot = await bootstrapped(); } catch (e) { if (!signedIn) return; throw e; }
+    if (!boot) { problem = 'reset'; throw new Error(MSG.reset); }
+    if (signedIn) { problem = 'nomember'; throw new Error(MSG.nomember); }
+    problem = 'signin';
+  }
   /* one sync cycle: push, then pull. Runs one at a time; a request during a run schedules one more run. */
   async function sync(reason) {
     if (!enabled()) return {skipped: 'off'};
@@ -232,13 +253,15 @@ const Cloud = (() => {
         again = false; emit();
         try {
           if (!navigator.onLine) { online = false; throw new Error('offline'); }
-          if (!await session()) throw new Error('not signed in to the cloud');
+          problem = '';
+          if (!await session()) { await diagnose(false); throw new Error('Not signed in to the cloud. Log out and sign in again while online. Your data on this device is safe.'); }
+          await diagnose(true);   // stops here (no push, no pull) if the cloud lost this account or was reset
           const st = await getState();
           const conflicts = await push(st), changed = await pull(st);
           online = true; lastError = ''; lastSyncAt = Date.now(); await saveCfg({lastSyncAt});
           result = {conflicts, changed};
         } catch (e) {
-          online = navigator.onLine && !/Failed to fetch|NetworkError|Load failed|offline/i.test(e.message);
+          online = navigator.onLine && !/Failed to fetch|NetworkError|Load failed|offline/i.test(e.message); if (!online) problem = '';
           lastError = e.message === 'offline' ? '' : e.message; result = {error: e.message};
           if (lastError) console.warn('sync', e);
         }
@@ -280,8 +303,11 @@ const Cloud = (() => {
   setInterval(() => { for (const k of held.keys()) { const [j, f] = k.split(':'); checkout(j, f); } }, 4 * 60000);   // heartbeat keeps the lock while the form is open
 
   /* ---------- connect / users ---------- */
-  async function connect({email}) {
+  // forget which records were already synced, so the next sync uploads everything on this device again (nothing is deleted anywhere)
+  async function resetState() { await saveState({key: 'syncstate', h: {}, cur: {}}); problem = ''; lastError = ''; emit(); }
+  async function connect({email, reupload = false}) {
     const id = (cfg && cfg.deviceId) || (crypto.randomUUID ? crypto.randomUUID() : DB.uid() + DB.uid());
+    if (reupload) await resetState();
     await saveCfg({enabled: true, deviceId: id, connectedAt: Date.now(), email});
     start(); return cfg;
   }
@@ -294,5 +320,5 @@ const Cloud = (() => {
   async function init(h) { hooks = {...hooks, ...h}; await loadCfg(); if (enabled()) start(); countPending(); return cfg; }
   return {configured, init, status, onStatus: f => { listeners.add(f); f(status()); }, sync, soon, signIn, signOut, session, me, connect, disconnect,
     bootstrapped, bootstrap, importUsers, upsertUser, setOwnPassword, checkout, release, releaseAll, lockOf: (j, k) => LOCKS[`${j}:${k}`] || null,
-    isHeld: (j, k) => held.has(`${j}:${k}`), tablets: () => TABLETS, enabled, countPending, emailFor, hash, _state: getState};
+    isHeld: (j, k) => held.has(`${j}:${k}`), tablets: () => TABLETS, enabled, countPending, resetState, emailFor, hash, _state: getState};
 })();

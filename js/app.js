@@ -390,12 +390,14 @@
   }
   /* ---------- cloud sync (Rev 1.2) ---------- */
   const syncText = s => !s.enabled ? '' : s.running ? '☁ Syncing…' : !s.online ? `☁ Offline${s.pending ? ` · ${s.pending} change${s.pending === 1 ? '' : 's'} waiting` : ''}`
-    : s.lastError ? '☁ Sync problem' : s.pending ? `☁ ${s.pending} to sync` : s.lastSyncAt ? `☁ Synced ${new Date(s.lastSyncAt).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'})}` : '☁ Connected';
+    : s.problem === 'reset' ? '☁ Cloud empty – re-upload needed' : s.problem === 'nomember' ? '☁ Cloud account missing' : s.problem === 'disabled' ? '☁ Cloud account disabled' : s.problem === 'signin' ? '☁ Sign in again' : s.lastError ? '☁ Sync problem' : s.pending ? `☁ ${s.pending} to sync` : s.lastSyncAt ? `☁ Synced ${new Date(s.lastSyncAt).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'})}` : '☁ Connected';
   function renderCloudChip(s) {
     const c = $('#cloudChip'); if (!c) return;
     c.hidden = !s.enabled || !USER; c.textContent = syncText(s);
     c.classList.toggle('bad', !!s.lastError); c.classList.toggle('off', !s.online); c.title = s.lastError || 'Cloud sync';
-    const line = $('#cloudStatus'); if (line) line.textContent = syncText(s) + (s.lastError ? ` – ${s.lastError}` : '');
+    const line = $('#cloudStatus'); if (line) line.textContent = syncText(s) + (s.lastError && !s.problem ? ` – ${s.lastError}` : '');
+    const pb = $('#cloudProblem'); if (pb) { pb.hidden = !(s.problem && s.lastError); pb.textContent = s.problem ? s.lastError : ''; }
+    const rb = $('#cloudReuploadBtn'); if (rb) rb.classList.toggle('primary', s.problem === 'reset' || s.problem === 'nomember');
   }
   async function cloudProgress(title, work) {
     const dlg = modal(`<h2>${esc(title)}</h2><p class="muted" id="cloudProg">Working… keep this screen open.</p>`, [], {mandatory: true, noFocus: true});
@@ -436,36 +438,39 @@
     }
   }
   /* Existing tablet (signed-in Admin): connect and upload this tablet's data. The very first tablet also needs the setup code. */
-  async function cloudConnect() {
+  async function cloudConnect(opts = {}) {
+    const re = !!opts.reupload;
     if (!navigator.onLine) return cloudErr('Offline', 'Connect to the internet first.');
     let first;
     try { first = !(await Cloud.bootstrapped()); } catch (e) { return cloudErr('Cloud not reachable', e); }
     let err = '';
     for (;;) {
-      const v = await modal(`<h2>Connect this tablet to the cloud</h2>
+      const v = await modal(`<h2>${re ? 'Re-upload all data from this device' : 'Connect this tablet to the cloud'}</h2>
+        ${re ? `<p>Uploads <b>everything on this device</b> to the company cloud again: users, customers, jobs, forms, photos and saved PDFs. Nothing is deleted, here or in the cloud; records that are already in the cloud are updated with this device's version.</p>` : ''}
         ${first ? `<p>This is the <b>first tablet</b> to connect. It creates the company's cloud Admin account (<b>${esc(USER.username)}</b>, same password/PIN as here) and uploads all users, customers, jobs, photos and saved PDFs from this tablet.</p>
           <label class="fld"><span>Setup code (one-time, from the cloud setup)</span><input name="code" required autocomplete="off" autocapitalize="characters" spellcheck="false"></label>`
           : `<p>Sign in with your cloud account. This tablet's customers, jobs, photos and saved PDFs are uploaded and merged with the company data; its users are added to the cloud (existing usernames keep the cloud account).</p>`}
         ${secretInput('csecret', `Your password or PIN (${esc(USER.username)})`, 'current-password')}
         ${err ? `<p class="pin-error" role="alert">${esc(err)}</p>` : ''}`,
-        [{label: 'Cancel', value: 'cancel'}, {label: 'Connect', value: 'ok', cls: 'primary'}]);
+        [{label: 'Cancel', value: 'cancel'}, {label: re ? 'Re-upload' : 'Connect', value: 'ok', cls: 'primary'}]);
       if (v !== 'ok') return;
       const f = $('#dlgForm'), secret = f.csecret.value, code = f.code ? f.code.value.trim() : '';
+      if (first && !code) { err = 'Enter the setup code.'; continue; }
       if (!await Auth.verify(USER, secret)) { err = 'Wrong password or PIN.'; continue; }
       try {
-        const res = await cloudProgress('Connecting and uploading…', async () => {
+        const res = await cloudProgress(re ? 'Re-uploading…' : 'Connecting and uploading…', async () => {
           if (first) await Cloud.bootstrap(code, USER, secret);
           await Cloud.signIn(USER.username, secret);
           const mine = await Cloud.me(); if (!mine) throw new Error('This cloud account is not an active member.');
           let imported = [];
           if (mine.role === 'admin') imported = (await Cloud.importUsers((await Auth.all()).filter(u => u.id !== mine.id))).results || [];
-          await Cloud.connect({email: USER.username});
-          const r = await Cloud.sync('connect'); if (r.error) throw new Error(r.error);
+          await Cloud.connect({email: USER.username, reupload: true});   // always upload everything this device has (Rev 1.4.1)
+          const r = await Cloud.sync(re ? 'reupload' : 'connect'); if (r.error) throw new Error(r.error);
           return {imported, mine};
         });
-        await audit('Tablet connected to cloud', `${TABLET} – ${first ? 'first tablet (cloud Admin created)' : 'joined'}; users: ${res.imported.map(x => `${x.username} ${x.result}`).join(', ') || 'none'}`, 'done');
-        toast('Connected – this tablet now syncs with the cloud', 4000); renderSettings(); return;
-      } catch (e) { await Cloud.disconnect().catch(() => {}); err = e.message; }
+        await audit(re ? 'All data re-uploaded to cloud' : 'Tablet connected to cloud', `${TABLET} – ${first ? 'first tablet (cloud Admin created)' : 'joined'}; users: ${res.imported.map(x => `${x.username} ${x.result}`).join(', ') || 'none'}`, 'done');
+        toast(re ? 'Re-upload finished – the cloud has everything from this device' : 'Connected – this tablet now syncs with the cloud', 4500); renderSettings(); return;
+      } catch (e) { if (!re) await Cloud.disconnect().catch(() => {}); err = e.message; }
     }
   }
   async function cloudCard() {
@@ -479,10 +484,12 @@
         <div><div class="muted small">Connected</div><div>${esc(fmtDate(s.connectedAt))}</div></div><div><div class="muted small">This tablet</div><div>${esc(TABLET)}</div></div></div>
       ${tabs.length ? `<div class="tablewrap"><table class="tbl"><thead><tr><th>Tablet</th><th>Last seen</th><th>Last user</th><th>App</th></tr></thead><tbody>${tabs.map(t => `<tr><td>${esc(t.name)}</td><td>${esc(fmtDate(Date.parse(t.last_seen_at)))}</td><td>${esc(t.last_user || '')}</td><td>${esc(t.app_rev || '')}</td></tr>`).join('')}</tbody></table></div>` : ''}
       <p class="muted small">Forms are checked out while open ("In use on …"), so two tablets can't overwrite each other. Finalized forms are locked on every tablet. User accounts are managed here and apply to all tablets (needs internet).</p>
-      <div class="fr-actions" style="justify-content:flex-start"><button class="btn primary" id="cloudSyncBtn">Sync now</button><button class="btn danger-outline" id="cloudOffBtn">Disconnect this tablet</button></div></section>`;
+      <p class="store-warn" id="cloudProblem" role="status" ${s.problem && s.lastError ? '' : 'hidden'}>${esc(s.problem ? s.lastError : '')}</p>
+      <div class="fr-actions" style="justify-content:flex-start"><button class="btn primary" id="cloudSyncBtn">Sync now</button><button class="btn ${s.problem === 'reset' || s.problem === 'nomember' ? 'primary' : ''}" id="cloudReuploadBtn">Re-upload all data from this device</button><button class="btn danger-outline" id="cloudOffBtn">Disconnect this tablet</button></div></section>`;
   }
   function wireCloudCard() {
     const c = $('#cloudConnectBtn'); if (c) c.onclick = cloudConnect;
+    const ru = $('#cloudReuploadBtn'); if (ru) ru.onclick = () => cloudConnect({reupload: true});
     const sn = $('#cloudSyncBtn'); if (sn) sn.onclick = async () => { const r = await Cloud.sync('manual'); toast(r.error ? `Sync problem: ${r.error}` : 'Synced', 3500); renderSettings(); };
     const off = $('#cloudOffBtn'); if (off) off.onclick = async () => {
       if (!await requireAdmin('Disconnect this tablet from the cloud', TABLET)) return;

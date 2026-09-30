@@ -2,6 +2,14 @@
 
 The revision number lives in `js/version.js` (see README › *Revision number*).
 
+## Rev 1.4.1 – 2026-09-30 (build 2026-09-30.5) – cloud safety hotfix
+
+- **Nothing on a device is ever deleted just because the cloud is missing it.** A record is removed locally only when another device explicitly deleted it and this device had synced exactly that version, with no local edits waiting. A local record with unsynced edits is kept and uploaded again.
+- Before every sync the app checks that the cloud still knows the signed-in account. If the company cloud is empty (reset) or the account is gone or disabled, sync stops before uploading or downloading anything. The top bar then shows **☁ Cloud empty – re-upload needed**, **☁ Cloud account missing**, **☁ Cloud account disabled** or **☁ Sign in again** instead of a vague "Sync problem", and the Admin screen explains what to do.
+- New Admin action **Admin › Cloud sync › Re-upload all data from this device**. It forgets which records were already synced and uploads everything on the device again: users, customers, jobs, forms, photos, PDFs and the audit log. If the cloud is empty, it first re-creates the cloud Admin, which needs the one-time setup code. It never deletes anything. A failed attempt leaves the device connected.
+- Connecting a device (Admin › Cloud sync › Connect) now always uploads everything on it, even if it was connected before.
+- Help page: new status rows and step-by-step recovery ("If the cloud lost its data").
+
 ## Rev 1.4 – 2026-09-30 (build 2026-09-30.4)
 
 - New **Help** page (`help.html`) with a table of contents and numbered step-by-step instructions: before you start, set up the first tablet, add more tablets or a PC, Firefox settings, daily use and sync status, backups and restore, if browser data is cleared, and setting up for another shop.

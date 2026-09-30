@@ -159,6 +159,9 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
     <tr><td>☁ 3 to sync</td><td>Online, with 3 changes about to be sent.</td><td>Nothing. It usually clears within seconds.</td></tr>
     <tr><td>☁ Offline · 3 changes waiting</td><td>No internet. Your work is saved on this device and is sent when the connection is back.</td><td>Keep working. Reconnect Wi-Fi when you can, and don't clear the browser's data while changes are waiting.</td></tr>
     <tr><td>☁ Sync problem</td><td>The cloud refused a change or couldn't be reached.</td><td>Check the internet, then tap the status (Admins: Admin › Cloud sync › <b>Sync now</b>). If it stays, log out and sign in again, and tell the Admin what the message says.</td></tr>
+    <tr><td>☁ Cloud empty – re-upload needed</td><td>The company cloud has no data or accounts (it was reset). Nothing on this device was deleted.</td><td>An Admin follows <a href="#cleared">section 7</a> › <i>If the cloud lost its data</i>.</td></tr>
+    <tr><td>☁ Cloud account missing</td><td>The cloud no longer has your account. Nothing on this device was deleted.</td><td>Tell the Admin. The Admin re-uploads (<a href="#cleared">section 7</a>) or adds your account again.</td></tr>
+    <tr><td>☁ Sign in again</td><td>The cloud sign-in expired.</td><td>Log out and sign in again while online.</td></tr>
     <tr><td>In use on Shop Tablet 2</td><td>That form is open on another device, so it is read-only here and updates live.</td><td>Wait until they leave the form. A lock on a device that went offline expires after 30 minutes.</td></tr>
   </table>
 </section>
@@ -197,6 +200,17 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
     <li>Fix the browser setting so it doesn't happen again: in Firefox follow <a href="#firefox">section 4</a>. In Chrome or Edge, don't clear site data on exit and don't use Incognito/InPrivate.</li>
   </ol>
   <div class="warn">Changes that were still <b>waiting</b> (the device was offline) when the data was cleared are lost. Without cloud sync, restore the newest backup file instead (<a href="#backup">section 6</a>).</div>
+  <h3>If the cloud lost its data ("Cloud empty – re-upload needed")</h3>
+  <p>This is the opposite case: the data on the device is fine, but the company cloud was emptied or lost your account. The app then stops syncing and <b>deletes nothing</b> on the device. The top bar shows <b>☁ Cloud empty – re-upload needed</b> or <b>☁ Cloud account missing</b>.</p>
+  <ol class="steps">
+    <li>Make a backup first (<a href="#backup">section 6</a>). It's a safety net.</li>
+    <li>On the Admin's device, tap <b>Admin</b>.</li>
+    <li>In the <b>Cloud sync</b> card, tap <b>Re-upload all data from this device</b>.</li>
+    <li>If the cloud is empty, type the new one-time <b>setup code</b> from the Ram-Gear Admin.</li>
+    <li>Type your password/PIN and tap <b>Re-upload</b>.</li>
+    <li>Wait until the top bar shows <b>☁ Synced</b>.</li>
+    <li>On every other device, log out and sign in again while online.</li>
+  </ol>
 </section>
 
 <section class="card" id="othershop">
