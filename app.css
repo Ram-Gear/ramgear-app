@@ -307,3 +307,16 @@ body.locked .appbar,body.locked main,body.locked #toast{display:none}
   .sec{scroll-margin-top:64px}
   .card{padding:14px}
 }
+
+/* Rev 1.5: gearboxes and reduction types */
+.typetag{display:inline-block;font-size:13px;font-weight:700;background:#e8eef5;color:var(--navy);border:1px solid #b9c7d8;border-radius:8px;padding:3px 8px;margin-right:6px}
+.typetag.big{font-size:15px;padding:5px 10px}
+.jc-types{margin:2px 0 6px}
+.gbcard .card-head{flex-wrap:wrap;gap:8px}
+.gb-actions{display:flex;gap:6px;flex-wrap:wrap}
+.danger-text{color:var(--danger)}
+.gb-line{font-size:15px;color:var(--navy);margin:2px 0 6px}
+.rtype .choices{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+.rtype legend{font-weight:600}
+.rtype-confirm{font-size:20px;color:var(--navy)}
+.addgb{padding-top:14px;padding-bottom:14px}

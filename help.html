@@ -73,6 +73,7 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
     <li><a href="#more">Add more tablets or a Windows PC</a></li>
     <li><a href="#firefox">Firefox settings</a></li>
     <li><a href="#daily">Daily use &amp; sync status</a></li>
+    <li><a href="#gearboxes">Jobs, gearboxes &amp; reduction type</a></li>
     <li><a href="#backup">Backups &amp; restore</a></li>
     <li><a href="#cleared">If browser data is cleared</a></li>
     <li><a href="#othershop">Setting up for another shop</a></li>
@@ -159,25 +160,52 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
     <tr><td>☁ 3 to sync</td><td>Online, with 3 changes about to be sent.</td><td>Nothing. It usually clears within seconds.</td></tr>
     <tr><td>☁ Offline · 3 changes waiting</td><td>No internet. Your work is saved on this device and is sent when the connection is back.</td><td>Keep working. Reconnect Wi-Fi when you can, and don't clear the browser's data while changes are waiting.</td></tr>
     <tr><td>☁ Sync problem</td><td>The cloud refused a change or couldn't be reached.</td><td>Check the internet, then tap the status (Admins: Admin › Cloud sync › <b>Sync now</b>). If it stays, log out and sign in again, and tell the Admin what the message says.</td></tr>
-    <tr><td>☁ Cloud empty – re-upload needed</td><td>The company cloud has no data or accounts (it was reset). Nothing on this device was deleted.</td><td>An Admin follows <a href="#cleared">section 7</a> › <i>If the cloud lost its data</i>.</td></tr>
-    <tr><td>☁ Cloud account missing</td><td>The cloud no longer has your account. Nothing on this device was deleted.</td><td>Tell the Admin. The Admin re-uploads (<a href="#cleared">section 7</a>) or adds your account again.</td></tr>
+    <tr><td>☁ Cloud empty – re-upload needed</td><td>The company cloud has no data or accounts (it was reset). Nothing on this device was deleted.</td><td>An Admin follows <a href="#cleared">section 8</a> › <i>If the cloud lost its data</i>.</td></tr>
+    <tr><td>☁ Cloud account missing</td><td>The cloud no longer has your account. Nothing on this device was deleted.</td><td>Tell the Admin. The Admin re-uploads (<a href="#cleared">section 8</a>) or adds your account again.</td></tr>
     <tr><td>☁ Sign in again</td><td>The cloud sign-in expired.</td><td>Log out and sign in again while online.</td></tr>
     <tr><td>In use on Shop Tablet 2</td><td>That form is open on another device, so it is read-only here and updates live.</td><td>Wait until they leave the form. A lock on a device that went offline expires after 30 minutes.</td></tr>
   </table>
 </section>
 
+<section class="card" id="gearboxes">
+  <h2><span class="num">6</span>Jobs, gearboxes &amp; reduction type</h2>
+  <p>A job can hold <b>one or more gearboxes</b>. Each gearbox has its own <b>reduction type</b> (Single, Double or Triple), its own manufacturer, model and serial number, and its own <b>Teardown Evaluation</b> and <b>Assembly Verification</b>. The forms follow the type: ratios for each stage, the shafts (Single: input and output; Double: plus an intermediate shaft; Triple: plus two intermediate shafts), gears and pinions per stage, bearings and shims per shaft, and backlash for each gear mesh.</p>
+  <h3>Start a job</h3>
+  <ol class="steps">
+    <li>Open the customer and tap <b>+ New job</b>.</li>
+    <li>Type the work order number. Fill in manufacturer, model and serial number of gearbox 1 if you have them.</li>
+    <li>Under <b>Reduction type</b>, tap <b>Single</b>, <b>Double</b> or <b>Triple</b>. The app won't create the job without it.</li>
+    <li>Tap <b>Create job</b>.</li>
+    <li>Check the type in the confirmation and tap <b>Confirm … &amp; lock</b>. Tap <b>Back</b> to pick another one. The type is now locked 🔒.</li>
+  </ol>
+  <h3>Add another gearbox to the job</h3>
+  <ol class="steps">
+    <li>Open the job folder and tap <b>+ Add gearbox</b> (below the gearbox cards).</li>
+    <li>Fill in the gearbox details, pick its reduction type and tap <b>Add gearbox</b>.</li>
+    <li>Confirm the type. The new card shows <b>Gearbox 2 of 2</b> with its own forms. Teardown Evaluation is listed before Assembly Verification.</li>
+  </ol>
+  <p class="small">You can add gearboxes until every form of the job is finalized. Labels like <b>Gearbox 1 of 2</b> (with type and serial number) appear on the forms, on every page of the PDFs, in file names (<code>_GB1</code>, <code>_GB2</code>) and in the zip, which has one folder per gearbox. The combined PDF is grouped per gearbox, each group starting with a cover page. Jobs created before Rev 1.5 count as one <b>Double</b>-reduction gearbox; nothing in them changed.</p>
+  <h3>Change the type or remove a gearbox (Admin)</h3>
+  <ol class="steps">
+    <li>In the gearbox card, tap <b>Change type</b> or <b>Remove gearbox</b>.</li>
+    <li>For a type change, pick the new type and confirm it. This works only while none of that gearbox's forms has been finalized. After that, the final PDFs are the record, so remove the gearbox and add it again if the type was wrong.</li>
+    <li>Approve with the Admin password/PIN. The change is written to the audit log and synced to all tablets.</li>
+  </ol>
+  <p class="small">A removed gearbox disappears from the job, the counts and the exports. Its saved final PDFs are kept, listed as “Removed gearbox”.</p>
+</section>
+
 <section class="card" id="backup">
-  <h2><span class="num">6</span>Backups &amp; restore</h2>
+  <h2><span class="num">7</span>Backups &amp; restore</h2>
   <p>The cloud keeps a copy of everything, but a backup file is still your safety net.</p>
   <h3>Make a backup</h3>
   <ol class="steps">
     <li>Tap <b>Backup</b> in the top bar of the home screen, or go to <b>Admin</b> › <b>Backup all data</b>.</li>
     <li>In Chrome or Edge, tap <b>Save as…</b> and choose a folder, for example a USB drive or a OneDrive folder. Otherwise, tap <b>Download</b> (the file goes to the <b>Downloads</b> folder; Firefox asks where if you did step 8 of section 4) or <b>Share</b> on a tablet (Drive, Files, e-mail).</li>
-    <li>Keep the suggested file name. It looks like <code>ramgear-backup-2026-09-30-0858-Rev1.4-ShopTablet1.json</code>: date, time (24 h), app revision and Tablet ID, so the files sort in date order.</li>
+    <li>Keep the suggested file name. It looks like <code>ramgear-backup-2026-09-30-0858-Rev1.5-ShopTablet1.json</code>: date, time (24 h), app revision and Tablet ID, so the files sort in date order.</li>
     <li>Keep a copy somewhere other than the tablet.</li>
   </ol>
   <h3>Restore a backup</h3>
-  <div class="warn"><b>Careful when cloud sync is on:</b> restored jobs are sent to the cloud and can replace <b>newer</b> changes made on other tablets for the same jobs. Finalized forms stay locked. Restore only when data is really lost, on one device, after talking to the Admin. If a device only lost its own copy, use <a href="#cleared">section 7</a> instead.</div>
+  <div class="warn"><b>Careful when cloud sync is on:</b> restored jobs are sent to the cloud and can replace <b>newer</b> changes made on other tablets for the same jobs. Finalized forms stay locked. Restore only when data is really lost, on one device, after talking to the Admin. If a device only lost its own copy, use <a href="#cleared">section 8</a> instead.</div>
   <ol class="steps">
     <li>Sign in as an Admin and tap <b>Admin</b>.</li>
     <li>Tap <b>Restore from backup</b>.</li>
@@ -189,7 +217,7 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
 </section>
 
 <section class="card" id="cleared">
-  <h2><span class="num">7</span>If browser data is cleared</h2>
+  <h2><span class="num">8</span>If browser data is cleared</h2>
   <p>The app keeps its data in the browser. If that data is deleted (by "clear browsing data", a privacy setting, or a Private/Incognito window), the app opens with <b>Create the first Admin account</b> as if it were new. With cloud sync, everything that was synced is still safe in the cloud.</p>
   <ol class="steps">
     <li>Do <b>not</b> create a new admin account.</li>
@@ -199,11 +227,11 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
     <li>Tap <b>Connect</b> and wait for the download.</li>
     <li>Fix the browser setting so it doesn't happen again: in Firefox follow <a href="#firefox">section 4</a>. In Chrome or Edge, don't clear site data on exit and don't use Incognito/InPrivate.</li>
   </ol>
-  <div class="warn">Changes that were still <b>waiting</b> (the device was offline) when the data was cleared are lost. Without cloud sync, restore the newest backup file instead (<a href="#backup">section 6</a>).</div>
+  <div class="warn">Changes that were still <b>waiting</b> (the device was offline) when the data was cleared are lost. Without cloud sync, restore the newest backup file instead (<a href="#backup">section 7</a>).</div>
   <h3>If the cloud lost its data ("Cloud empty – re-upload needed")</h3>
   <p>This is the opposite case: the data on the device is fine, but the company cloud was emptied or lost your account. The app then stops syncing and <b>deletes nothing</b> on the device. The top bar shows <b>☁ Cloud empty – re-upload needed</b> or <b>☁ Cloud account missing</b>.</p>
   <ol class="steps">
-    <li>Make a backup first (<a href="#backup">section 6</a>). It's a safety net.</li>
+    <li>Make a backup first (<a href="#backup">section 7</a>). It's a safety net.</li>
     <li>On the Admin's device, tap <b>Admin</b>.</li>
     <li>In the <b>Cloud sync</b> card, tap <b>Re-upload all data from this device</b>.</li>
     <li>If the cloud is empty, type the new one-time <b>setup code</b> from the Ram-Gear Admin.</li>
@@ -214,7 +242,7 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
 </section>
 
 <section class="card" id="othershop">
-  <h2><span class="num">8</span>Setting up for another shop</h2>
+  <h2><span class="num">9</span>Setting up for another shop</h2>
   <p>This address, <code>https://ram-gear.github.io/ramgear-app/</code>, uses <b>Ram-Gear's</b> database and needs a Ram-Gear account. Another shop that wants the app with <b>its own data</b> makes its own copy:</p>
   <ol class="steps">
     <li>Fork the app on GitHub and turn on GitHub Pages. This gives the shop its own web address.</li>

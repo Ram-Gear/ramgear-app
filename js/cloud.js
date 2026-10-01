@@ -320,5 +320,5 @@ const Cloud = (() => {
   async function init(h) { hooks = {...hooks, ...h}; await loadCfg(); if (enabled()) start(); countPending(); return cfg; }
   return {configured, init, status, onStatus: f => { listeners.add(f); f(status()); }, sync, soon, signIn, signOut, session, me, connect, disconnect,
     bootstrapped, bootstrap, importUsers, upsertUser, setOwnPassword, checkout, release, releaseAll, lockOf: (j, k) => LOCKS[`${j}:${k}`] || null,
-    isHeld: (j, k) => held.has(`${j}:${k}`), tablets: () => TABLETS, enabled, countPending, resetState, emailFor, hash, _state: getState};
+    isHeld: (j, k) => held.has(`${j}:${k}`), deviceId, tablets: () => TABLETS, enabled, countPending, resetState, emailFor, hash, _state: getState};
 })();

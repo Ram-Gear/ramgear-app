@@ -4,7 +4,7 @@
   const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
   const view = $('#view');
-  let FORMS = null, FORM_BY_KEY = {}, KINDS = {}, REQS = {};
+  let FORMS = null, FORM_BY_ID = {}, BASE_DEF = {}, BASES = [], KINDS = {}, REQS = {};   // defs per id 'teardown@3'; BASES: form keys in display order
   let urls = [];            // object URLs to revoke on navigation
   let pendingPhoto = null;  // {jobId, scope, label}
   let current = {customer: null, job: null, formKey: null};
@@ -515,8 +515,8 @@
     if (kind === 'user') { if (id === USER.id) { if (data.disabled) { toast('Your account was disabled by an Admin'); logout(); return; } USER = {...USER, ...data}; renderUserBox(); } return; }
     if (cj && cj.id === id) {
       const vf = current.formKey, heldHere = !!vf && Cloud.isHeld(id, vf);   // heldHere: this tablet is editing that form
-      if (kind === 'form') { if (vf === key && heldHere) return; cj.forms[key] = data; if (vf && vf !== key) return; }
-      else if (kind === 'job') { const forms = cj.forms; Object.keys(cj).forEach(k => { if (k !== 'forms') delete cj[k]; }); Object.assign(cj, data, {forms}); if (heldHere) return; }
+      if (kind === 'form') { if (vf === key && heldHere) return; cj.forms[key] = data; normalizeJob(cj); if (vf && vf !== key) return; }
+      else if (kind === 'job') { const forms = cj.forms; Object.keys(cj).forEach(k => { if (k !== 'forms') delete cj[k]; }); Object.assign(cj, data, {forms}); normalizeJob(cj); if (heldHere) return; }
       else if (kind === 'file' && current.formKey) { fillPhotoPanels(cj); return; }
     } else if (current.formKey) return;   // editing a form: changes elsewhere show when leaving it
     rerenderSoon();
@@ -656,25 +656,90 @@
     $('#sPersist').onclick = async () => { const r = await storageStatus(true); await audit('Persistent storage requested', `${r.browser}: ${r.persisted ? 'granted' : 'not granted'}`, 'done'); toast(r.persisted ? 'Persistent storage granted' : `${r.browser} did not grant persistent storage`, 4000); renderSettings(); };
   }
 
-  /* ---------- model helpers ---------- */
-  function newFormState(key) {
-    const values = {}, sf = key && FORM_BY_KEY[key] && FORM_BY_KEY[key].signedByField;
-    if (sf && USER) values[sf] = USER.displayName;   // prefill "Inspected by" with the signed-in user
-    return {enabled: true, status: 'draft', revision: 1, values, na: {}, history: [], createdAt: Date.now(), createdBy: userName(), tabletUsed: TABLET};
+  /* ---------- gearboxes (Rev 1.5) ----------
+     A job holds one or more gearboxes: job.gearboxes = [{id:'g1', stages:1|2|3, locked, lockedAt, lockedBy, manufacturer, model, serial, removed?}].
+     Gearbox 1's manufacturer/model/serial stay on the job itself (job.manufacturer …) so devices on older revisions keep working.
+     Form keys: 'teardown' / 'assembly' for gearbox 1, '<gearbox id>.teardown' … for the others. Added gearboxes get a unique id
+     (two tablets can add one offline at the same time) and are ordered by creation time. Each form state also stores its
+     gearbox id, stage count and a copy of the gearbox entry, so a gearbox dropped by a concurrent job edit is rebuilt. */
+  const RTYPE = {1: 'Single', 2: 'Double', 3: 'Triple'}, STAGE_N = [1, 2, 3];
+  const rtype = n => RTYPE[n] || 'Double';
+  function parseKey(k) { const m = /^([^.]+)\.(.+)$/.exec(k || ''); return m ? {gid: m[1], base: m[2]} : {gid: 'g1', base: k}; }
+  const fkey = (gid, base) => gid === 'g1' ? base : `${gid}.${base}`;
+  const newGid = () => 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const gbOrder = (a, b) => (a.id === 'g1' ? -1 : b.id === 'g1' ? 1 : 0) || (a.createdAt || 0) - (b.createdAt || 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  /* Existing jobs (before Rev 1.5) become one Double-reduction gearbox. Idempotent; also rebuilds a gearbox entry
+     that a concurrent edit on another tablet dropped (its forms carry the gearbox id and stage count). */
+  function normalizeJob(job) {
+    if (!job) return job;
+    job.forms = job.forms || {};
+    if (!Array.isArray(job.gearboxes) || !job.gearboxes.length) {
+      const st = job.forms.teardown || job.forms.assembly;
+      job.gearboxes = [{id: 'g1', stages: (st && st.stages) || 2, locked: true, lockedAt: job.createdAt || Date.now(), lockedBy: job.createdBy || '', migrated: true}];
+    }
+    for (const [k, st] of Object.entries(job.forms)) {
+      const {gid} = parseKey(k);
+      if (!job.gearboxes.some(g => g.id === gid)) job.gearboxes.push({...((st && st.gb) || {}), id: gid, stages: (st && st.stages) || 2, locked: true, recovered: true,
+        createdAt: (st && st.gb && st.gb.createdAt) || (st && st.createdAt) || Date.now()});
+    }
+    job.gearboxes.sort(gbOrder);
+    return job;
   }
-  const formIdx = k => { const i = FORMS.forms.findIndex(f => f.key === k); return i < 0 ? 99 : i; };
-  function formStates(job) { return FORMS.forms.filter(f => job.forms[f.key] && job.forms[f.key].enabled); }
+  const activeGbs = job => normalizeJob(job).gearboxes.filter(g => !g.removed);
+  const gbById = (job, gid) => normalizeJob(job).gearboxes.find(g => g.id === gid) || null;
+  function gbInfo(job, gid) {   // manufacturer/model/serial of one gearbox
+    const g = gbById(job, gid) || {};
+    return gid === 'g1' ? {manufacturer: job.manufacturer || '', model: job.model || '', serial: job.serial || ''} : {manufacturer: g.manufacturer || '', model: g.model || '', serial: g.serial || ''};
+  }
+  function setGbInfo(job, gid, k, v) { if (gid === 'g1') job[k] = v; else { const g = gbById(job, gid); if (g) g[k] = v; } }
+  function gbMeta(job, gid) {   // {index, count, label 'Gearbox 1 of 2', reduction 'Triple', stages, serial}
+    const act = activeGbs(job), i = act.findIndex(g => g.id === gid), g = gbById(job, gid) || {stages: 2}, info = gbInfo(job, gid);
+    return {id: gid, index: i + 1, count: act.length, label: i < 0 ? `Removed gearbox ${job.gearboxes.indexOf(g) + 1}` : `Gearbox ${i + 1} of ${act.length}`,
+            reduction: rtype(g.stages), stages: g.stages || 2, serial: info.serial, removed: !!g.removed, locked: g.locked !== false};
+  }
+  const gbTitle = (m, withSerial = true) => `${m.label} · ${m.reduction} reduction${withSerial && m.serial ? ` · S/N ${m.serial}` : ''}`;
+  const gbFolder = m => [m.label, m.reduction, m.serial ? 'SN ' + PdfExport.safe(m.serial) : ''].filter(Boolean).join(' - ');   // zip subfolder, e.g. "Gearbox 1 of 2 - Triple - SN 4471-A"
+  /* form definition for a form key of a job: the variant matching the gearbox's (locked) stage count */
+  function fdef(job, key) {
+    const {gid, base} = parseKey(key), st = job.forms[key], g = gbById(job, gid);
+    const n = (g && g.stages) || (st && st.stages) || 2;
+    return FORM_BY_ID[`${base}@${n}`] || FORM_BY_ID[`${base}@2`] || null;
+  }
+  const kindsOf = (job, key) => KINDS[fdef(job, key).id], reqsOf = (job, key) => REQS[fdef(job, key).id];
+  const titleOf = key => (BASE_DEF[parseKey(key).base] || {}).title || key;
+  function newFormState(key, gid = 'g1', stages = 2, gb = null) {
+    const values = {}, d = BASE_DEF[parseKey(key).base], sf = d && d.signedByField;
+    if (sf && USER) values[sf] = USER.displayName;   // prefill "Inspected by" with the signed-in user
+    const st = {enabled: true, status: 'draft', revision: 1, values, na: {}, history: [], createdAt: Date.now(), createdBy: userName(), tabletUsed: TABLET, gearboxId: gid, stages};
+    if (gb && gid !== 'g1') st.gb = {manufacturer: gb.manufacturer || '', model: gb.model || '', serial: gb.serial || '', createdAt: gb.createdAt, createdBy: gb.createdBy, lockedAt: gb.lockedAt, lockedBy: gb.lockedBy};
+    return st;
+  }
+  // display/sort order: gearbox order, then form order (Teardown Evaluation first)
+  const formIdx = (job, k) => { const {gid, base} = parseKey(k), i = BASES.indexOf(base), gi = normalizeJob(job).gearboxes.findIndex(g => g.id === gid); return (gi < 0 ? 999 : gi) * 10 + (i < 0 ? 9 : i); };
+  /* enabled forms of the job's active gearboxes: [{key, gid, base, def, st}] in display order */
+  function formStates(job) {
+    const out = [];
+    for (const g of activeGbs(job)) for (const base of BASES) {
+      const key = fkey(g.id, base), st = job.forms[key];
+      if (st && st.enabled) out.push({key, gid: g.id, base, def: fdef(job, key), st, title: BASE_DEF[base].title});
+    }
+    return out;
+  }
   function jobStatus(job) {
     const fs = formStates(job); if (!fs.length) return 'draft';
-    return fs.every(f => job.forms[f.key].status === 'completed') ? 'completed' : 'draft';
+    return fs.every(f => f.st.status === 'completed') ? 'completed' : 'draft';
   }
   const badge = st => st === 'completed' ? '<span class="badge done">Completed</span>' : '<span class="badge draft">Draft</span>';
   function custName(job, cust) { return (cust && cust.id === 'unassigned' && job.legacyCustomer) ? job.legacyCustomer : (cust ? cust.name : ''); }
-  /* Values that auto-fill into both forms (customer name comes from the customer file). */
-  function ctx(job, cust) { return {customer: custName(job, cust), wo: job.wo || '', manufacturer: job.manufacturer || '', model: job.model || '', serial: job.serial || '', date: job.date || ''}; }
+  /* Values that auto-fill into the gearbox's forms (customer name comes from the customer file, gearbox info from the gearbox). */
+  function ctx(job, cust, gid = 'g1') {
+    const m = gbMeta(job, gid);
+    return {customer: custName(job, cust), wo: job.wo || '', ...gbInfo(job, gid), date: job.date || '', gearbox: m.label, gearboxId: gid, gearboxCount: m.count, reduction: m.reduction, stages: m.stages, gbTag: m.count > 1 ? `_GB${m.index}` : ''};
+  }
+  const pdfGb = c => ({label: c.gearbox, count: c.gearboxCount, reduction: c.reduction, serial: c.serial});
   function getVal(job, key, name) {
-    const k = KINDS[key][name] || {}, st = job.forms[key];
-    if (k.link) return (st.status === 'completed' && st.snapshot ? st.snapshot : ctx(job, current.customer))[k.link];
+    const k = kindsOf(job, key)[name] || {}, st = job.forms[key];
+    if (k.link) return (st.status === 'completed' && st.snapshot ? st.snapshot : ctx(job, current.customer, parseKey(key).gid))[k.link];
     return st.values[name];
   }
   const filled = v => v === true || (typeof v === 'string' && v.trim() !== '');
@@ -688,7 +753,7 @@
   }
   function progress(job, key) {
     let done = 0, total = 0; const missing = [];
-    for (const r of REQS[key]) {
+    for (const r of reqsOf(job, key)) {
       const s = reqState(job, key, r.req); if (s === 'skip') continue;
       total++; if (s === 'done' || s === 'na') done++; else missing.push(r);
     }
@@ -696,16 +761,20 @@
   }
   async function saveJob(job) { job.updatedAt = Date.now(); await DB.put('jobs', job); }
   async function saveCustomer(c) { c.updatedAt = Date.now(); await DB.put('customers', c); }
-  function scheduleSave() {
+  // The debounced save keeps the job it was scheduled for: a late 'change' event (blur while leaving a form) may arrive
+  // after navigation has already replaced current.job.
+  let saveJobRef = null;
+  function scheduleSave(job = current.job) {
+    if (!job) return;
     const ind = $('#saveInd'); if (ind) ind.textContent = 'Saving…';
-    clearTimeout(saveTimer);
+    clearTimeout(saveTimer); saveJobRef = job;
     saveTimer = setTimeout(async () => {
-      saveTimer = null;
-      await saveJob(current.job);
+      saveTimer = null; const j = saveJobRef; saveJobRef = null;
+      if (j) await saveJob(j);
       const i = $('#saveInd'); if (i) i.textContent = 'Saved ' + new Date().toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
     }, 400);
   }
-  async function flushSave() { if (saveTimer && current.job) { clearTimeout(saveTimer); saveTimer = null; await saveJob(current.job); } }
+  async function flushSave() { if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; const j = saveJobRef || current.job; saveJobRef = null; if (j) await saveJob(j); } }
   window.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSave(); });
   window.addEventListener('pagehide', flushSave);
   window.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && $('#backupBanner')) showBackupBanner(); });
@@ -756,7 +825,7 @@
   async function load(cid, jid) {
     const customer = await DB.get('customers', cid); if (!customer) { location.hash = P.home(); return {}; }
     if (!jid) return {customer};
-    const job = await DB.get('jobs', jid); if (!job || job.customerId !== cid) { location.hash = P.cust(cid); return {}; }
+    const job = normalizeJob(await DB.get('jobs', jid)); if (!job || job.customerId !== cid) { location.hash = P.cust(cid); return {}; }
     return {customer, job};
   }
 
@@ -796,8 +865,8 @@
     });
   }
   function blankPdfs() {
-    modal(`<h2>Blank PDF forms</h2><p class="muted">Fillable PDFs, the same templates the app fills in.</p>
-      <ul class="linklist">${FORMS.forms.map(f => `<li><a class="btn" href="${esc(f.template)}" download>${esc(f.title)}</a> <span class="muted small">${esc(f.docTitle)}</span></li>`).join('')}</ul>`,
+    modal(`<h2>Blank PDF forms</h2><p class="muted">Fillable PDFs, the same templates the app fills in. One set per reduction type.</p>
+      ${STAGE_N.map(n => `<h4 class="subhead">${rtype(n)} reduction (${n} stage${n > 1 ? 's' : ''})</h4><ul class="linklist">${BASES.map(b => FORM_BY_ID[`${b}@${n}`]).filter(Boolean).map(f => `<li><a class="btn" href="${esc(f.template)}" download data-blank="${esc(f.id)}">${esc(f.title)}</a> <span class="muted small">${esc(f.docTitle)}</span></li>`).join('')}</ul>`).join('')}`,
       [{label: 'Close', value: 'cancel'}], {noFocus: true});
   }
   async function editCustomer(c) {
@@ -832,11 +901,12 @@
           ${[customer.contact, customer.phone, customer.email, customer.address, customer.notes].some(Boolean) ? '' : '<p class="muted">No contact details yet. Tap <b>Edit</b> to add them.</p>'}</div>
       </section>
       <section class="home-head"><div><h2>Jobs</h2></div><button class="btn primary big" id="newJobBtn">+ New job</button></section>
-      <div class="joblist">${jobs.length ? jobs.map(j => `
-        <a class="jobcard" href="${P.job(cid, j.id)}">
+      <div class="joblist">${jobs.length ? jobs.map(j => { const gbs = activeGbs(j); return `
+        <a class="jobcard" href="${P.job(cid, j.id)}" data-jobcard="${esc(j.id)}">
           <div class="jc-main"><div class="jc-wo">WO ${esc(j.wo || '—')}</div><div class="jc-cust">${esc([j.manufacturer, j.model].filter(Boolean).join(' ') || 'Gearbox')}${j.serial ? ` <span class="muted small">S/N ${esc(j.serial)}</span>` : ''}${j.legacyCustomer ? ` <span class="muted small">(was: ${esc(j.legacyCustomer)})</span>` : ''}</div>
-          <div class="jc-forms">${formStates(j).map(f => `<span class="formtag">${esc(f.title)} ${badge(j.forms[f.key].status)}</span>`).join('')}</div></div>
-          <div class="jc-side">${badge(jobStatus(j))}<div class="muted small">${esc(j.date ? fmtDay(j.date + 'T12:00') : '')}</div></div></a>`).join('')
+          <div class="jc-types" data-jobtypes>${gbs.length > 1 ? `<span class="muted small">${gbs.length} gearboxes:</span> ` : ''}${gbs.map((g, i) => `<span class="typetag">${gbs.length > 1 ? `GB${i + 1} ` : ''}${rtype(g.stages)} reduction</span>`).join('')}</div>
+          <div class="jc-forms">${formStates(j).map(f => `<span class="formtag">${gbs.length > 1 ? `GB${gbMeta(j, f.gid).index} · ` : ''}${esc(f.title)} ${badge(f.st.status)}</span>`).join('')}</div></div>
+          <div class="jc-side">${badge(jobStatus(j))}<div class="muted small">${esc(j.date ? fmtDay(j.date + 'T12:00') : '')}</div></div></a>`; }).join('')
         : `<div class="empty"><p>No jobs for this customer yet.</p><p class="muted">Tap <b>New job</b> to start a teardown evaluation or assembly verification.</p></div>`}</div>`;
     $('#newJobBtn').onclick = () => newJob(customer);
     $('#editCustBtn').onclick = async () => { if (await editCustomer(customer)) renderCustomer(cid); };
@@ -847,22 +917,112 @@
       await DB.deleteCustomer(cid); toast('Customer deleted'); location.hash = P.home();
     };
   }
+  /* Gearbox fields + reduction type (required), shared by "New job" and "Add gearbox". */
+  const typeRadios = (sel, name = 'stages') => `<fieldset class="fld rtype"><legend>Reduction type * <span class="muted small">(locked after you confirm)</span></legend><div class="choices seg">${STAGE_N.map(n =>
+    `<label class="chk pill" data-rtype="${n}"><input type="radio" name="${name}" value="${n}" ${+sel === n ? 'checked' : ''}><span class="box"></span><span class="txt"><b>${rtype(n)}</b> <span class="muted small">${n} stage${n > 1 ? 's' : ''}</span></span></label>`).join('')}</div></fieldset>`;
+  const gbFields = v => `<div class="row cols3"><label class="fld"><span>Gearbox manufacturer</span><input name="manufacturer" autocomplete="off" value="${esc(v.manufacturer || '')}"></label>
+      <label class="fld"><span>Model</span><input name="model" autocomplete="off" value="${esc(v.model || '')}"></label>
+      <label class="fld"><span>Serial number</span><input name="serial" autocomplete="off" value="${esc(v.serial || '')}"></label></div>
+      ${typeRadios(v.stages)}
+      <fieldset class="fld"><legend>Forms</legend>${BASES.map(b => `<label class="chk inline"><input type="checkbox" name="form_${b}" ${!v.forms || v.forms.includes(b) ? 'checked' : ''}><span class="box"></span><span>${esc(BASE_DEF[b].title)}</span></label>`).join('')}</fieldset>`;
+  const readGb = f => ({manufacturer: f.manufacturer.value.trim(), model: f.model.value.trim(), serial: f.serial.value.trim(),
+    stages: +((f.querySelector('input[name=stages]:checked') || {}).value || 0), forms: BASES.filter(b => f['form_' + b].checked)});
+  /* "Finalize the selection": the reduction type is confirmed in a separate step and then locked. */
+  const confirmType = (n, what) => modal(`<h2>Confirm reduction type</h2><p class="rtype-confirm"><b>${rtype(n)} reduction</b> · ${n} stage${n > 1 ? 's' : ''}</p>
+      <p>${esc(what)} uses the ${rtype(n).toLowerCase()}-reduction forms: ${n === 1 ? 'input and output shafts, one gear mesh' : n === 2 ? 'input, intermediate and output shafts, two gear meshes' : 'input, two intermediate and output shafts, three gear meshes'}.</p>
+      <p class="muted small">After you confirm, the type is <b>locked</b> 🔒. Changing it later needs Admin approval and is only possible while none of this gearbox's forms has been finalized.</p>`,
+    [{label: 'Back', value: 'cancel'}, {label: `Confirm ${rtype(n)} & lock`, value: 'ok', cls: 'primary'}]).then(v => v === 'ok');
   async function newJob(customer) {
-    const v = await modal(`<h2>New job for ${esc(customer.name)}</h2>
-      <div class="grid2"><label class="fld"><span>Work order number *</span><input name="wo" required autocomplete="off"></label>
-      <label class="fld"><span>Date</span><input name="date" type="date" value="${today()}"></label></div>
-      <div class="row cols3"><label class="fld"><span>Gearbox manufacturer</span><input name="manufacturer" autocomplete="off"></label>
-      <label class="fld"><span>Model</span><input name="model" autocomplete="off"></label>
-      <label class="fld"><span>Serial number</span><input name="serial" autocomplete="off"></label></div>
-      <fieldset class="fld"><legend>Forms</legend>${FORMS.forms.map(f => `<label class="chk inline"><input type="checkbox" name="form_${f.key}" checked><span class="box"></span><span>${esc(f.title)}</span></label>`).join('')}</fieldset>`,
-      [{label: 'Cancel', value: 'cancel'}, {label: 'Create job', value: 'ok', cls: 'primary'}], {wide: true});
-    if (v !== 'ok') return;
-    const f = $('#dlgForm');
-    const job = {id: DB.uid(), customerId: customer.id, wo: f.wo.value.trim(), date: f.date.value, manufacturer: f.manufacturer.value.trim(),
-                 model: f.model.value.trim(), serial: f.serial.value.trim(), createdAt: Date.now(), updatedAt: Date.now(), tabletId: TABLET, createdBy: userName(), forms: {}};
-    for (const fm of FORMS.forms) if (f['form_' + fm.key].checked) job.forms[fm.key] = newFormState(fm.key);
+    let vals = {wo: '', date: today(), stages: 0}, err = '';
+    for (;;) {
+      const v = await modal(`<h2>New job for ${esc(customer.name)}</h2>
+        <div class="grid2"><label class="fld"><span>Work order number *</span><input name="wo" required autocomplete="off" value="${esc(vals.wo)}"></label>
+        <label class="fld"><span>Date</span><input name="date" type="date" value="${esc(vals.date)}"></label></div>
+        <h4 class="subhead">Gearbox 1 <span class="muted small">(add more gearboxes to the job later in the job folder)</span></h4>
+        ${gbFields(vals)}${err ? `<p class="pin-error" role="alert">${esc(err)}</p>` : ''}`,
+        [{label: 'Cancel', value: 'cancel'}, {label: 'Create job', value: 'ok', cls: 'primary'}], {wide: true});
+      if (v !== 'ok') return;
+      const f = $('#dlgForm'); vals = {wo: f.wo.value.trim(), date: f.date.value, ...readGb(f)};
+      if (!vals.stages) { err = 'Select the reduction type (Single, Double or Triple).'; continue; }
+      if (!await confirmType(vals.stages, 'Gearbox 1')) { err = ''; continue; }
+      break;
+    }
+    const now = Date.now();
+    const job = {id: DB.uid(), customerId: customer.id, wo: vals.wo, date: vals.date, manufacturer: vals.manufacturer, model: vals.model, serial: vals.serial,
+                 createdAt: now, updatedAt: now, tabletId: TABLET, createdBy: userName(), forms: {},
+                 gearboxes: [{id: 'g1', stages: vals.stages, locked: true, lockedAt: now, lockedBy: userName(), createdAt: now, createdBy: userName()}]};
+    for (const b of vals.forms) job.forms[b] = newFormState(b, 'g1', vals.stages);
     await saveJob(job); await saveCustomer(customer);
+    await audit('Reduction type locked', `WO ${job.wo} – Gearbox 1 of 1: ${rtype(vals.stages)} reduction`, 'done');
     location.hash = P.job(customer.id, job.id);
+  }
+  async function addGearbox(job, cid) {
+    if (jobStatus(job) === 'completed') { toast('All forms of this job are finalized – reopen a form first to add a gearbox', 4000); return; }
+    const n = activeGbs(job).length + 1;
+    let vals = {stages: 0}, err = '';
+    for (;;) {
+      const v = await modal(`<h2>Add gearbox ${n} to WO ${esc(job.wo)}</h2><p class="muted">The new gearbox gets its own forms (Teardown Evaluation and Assembly Verification) with its own reduction type.</p>
+        ${gbFields(vals)}${err ? `<p class="pin-error" role="alert">${esc(err)}</p>` : ''}`,
+        [{label: 'Cancel', value: 'cancel'}, {label: 'Add gearbox', value: 'ok', cls: 'primary'}], {wide: true});
+      if (v !== 'ok') return;
+      vals = readGb($('#dlgForm'));
+      if (!vals.stages) { err = 'Select the reduction type (Single, Double or Triple).'; continue; }
+      if (!await confirmType(vals.stages, `Gearbox ${n}`)) { err = ''; continue; }
+      break;
+    }
+    await flushSave();
+    const now = Date.now(), gid = newGid(), entry = {id: gid, stages: vals.stages, locked: true, lockedAt: now, lockedBy: userName(), manufacturer: vals.manufacturer, model: vals.model, serial: vals.serial, createdAt: now, createdBy: userName(), tabletId: TABLET};
+    normalizeJob(job).gearboxes.push(entry);
+    for (const b of vals.forms) job.forms[fkey(gid, b)] = newFormState(fkey(gid, b), gid, vals.stages, entry);
+    await saveJob(job);
+    const m = gbMeta(job, gid);
+    await audit('Gearbox added to job', `WO ${job.wo} – ${m.label}: ${m.reduction} reduction (locked)${vals.serial ? `, S/N ${vals.serial}` : ''}`, 'done');
+    toast(`${m.label} added – ${m.reduction} reduction`); renderJob(cid, job.id);
+  }
+  /* blocks a type change / removal while a form of the gearbox is open on another tablet */
+  function inUseElsewhere(job, gid) {
+    if (!Cloud.enabled()) return null;
+    for (const b of BASES) { const l = Cloud.lockOf(job.id, fkey(gid, b)); if (l && l.until > Date.now() && l.tablet !== Cloud.deviceId() && !Cloud.isHeld(job.id, fkey(gid, b))) return {base: b, ...l}; }
+    return null;
+  }
+  async function changeType(job, gid, cid) {
+    const m = gbMeta(job, gid), fs = BASES.map(b => job.forms[fkey(gid, b)]).filter(Boolean);
+    const fin = fs.filter(st => st.status === 'completed' || (st.history || []).length);
+    if (fin.length) {
+      await modal(`<h2>Reduction type is locked</h2><p><b>${esc(gbTitle(m))}</b></p><p>The type can't be changed because ${fin.length === 1 ? 'a form of this gearbox has' : 'forms of this gearbox have'} already been finalized (final PDFs exist). Finalized PDFs are permanent records of the ${m.reduction.toLowerCase()}-reduction forms.</p><p class="muted small">If the type was wrong, remove this gearbox (Admin) and add it again with the correct type.</p>`, [{label: 'Close', value: 'cancel'}]);
+      return;
+    }
+    const busy = inUseElsewhere(job, gid);
+    if (busy) { await modal(`<h2>Form in use</h2><p>${esc(titleOf(busy.base))} of ${esc(m.label)} is open on <b>${esc(busy.name || 'another tablet')}</b>. Change the type when it is closed there.</p>`, [{label: 'Close', value: 'cancel'}]); return; }
+    const v = await modal(`<h2>Change reduction type</h2><p><b>${esc(gbTitle(m))}</b> 🔒</p>${typeRadios(m.stages, 'nstages')}
+      <p class="muted small">The forms of this gearbox switch to the new type. Values already entered stay; fields that don't exist in the new type are no longer shown or printed. Needs Admin approval and is recorded in the audit log.</p>`,
+      [{label: 'Cancel', value: 'cancel'}, {label: 'Continue', value: 'ok', cls: 'primary'}], {wide: true});
+    if (v !== 'ok') return;
+    const n = +(($('#dlgForm').querySelector('input[name=nstages]:checked') || {}).value || 0);
+    if (!n || n === m.stages) { toast('Reduction type unchanged'); return; }
+    if (!await confirmType(n, m.label)) { toast('Reduction type unchanged'); return; }
+    if (!await requireAdmin('Change gearbox reduction type', `WO ${job.wo} – ${m.label}${m.serial ? ` (S/N ${m.serial})` : ''}: ${m.reduction} → ${rtype(n)}`)) return;
+    await flushSave();
+    const g = gbById(job, gid), now = Date.now();
+    Object.assign(g, {stages: n, locked: true, lockedAt: now, lockedBy: userName(), typeChangedAt: now, typeChangedBy: userName(), previousStages: m.stages}); delete g.migrated;
+    for (const b of BASES) { const st = job.forms[fkey(gid, b)]; if (st) st.stages = n; }
+    await saveJob(job);
+    await audit('Reduction type changed', `WO ${job.wo} – ${m.label}: ${m.reduction} → ${rtype(n)} reduction (locked)`, 'done');
+    toast(`${m.label}: ${rtype(n)} reduction`); renderJob(cid, job.id);
+  }
+  async function removeGearbox(job, gid, cid) {
+    const m = gbMeta(job, gid);
+    if (m.count < 2) { toast('A job needs at least one gearbox'); return; }
+    const busy = inUseElsewhere(job, gid);
+    if (busy) { await modal(`<h2>Form in use</h2><p>${esc(titleOf(busy.base))} of ${esc(m.label)} is open on <b>${esc(busy.name || 'another tablet')}</b>. Remove the gearbox when it is closed there.</p>`, [{label: 'Close', value: 'cancel'}]); return; }
+    const nd = (await DB.byJob('docs', job.id)).filter(d => parseKey(d.formKey).gid === gid).length;
+    if (!await confirmBox('Remove gearbox?', `Remove <b>${esc(gbTitle(m))}</b> from WO ${esc(job.wo)}? Its forms are no longer shown, counted or exported. Saved final PDFs (${nd}) and photos are kept and listed as “removed gearbox”. The other gearboxes are renumbered.`, 'Remove gearbox', true)) return;
+    if (!await requireAdmin('Remove gearbox from job', `WO ${job.wo} – ${gbTitle(m)}`)) return;
+    await flushSave();
+    Object.assign(gbById(job, gid), {removed: true, removedAt: Date.now(), removedBy: userName()});
+    await saveJob(job);
+    await audit('Gearbox removed from job', `WO ${job.wo} – ${gbTitle(m)} (${nd} saved PDF${nd === 1 ? '' : 's'} kept)`, 'done');
+    toast(`${m.label} removed`); renderJob(cid, job.id);
   }
 
   /* ---------- job folder ---------- */
@@ -870,39 +1030,44 @@
     const {customer, job} = await load(cid, jid); if (!job) return;
     current = {customer, job, formKey: null};
     bar([crumbHome, {label: customer.name, href: P.cust(cid)}, {label: `WO ${job.wo}`}], `<button class="btn ghost" id="delJobBtn">Delete job</button>`, {label: customer.name, href: P.cust(cid)});
-    const docs = (await DB.byJob('docs', jid)).sort((a, b) => formIdx(a.formKey) - formIdx(b.formKey) || b.revision - a.revision || b.createdAt - a.createdAt);
+    const docs = (await DB.byJob('docs', jid)).sort((a, b) => formIdx(job, a.formKey) - formIdx(job, b.formKey) || b.revision - a.revision || b.createdAt - a.createdAt);
+    const gbs = activeGbs(job), docGb = d => { const m = gbMeta(job, parseKey(d.formKey).gid); return m.removed ? `${m.label}` : gbs.length > 1 ? m.label : ''; };
     const customers = (await DB.all('customers')).sort((a, b) => a.name.localeCompare(b.name));
     const jf = (k, label, type = 'text') => `<label class="fld"><span>${label}</span><input data-job="${k}" type="${type}" value="${esc(job[k] || '')}" autocomplete="off"></label>`;
     view.innerHTML = `
       <section class="card">
         <div class="card-head"><h2>Job folder</h2>${badge(jobStatus(job))}<span class="muted small right" id="saveInd"></span></div>
         <div class="row cols2">${jf('wo', 'Work order number')}${jf('date', 'Date', 'date')}</div>
-        <div class="row cols3" style="margin-top:12px">${jf('manufacturer', 'Gearbox manufacturer')}${jf('model', 'Model')}${jf('serial', 'Serial number')}</div>
         <div class="row cols2" style="margin-top:12px"><label class="fld"><span>Customer</span><select id="moveCust">${customers.map(c => `<option value="${esc(c.id)}" ${c.id === cid ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>
           ${job.legacyCustomer ? `<div class="muted small" style="align-self:end">Customer name on this job before upgrade: <b>${esc(job.legacyCustomer)}</b></div>` : ''}</div>
-        <p class="muted small">Customer name, work order, manufacturer, model and serial fill in automatically on both forms.</p>
+        <p class="muted small">Customer name and work order fill in automatically on every form; manufacturer, model and serial on the forms of their gearbox.</p>
+        <div class="muted small" id="gbSummary">${gbs.length} gearbox${gbs.length === 1 ? '' : 'es'}: ${gbs.map(g => esc(`${gbMeta(job, g.id).label} · ${rtype(g.stages)}`)).join(' · ')}</div>
         <div class="details job-tablet"><div><div class="muted small">Created on</div><div><b data-jobtablet>${esc(job.tabletId || '—')}</b></div></div><div><div class="muted small">Created by</div><div><b data-jobuser>${esc(job.createdBy || '—')}</b></div></div><div><div class="muted small">Created</div><div>${esc(fmtDate(job.createdAt))}</div></div></div>
       </section>
-      <section class="card">
-        <div class="card-head"><h2>Forms</h2></div>
-        <div class="formlist">${FORMS.forms.map(f => {
-          const st = job.forms[f.key];
-          if (!st || !st.enabled) return `<div class="formrow off"><div><b>${esc(f.title)}</b><div class="muted small">${esc(f.docTitle)}</div></div><button class="btn" data-addform="${f.key}">+ Add form</button></div>`;
-          const p = progress(job, f.key);
-          return `<div class="formrow" data-formrow="${f.key}"><div class="fr-main"><div><b>${esc(f.title)}</b> ${badge(st.status)} <span class="muted small">rev ${st.revision}</span></div>
+      ${gbs.map(g => { const m = gbMeta(job, g.id), info = gbInfo(job, g.id), gi = (k, label) => `<label class="fld"><span>${label}</span><input ${g.id === 'g1' ? `data-job="${k}"` : `data-gb="${g.id}" data-gbf="${k}"`} type="text" value="${esc(info[k])}" autocomplete="off"></label>`;
+        return `<section class="card gbcard" data-gbcard="${g.id}">
+        <div class="card-head"><h2>${esc(m.label)}</h2><span class="typetag big" data-gbtype="${g.id}" title="Locked ${esc(fmtDate(g.lockedAt))}${g.lockedBy ? ' by ' + esc(g.lockedBy) : ''}">🔒 ${esc(m.reduction)} reduction <span class="muted small">${m.stages} stage${m.stages > 1 ? 's' : ''}</span></span>${g.migrated ? '<span class="muted small" title="Jobs created before Rev 1.5 are Double reduction">(default for jobs before Rev 1.5)</span>' : ''}
+          <span class="right gb-actions"><button class="btn ghost" data-gbchange="${g.id}">Change type</button>${gbs.length > 1 ? `<button class="btn ghost danger-text" data-gbremove="${g.id}">Remove gearbox</button>` : ''}</span></div>
+        <div class="row cols3">${gi('manufacturer', 'Gearbox manufacturer')}${gi('model', 'Model')}${gi('serial', 'Serial number')}</div>
+        <div class="formlist" style="margin-top:12px">${BASES.map(b => {
+          const key = fkey(g.id, b), st = job.forms[key], f = fdef(job, key) || BASE_DEF[b];
+          if (!st || !st.enabled) return `<div class="formrow off"><div><b>${esc(f.title)}</b><div class="muted small">${esc(f.docTitle)}</div></div><button class="btn" data-addform="${esc(key)}">+ Add form</button></div>`;
+          const p = progress(job, key);
+          return `<div class="formrow" data-formrow="${esc(key)}"><div class="fr-main"><div><b>${esc(f.title)}</b> ${badge(st.status)} <span class="muted small">rev ${st.revision}</span></div>
               <div class="muted small">${esc(f.docTitle)}</div>
               <div class="bar"><i style="width:${p.total ? Math.round(100 * p.done / p.total) : 0}%"></i></div>
               <div class="muted small">${p.done} of ${p.total} required items complete${st.status === 'completed' ? ` · completed ${esc(fmtDate(st.completedAt))} by ${esc(st.signedBy)}${st.finalizedBy ? ` · finalized by ${esc(st.finalizedBy)}` : ''}${st.inspectedOn ? ` · Inspected on: ${esc(st.inspectedOn)}` : ''}` : ` · Tablet: ${esc(st.tabletUsed ?? TABLET)}`}</div></div>
-            <div class="fr-actions"><button class="btn" data-export="${f.key}">${st.status === 'completed' ? SHARE_FINAL : 'Export PDF'}</button><a class="btn primary" href="${P.form(cid, jid, f.key)}">${st.status === 'completed' ? 'View' : 'Open'}</a></div></div>`;
+            <div class="fr-actions"><button class="btn" data-export="${esc(key)}">${st.status === 'completed' ? SHARE_FINAL : 'Export PDF'}</button><a class="btn primary" href="${P.form(cid, jid, key)}">${st.status === 'completed' ? 'View' : 'Open'}</a></div></div>`;
         }).join('')}</div>
-      </section>
+      </section>`; }).join('')}
+      <section class="card addgb">${jobStatus(job) === 'completed' ? `<p class="muted small">All forms are finalized. To add another gearbox, an Admin reopens a form first.</p>` : `<div class="fr-actions" style="justify-content:flex-start"><button class="btn" id="addGbBtn">+ Add gearbox</button><span class="muted small" style="align-self:center">Each gearbox gets its own reduction type and its own Teardown Evaluation and Assembly Verification.</span></div>`}</section>
       <section class="card">
         <div class="card-head"><h2>Job photos</h2><span class="muted small">Included on the photo pages of every form export</span></div>
         ${photoPanel('job', 'Job photo', false)}
       </section>
       <section class="card">
         <div class="card-head"><h2>Saved documents</h2><span class="muted small">Final PDFs created when a form is finalized · all revisions kept</span></div>
-        ${docs.length ? `<div class="doclist">${docs.map(d => `<div class="docrow"><div><b>${esc(d.filename)}</b><div class="muted small">${esc((FORM_BY_KEY[d.formKey] || {}).title || d.formKey)} · revision ${d.revision} · ${esc(fmtDate(d.createdAt))} · signed by ${esc(d.signedBy)}${d.inspectedOn ? ` · inspected on ${esc(d.inspectedOn)}` : ''} · ${d.pages} pages · ${(d.size / 1024).toFixed(0)} KB</div></div>
+        ${docs.length ? `<div class="doclist">${docs.map(d => `<div class="docrow"><div><b>${esc(d.filename)}</b><div class="muted small">${docGb(d) ? `<b>${esc(docGb(d))}</b> · ` : ''}${esc(titleOf(d.formKey))}${d.reduction ? ` (${esc(d.reduction)} reduction)` : ''} · revision ${d.revision} · ${esc(fmtDate(d.createdAt))} · signed by ${esc(d.signedBy)}${d.inspectedOn ? ` · inspected on ${esc(d.inspectedOn)}` : ''} · ${d.pages} pages · ${(d.size / 1024).toFixed(0)} KB</div></div>
           <div class="fr-actions"><button class="btn" data-docview="${d.id}">View</button><button class="btn" data-docprint="${d.id}">Print</button><button class="btn primary" data-docshare="${d.id}">${SHARE}</button><button class="btn danger-outline" data-docdel="${d.id}" aria-label="Delete saved PDF">Delete</button></div></div>`).join('')}</div>`
           : '<p class="muted">No saved documents yet. Finalize a form to save its PDF here.</p>'}
       </section>
@@ -912,6 +1077,10 @@
         <div class="fr-actions" style="justify-content:flex-start"><button class="btn primary" id="zipBtn">Export zip</button><button class="btn" id="combinedBtn">Combined PDF</button></div>
       </section>`;
     $$('[data-job]').forEach(i => i.oninput = () => { job[i.dataset.job] = i.value; scheduleSave(); });
+    $$('[data-gb]').forEach(i => i.oninput = () => { setGbInfo(job, i.dataset.gb, i.dataset.gbf, i.value); scheduleSave(); });
+    $$('[data-gbchange]').forEach(b => b.onclick = () => changeType(job, b.dataset.gbchange, cid));
+    $$('[data-gbremove]').forEach(b => b.onclick = () => removeGearbox(job, b.dataset.gbremove, cid));
+    const ag = $('#addGbBtn'); if (ag) ag.onclick = () => addGearbox(job, cid);
     $('#moveCust').onchange = async e => {
       const to = customers.find(c => c.id === e.target.value);
       if (!await confirmBox('Move job?', `Move WO ${esc(job.wo)} with its forms, photos and saved PDFs to <b>${esc(to.name)}</b>? Finalized PDFs keep the customer name they were signed with.`, 'Move job')) { e.target.value = cid; return; }
@@ -921,10 +1090,10 @@
     $('#delJobBtn').onclick = async () => {
       if (!await confirmBox('Delete job?', `This permanently deletes <b>WO ${esc(job.wo)}</b> for ${esc(customer.name)} from this device, including all form data, photos and saved PDFs. This cannot be undone. Consider a backup first.`, 'Delete job', true)) return;
       if (!await requireAdmin('Delete job', `WO ${job.wo} – ${customer.name}`)) return;
-      clearTimeout(saveTimer); saveTimer = null;
+      clearTimeout(saveTimer); saveTimer = null; saveJobRef = null;
       await DB.deleteJob(job.id); toast('Job deleted'); location.hash = P.cust(cid);
     };
-    $$('[data-addform]').forEach(b => b.onclick = async () => { job.forms[b.dataset.addform] = job.forms[b.dataset.addform] || newFormState(b.dataset.addform); job.forms[b.dataset.addform].enabled = true; await saveJob(job); renderJob(cid, jid); });
+    $$('[data-addform]').forEach(b => b.onclick = async () => { const k = b.dataset.addform, gid = parseKey(k).gid; job.forms[k] = job.forms[k] || newFormState(k, gid, gbMeta(job, gid).stages, gbById(job, gid)); job.forms[k].enabled = true; await saveJob(job); renderJob(cid, jid); });
     $$('[data-export]').forEach(b => b.onclick = () => exportForm(job, b.dataset.export));
     const docById = i => docs.find(d => d.id === i);
     $$('[data-docview]').forEach(b => b.onclick = () => viewDoc(docById(b.dataset.docview)));
@@ -1070,8 +1239,9 @@
   }
   async function renderForm(cid, jid, key) {
     const {customer, job} = await load(cid, jid); if (!job) return;
-    const form = FORM_BY_KEY[key];
-    if (!form || !job.forms[key]) { location.hash = P.job(cid, jid); return; }
+    const gid = parseKey(key).gid, gb = gbById(job, gid);
+    if (!job.forms[key] || !gb || gb.removed || !fdef(job, key)) { location.hash = P.job(cid, jid); return; }
+    const form = fdef(job, key), gm = gbMeta(job, gid);
     current = {customer, job, formKey: key};
     let st = job.forms[key], inUse = null, offlineEdit = false;
     if (st.status !== 'completed' && Cloud.enabled()) {
@@ -1080,12 +1250,12 @@
       const fresh = await DB.get('jobs', jid); if (fresh && fresh.forms[key]) { job.forms[key] = fresh.forms[key]; st = fresh.forms[key]; }   // newest copy after the pre-checkout sync
     }
     const completed = st.status === 'completed', locked = completed || !!inUse;
-    bar([crumbHome, {label: customer.name, href: P.cust(cid)}, {label: `WO ${job.wo}`, href: P.job(cid, jid)}, {label: form.title}],
+    bar([crumbHome, {label: customer.name, href: P.cust(cid)}, {label: `WO ${job.wo}`, href: P.job(cid, jid)}, {label: gm.count > 1 ? `${form.title} – Gearbox ${gm.index}` : form.title}],
       `<span class="save-ind" id="saveInd"></span><button class="btn ghost" id="exportBtn">${completed ? SHARE_FINAL : 'Export PDF'}</button>` +
       (completed ? `<button class="btn warn" id="reopenBtn">Reopen</button>` : inUse ? `<button class="btn" id="lockRetryBtn">Check again</button>` : `<button class="btn accent" id="finalizeBtn">Finalize</button>`), {label: `WO ${job.wo}`, href: P.job(cid, jid)});
     view.innerHTML = `
       <div class="form-top">
-        <div class="form-meta"><h1>${esc(form.docTitle)}</h1><div>${badge(st.status)} <span class="muted small">rev ${st.revision}</span> <span class="muted small" id="progTxt"></span></div></div>
+        <div class="form-meta"><h1>${esc(form.docTitle)}</h1><div class="gb-line" id="gbLine">${esc(gm.label)} · <b>${esc(gm.reduction)} reduction</b> 🔒${gm.serial ? ` · S/N ${esc(gm.serial)}` : ''}</div><div>${badge(st.status)} <span class="muted small">rev ${st.revision}</span> <span class="muted small" id="progTxt"></span></div></div>
         ${locked ? '' : `<div class="tablet-row"><label class="fld"><span>Tablet used for inspection</span><input id="tabletUsed" type="text" maxlength="60" autocomplete="off" value="${esc(st.tabletUsed ?? TABLET)}"></label></div>`}
         ${inUse ? `<div class="lockbar inuse" id="inUseBar">🔒 <b>In use on ${esc(inUse.name)}</b>${inUse.user ? ` by <b>${esc(inUse.user)}</b>` : ''}. Read-only here so nobody overwrites the other tablet's work. It opens for editing when they leave the form (or automatically after ${esc(new Date(inUse.until).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'}))} if that tablet went offline).</div>` : ''}
         ${offlineEdit ? `<div class="infobar" id="offlineBar">Offline: your changes are saved on this tablet and sync when it is back online. The form can't be checked out while offline, so if someone edits it on another tablet at the same time, the first to sync wins and the other's changes go to the audit log.</div>` : ''}
@@ -1128,16 +1298,16 @@
       if (grp && t.checked) $$('input[type=checkbox]', grp).forEach(o => { if (o !== t && o.checked) { o.checked = false; st.values[o.dataset.name] = false; } });
     } else if (t.dataset.link) {
       if (t.dataset.link === 'customer') return;   // edited in the customer file
-      job[t.dataset.link] = t.value;                // job-level value shared by both forms
+      setGbInfo(job, parseKey(key).gid, t.dataset.link, t.value);   // gearbox-level value shared by both forms of that gearbox
     } else st.values[name] = t.value;
-    scheduleSave(); refreshReqUI(job, key);
+    scheduleSave(job); if (current.job === job) refreshReqUI(job, key);
   }
   function toggleNA(job, key, id) {
     const st = job.forms[key]; if (st.na[id]) delete st.na[id]; else st.na[id] = true;
     scheduleSave(); refreshReqUI(job, key);
   }
   function refreshReqUI(job, key) {
-    for (const r of REQS[key]) {
+    for (const r of reqsOf(job, key)) {
       const el = document.querySelector(`[data-req="${CSS.escape(r.req.id)}"]`); if (!el) continue;
       const s = reqState(job, key, r.req);
       el.classList.toggle('is-na', s === 'na'); el.classList.toggle('is-done', s === 'done');
@@ -1160,7 +1330,7 @@
   /* ---------- finalize / reopen ---------- */
   async function finalize(job, key) {
     await flushSave();
-    const form = FORM_BY_KEY[key], st = job.forms[key];
+    const form = fdef(job, key), st = job.forms[key], gid = parseKey(key).gid;
     for (;;) {
       const p = refreshReqUI(job, key);
       $$('.missing').forEach(e => e.classList.remove('missing'));
@@ -1200,14 +1370,14 @@
     const signedBy = $('#dlgForm').signedBy.value.trim() || suggested || 'Unknown';
     toast('Creating final PDF…', 8000);
     try {
-      const c = ctx(job, current.customer);
-      const naLabels = REQS[key].filter(r => st.na[r.req.id] && reqState(job, key, r.req) !== 'skip').map(r => `${r.section}: ${r.req.label}`);
-      const out = await PdfExport.build({form, job: c, state: st, photos: await photosFor(job, key), final: {signedBy, completedAt: fmtDate(now), revision: st.revision, naLabels, inspectedOn, finalizedBy: userName(), appRev: REV_LABEL}});
+      const c = ctx(job, current.customer, gid);
+      const naLabels = reqsOf(job, key).filter(r => st.na[r.req.id] && reqState(job, key, r.req) !== 'skip').map(r => `${r.section}: ${r.req.label}`);
+      const out = await PdfExport.build({form, job: c, state: st, gearbox: pdfGb(c), photos: await photosFor(job, key), final: {signedBy, completedAt: fmtDate(now), revision: st.revision, naLabels, inspectedOn, finalizedBy: userName(), appRev: REV_LABEL}});
       const blob = new Blob([out.bytes], {type: 'application/pdf'});
       const filename = PdfExport.filename(c, form, `_FINAL-rev${st.revision}`);
-      const doc = {id: DB.uid(), jobId: job.id, customerId: job.customerId, formKey: key, revision: st.revision, filename, createdAt: now.getTime(), signedBy, inspectedOn, finalizedBy: userName(), appRev: REV_LABEL, pages: out.pages, size: blob.size, blob};
+      const doc = {id: DB.uid(), jobId: job.id, customerId: job.customerId, formKey: key, gearboxId: gid, gearbox: c.gearbox, stages: c.stages, reduction: c.reduction, revision: st.revision, filename, createdAt: now.getTime(), signedBy, inspectedOn, finalizedBy: userName(), appRev: REV_LABEL, pages: out.pages, size: blob.size, blob};
       await DB.put('docs', doc);
-      Object.assign(st, {status: 'completed', completedAt: now.getTime(), signedBy, inspectedOn, finalizedBy: userName(), tabletUsed: inspectedOn, snapshot: c});
+      Object.assign(st, {status: 'completed', completedAt: now.getTime(), signedBy, inspectedOn, finalizedBy: userName(), tabletUsed: inspectedOn, snapshot: c, gearboxId: gid, stages: c.stages});
       st.history.push({revision: st.revision, completedAt: now.getTime(), signedBy, inspectedOn, finalizedBy: userName(), docId: doc.id});
       await saveJob(job);
       if (Cloud.enabled()) { await Cloud.release(job.id, key); Cloud.soon(100); }   // finalized: lock no longer needed (finalized forms are locked everywhere)
@@ -1219,48 +1389,54 @@
     const st = job.forms[key];
     const ok = await confirmBox('Reopen form?', `This unlocks the form for editing as <b>revision ${st.revision + 1}</b>. The saved final PDF for revision ${st.revision} is kept unchanged in the job documents. You will need to finalize again to produce a new final PDF.`, `Reopen as rev ${st.revision + 1}`, true);
     if (!ok) return;
-    if (!await requireAdmin('Reopen completed form', `${FORM_BY_KEY[key].title} rev ${st.revision} → rev ${st.revision + 1} – WO ${job.wo}`)) return;
+    if (!await requireAdmin('Reopen completed form', `${titleOf(key)}${activeGbs(job).length > 1 ? ' – ' + gbMeta(job, parseKey(key).gid).label : ''} rev ${st.revision} → rev ${st.revision + 1} – WO ${job.wo}`)) return;
     Object.assign(st, {status: 'draft', revision: st.revision + 1, reopenedAt: Date.now(), tabletUsed: TABLET});
     delete st.completedAt; delete st.signedBy; delete st.snapshot; delete st.inspectedOn; delete st.finalizedBy;
     await saveJob(job); toast(`Reopened as revision ${st.revision}`); renderForm(job.customerId, job.id, key);
   }
 
   /* ---------- export ---------- */
-  function photoOrder(key) {
-    const form = FORM_BY_KEY[key], order = ['job'];
+  function photoOrder(job, key) {
+    const form = fdef(job, key), order = ['job'];
     for (const s of form.sections) { order.push(`${key}:${s.id}`); for (const b of s.blocks) if (b.type === 'component') order.push(`${key}:${b.id}`); }
     return order;
   }
   async function photosFor(job, key) {
     const all = (await DB.byJob('photos', job.id)).sort((a, b) => a.createdAt - b.createdAt), out = [];
-    for (const sc of photoOrder(key)) for (const p of all.filter(x => x.scope === sc)) out.push({blob: p.blob, w: p.w, h: p.h, caption: p.caption, label: sc === 'job' ? 'Job photo' : p.label});
+    for (const sc of photoOrder(job, key)) for (const p of all.filter(x => x.scope === sc)) out.push({blob: p.blob, w: p.w, h: p.h, caption: p.caption, label: sc === 'job' ? 'Job photo' : p.label});
     return out;
   }
   async function exportForm(job, key) {
     await flushSave();
-    const form = FORM_BY_KEY[key], st = job.forms[key];
+    const form = fdef(job, key), st = job.forms[key];
     if (st.status === 'completed') {
       const docs = (await DB.byJob('docs', job.id)).filter(d => d.formKey === key).sort((a, b) => b.createdAt - a.createdAt);
       if (docs[0]) return fileReady(docs[0].blob, docs[0].filename, `Final PDF (rev ${docs[0].revision})`);
     }
     toast('Building PDF…', 8000);
     try {
-      const c = ctx(job, current.customer);
-      const out = await PdfExport.build({form, job: c, state: st, photos: await photosFor(job, key), final: null});
+      const c = ctx(job, current.customer, parseKey(key).gid);
+      const out = await PdfExport.build({form, job: c, state: st, gearbox: pdfGb(c), photos: await photosFor(job, key), final: null});
       await fileReady(new Blob([out.bytes], {type: 'application/pdf'}), PdfExport.filename(c, form), 'Draft PDF ready (fields editable)');
     } catch (e) { console.error(e); modal(`<h2>PDF failed</h2><p>${esc(e.message)}</p>`, [{label: 'Close', value: 'cancel'}]); }
   }
   async function combinedPdf(job, customer) {
     await flushSave(); toast('Building combined PDF…', 10000);
     try {
-      const c = ctx(job, customer), docs = await DB.byJob('docs', job.id), parts = [];
-      for (const f of formStates(job)) {
-        const st = job.forms[f.key];
-        const fin = docs.filter(d => d.formKey === f.key).sort((a, b) => b.revision - a.revision || b.createdAt - a.createdAt)[0];
-        if (st.status === 'completed' && fin) parts.push(new Uint8Array(await fin.blob.arrayBuffer()));
-        else parts.push((await PdfExport.build({form: f, job: c, state: st, photos: await photosFor(job, f.key), final: null, flatten: true})).bytes);
+      const c = ctx(job, customer), docs = await DB.byJob('docs', job.id), parts = [], gbs = activeGbs(job), fs = formStates(job);
+      // grouped per gearbox (Teardown Evaluation before Assembly Verification); with 2+ gearboxes each group starts with a divider page
+      for (const g of gbs) {
+        const mine = fs.filter(f => f.gid === g.id), gc = ctx(job, customer, g.id), m = gbMeta(job, g.id);
+        if (gbs.length > 1) parts.push({divider: {title: `${m.label}  -  ${m.reduction} reduction`, sub: `Work order ${c.wo || '-'}   |   Customer: ${c.customer || '-'}`,
+          lines: [`Reduction type: ${m.reduction} reduction (${m.stages} stage${m.stages > 1 ? 's' : ''})`, `Manufacturer: ${gc.manufacturer || '-'}`, `Model: ${gc.model || '-'}`, `Serial number: ${gc.serial || '-'}`, '',
+                  ...(mine.length ? mine.map(f => `${f.title}: ${f.st.status === 'completed' ? `Completed (final rev ${f.st.revision})` : `Draft (rev ${f.st.revision}, not finalized)`}`) : ['No forms for this gearbox'])]}});
+        for (const f of mine) {
+          const fin = docs.filter(d => d.formKey === f.key).sort((a, b) => b.revision - a.revision || b.createdAt - a.createdAt)[0];
+          if (f.st.status === 'completed' && fin) parts.push(new Uint8Array(await fin.blob.arrayBuffer()));
+          else parts.push((await PdfExport.build({form: f.def, job: gc, state: f.st, gearbox: pdfGb(gc), photos: await photosFor(job, f.key), final: null, flatten: true})).bytes);
+        }
       }
-      if (!parts.length) { toast('This job has no forms'); return null; }
+      if (!fs.length) { toast('This job has no forms'); return null; }
       const bytes = await PdfExport.combine(parts, `WO ${c.wo} - ${c.customer}`);
       return {blob: new Blob([bytes], {type: 'application/pdf'}), filename: `WO-${PdfExport.safe(c.wo)}_${PdfExport.safe(c.customer)}_Combined.pdf`, bytes};
     } catch (e) { console.error(e); modal(`<h2>PDF failed</h2><p>${esc(e.message)}</p>`, [{label: 'Close', value: 'cancel'}]); return null; }
@@ -1271,22 +1447,31 @@
     toast('Building zip…', 10000);
     const files = {}, store = {level: 0}, u8 = async b => new Uint8Array(await b.arrayBuffer());
     // Teardown Evaluation first: sort by form order, then revision; numeric prefixes keep that order in file browsers.
-    const docs = (await DB.byJob('docs', job.id)).sort((a, b) => formIdx(a.formKey) - formIdx(b.formKey) || a.revision - b.revision || a.createdAt - b.createdAt);
-    docs.forEach((d, i) => { d._zipName = `${String(i + 1).padStart(2, '0')}_${d.filename}`; });
-    for (const d of docs) files[`${folder}/Saved documents/${d._zipName}`] = [await u8(d.blob), store];
+    const docs = (await DB.byJob('docs', job.id)).sort((a, b) => formIdx(job, a.formKey) - formIdx(job, b.formKey) || a.revision - b.revision || a.createdAt - b.createdAt);
+    // 1 gearbox: Saved documents/ and Photos/ as before. 2+ gearboxes: one subfolder per gearbox ("Gearbox 1 of 2 - Triple - SN 123/"),
+    // job photos stay in Photos/. Documents of a removed gearbox go to "Removed gearboxes/".
+    const gbs = activeGbs(job), multi = gbs.length > 1;
+    const gdir = gid => { const m = gbMeta(job, gid); return m.removed ? `Removed gearboxes/${m.label}` : multi ? gbFolder(m) : ''; };
+    const docDir = d => { const g = gdir(parseKey(d.formKey).gid); return g ? `${folder}/${g}` : `${folder}/Saved documents`; };
+    const cnt = {}; docs.forEach(d => { const k = docDir(d); cnt[k] = (cnt[k] || 0) + 1; d._zipName = `${String(cnt[k]).padStart(2, '0')}_${d.filename}`; d._zipPath = `${k}/${d._zipName}`; });
+    for (const d of docs) files[d._zipPath] = [await u8(d.blob), store];
     files[`${folder}/${comb.filename}`] = [new Uint8Array(comb.bytes), store];
-    const scopeRank = sc => sc === 'job' ? -1 : formIdx(sc.split(':')[0]);
+    const scopeRank = sc => sc === 'job' ? -1 : formIdx(job, sc.split(':')[0]);
     const photos = (await DB.byJob('photos', job.id)).sort((a, b) => scopeRank(a.scope) - scopeRank(b.scope) || a.createdAt - b.createdAt), capLines = [];
-    let n = 0;
+    const pcnt = {};
     for (const p of photos) {
-      n++; const name = `${String(n).padStart(2, '0')}_${S(p.scope === 'job' ? 'Job' : p.label)}${p.caption ? '_' + S(p.caption) : ''}.jpg`;
-      files[`${folder}/Photos/${name}`] = [await u8(p.blob), store];
-      capLines.push(`${name}\t${p.scope === 'job' ? 'Job photo' : (FORM_BY_KEY[p.scope.split(':')[0]] || {}).title + ' / ' + p.label}\t${p.caption || ''}`);
+      const gid = p.scope === 'job' ? null : parseKey(p.scope.split(':')[0]).gid, g = gid ? gdir(gid) : '', dir = g ? `${folder}/${g}/Photos` : `${folder}/Photos`;
+      pcnt[dir] = (pcnt[dir] || 0) + 1;
+      const name = `${String(pcnt[dir]).padStart(2, '0')}_${S(p.scope === 'job' ? 'Job' : p.label)}${p.caption ? '_' + S(p.caption) : ''}.jpg`, rel = dir.slice(folder.length + 1) + '/' + name;
+      files[`${dir}/${name}`] = [await u8(p.blob), store];
+      capLines.push(`${rel}\t${p.scope === 'job' ? 'Job photo' : `${multi || (gid && gbMeta(job, gid).removed) ? gbMeta(job, gid).label + ' / ' : ''}${titleOf(p.scope.split(':')[0])} / ${p.label}`}\t${p.caption || ''}`);
     }
-    const summary = [`Ram-Gear Manufacturing Incorporated – job folder`, `Customer: ${c.customer}`, `Work order: ${c.wo}`, `Date: ${c.date}`, `Gearbox: ${[c.manufacturer, c.model].filter(Boolean).join(' ')}  S/N ${c.serial}`, `Created on tablet: ${job.tabletId || '-'}`, `Created by: ${job.createdBy || '-'}`,
+    const summary = [`Ram-Gear Manufacturing Incorporated – job folder`, `Customer: ${c.customer}`, `Work order: ${c.wo}`, `Date: ${c.date}`, `Gearboxes: ${gbs.length}`, `Created on tablet: ${job.tabletId || '-'}`, `Created by: ${job.createdBy || '-'}`,
       customer.contact || customer.phone || customer.email ? `Contact: ${[customer.contact, customer.phone, customer.email].filter(Boolean).join(' / ')}` : '', '',
-      'Forms:', ...formStates(job).map(f => { const st = job.forms[f.key]; return `  ${f.title}: ${st.status === 'completed' ? `Completed rev ${st.revision} ${fmtDate(st.completedAt)} by ${st.signedBy}, finalized by ${st.finalizedBy || '-'}, Inspected on: ${st.inspectedOn || '-'}` : `Draft (rev ${st.revision}), Tablet used for inspection: ${st.tabletUsed ?? TABLET}`}`; }),
-      '', 'Saved documents:', ...(docs.length ? docs.map(d => `  ${d._zipName}  (rev ${d.revision}, ${fmtDate(d.createdAt)}, signed by ${d.signedBy}${d.inspectedOn ? `, inspected on ${d.inspectedOn}` : ''})`) : ['  none']),
+      ...gbs.flatMap(g => { const m = gbMeta(job, g.id), gi = gbInfo(job, g.id); return [`${m.label}: ${m.reduction} reduction (${m.stages} stage${m.stages > 1 ? 's' : ''}, locked)${multi ? `  – folder "${gbFolder(m)}"` : ''}`,
+        `  Gearbox: ${[gi.manufacturer, gi.model].filter(Boolean).join(' ') || '-'}  S/N ${gi.serial || '-'}`,
+        ...formStates(job).filter(f => f.gid === g.id).map(f => { const st = f.st; return `  ${f.title}: ${st.status === 'completed' ? `Completed rev ${st.revision} ${fmtDate(st.completedAt)} by ${st.signedBy}, finalized by ${st.finalizedBy || '-'}, Inspected on: ${st.inspectedOn || '-'}` : `Draft (rev ${st.revision}), Tablet used for inspection: ${st.tabletUsed ?? TABLET}`}`; }), '']; }),
+      'Saved documents:', ...(docs.length ? docs.map(d => `  ${d._zipPath.slice(folder.length + 1)}  (rev ${d.revision}, ${fmtDate(d.createdAt)}, signed by ${d.signedBy}${d.inspectedOn ? `, inspected on ${d.inspectedOn}` : ''})`) : ['  none']),
       '', `Photos: ${photos.length}`, '', `Exported ${new Date().toString()} from ${TABLET || 'this device'} by ${userName() || '-'}`, `App: Industrial Gearbox Data ${REV_LABEL}`].join('\r\n');
     files[`${folder}/job-summary.txt`] = fflate.strToU8(summary);
     if (capLines.length) files[`${folder}/Photos/captions.tsv`] = fflate.strToU8('file\tsection\tcaption\r\n' + capLines.join('\r\n'));
@@ -1381,14 +1566,17 @@
   /* ---------- boot ---------- */
   async function boot() {
     FORMS = await (await fetch('forms.json')).json();
-    for (const f of FORMS.forms) {
-      FORM_BY_KEY[f.key] = f; KINDS[f.key] = PdfExport.fieldKinds(f); REQS[f.key] = [];
+    for (const f of FORMS.forms) {   // forms.json v2: one definition per form and reduction type (id 'assembly@3')
+      f.id = f.id || `${f.key}@${f.stages || 2}`;
+      FORM_BY_ID[f.id] = f; KINDS[f.id] = PdfExport.fieldKinds(f); REQS[f.id] = [];
+      if (!BASES.includes(f.key)) BASES.push(f.key);
+      if (!BASE_DEF[f.key] || f.stages === 2) BASE_DEF[f.key] = f;
       for (const s of f.sections) for (const b of s.blocks) {
-        if (b.req) REQS[f.key].push({req: b.req, section: s.title});
-        if (b.type === 'table') for (const r of b.rows) if (r.req) REQS[f.key].push({req: r.req, section: s.title});
+        if (b.req) REQS[f.id].push({req: b.req, section: s.title});
+        if (b.type === 'table') for (const r of b.rows) if (r.req) REQS[f.id].push({req: r.req, section: s.title});
       }
     }
-    window.RG = {FORMS, REQS, DB, Admin, Auth, Camera, Cloud, toast, whoami: () => USER && {username: USER.username, role: USER.role, name: USER.displayName}};  // for debugging/tests
+    window.RG = {FORMS, REQS, normalizeJob, gbMeta, DB, Admin, Auth, Camera, Cloud, toast, whoami: () => USER && {username: USER.username, role: USER.role, name: USER.displayName}};  // for debugging/tests
     /* Start-up decision. Any storage error shows an error screen – it is never treated as "no admin yet".
        Setup runs only when the device has no users, no legacy admin PIN, no customers and no jobs. */
     let h, migrated = null;

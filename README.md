@@ -2,8 +2,10 @@
 
 Offline, on-device web app for Ram Gear gearbox shop forms:
 
-* **Teardown Evaluation** – `templates/gearbox-teardown-analysis.pdf` ("Ram Gear Gearbox Evaluation")
-* **Assembly Verification** – `templates/gearbox-assembly-checklist.pdf` ("Ram Gear Manufacturing Assembly Verification Data")
+* **Teardown Evaluation** – `templates/gearbox-teardown-analysis-{single,double,triple}.pdf` ("Ram Gear Gearbox Evaluation")
+* **Assembly Verification** – `templates/gearbox-assembly-checklist-{single,double,triple}.pdf` ("Ram Gear Manufacturing Assembly Verification Data")
+
+From Rev 1.5 a job holds one or more **gearboxes**. Each gearbox has a locked **reduction type** (Single, Double or Triple) and its own pair of forms in the layout for that type (see *Gearboxes and reduction types* below).
 
 > **Step-by-step help for users:** open **Help** in the app (top bar, sign-in screen or setup screen), or go to `https://ram-gear.github.io/ramgear-app/help.html`.
 
@@ -39,12 +41,14 @@ Offline-first: each tablet keeps everything in the browser's IndexedDB and works
 | `vendor/pdf-lib.min.js` | pdf-lib 1.17.1 (MIT), vendored – no CDN |
 | `vendor/fflate.min.js` | fflate 0.8.2 (MIT) for job-folder zips |
 | `manifest.webmanifest`, `sw.js`, `icons/` | PWA install + offline cache |
-| `tools/gen_forms.py` | Regenerates `forms.json` from `/workspace/gbx/make*.py` and validates every field name against the PDFs (`--copy-templates` also copies the PDFs in) |
+| `tools/gbx_spec.py` | Shafts, gear meshes, bearing locations and components for 1/2/3 stages (shared by the builders and `gen_forms.py`) |
+| `tools/make_assembly.py`, `tools/make_teardown.py` | Build the 6 fillable templates into `templates/` (reportlab + pypdf). The Double layout keeps the original field names |
+| `tools/gen_forms.py` | Regenerates `forms.json` (version 2: one definition per form and type, id `assembly@3`) and validates every field name against its PDF |
 | `tools/make_icons.py` | Generates the "RG" icons |
 
 ## Updating the forms
-1. Rebuild the PDFs (`gbx/make.py`, `gbx/make_teardown.py`).
-2. Update `tools/gen_forms.py` if sections/fields changed, then `python tools/gen_forms.py --copy-templates` (must print `OK`).
+1. Rebuild the PDFs: `python tools/make_assembly.py` and `python tools/make_teardown.py` (all three types; pass `1`, `2` or `3` for one).
+2. Update `tools/gen_forms.py` if sections/fields changed, then `python tools/gen_forms.py` (must print `OK` for all 6 definitions).
 3. Bump `APP_BUILD` in `js/version.js` so tablets pick up the new files (see *Revision number*).
 
 ## Deploy to GitHub Pages (account `Ram-Gear`)
@@ -58,12 +62,20 @@ All paths are relative, so it works at `https://ram-gear.github.io/<repo>/`.
 
 GitHub Pages serves HTTPS, which service workers, camera capture, and Web Share require.
 
-Forms always appear in this order: **Teardown Evaluation first, then Assembly Verification** (set by the order in `forms.json`).
+Forms always appear in this order: **Teardown Evaluation first, then Assembly Verification** (set by the order in `forms.json`), grouped per gearbox.
+
+## Gearboxes and reduction types (Rev 1.5)
+* `job.gearboxes = [{id, stages: 1|2|3, locked, lockedAt, lockedBy, manufacturer, model, serial, removed?}]`. Gearbox 1 (`id 'g1'`) keeps manufacturer/model/serial on the job itself (`job.manufacturer` …) so older app revisions keep working.
+* Form keys: `teardown` / `assembly` for gearbox 1, `<gearbox id>.teardown` / `<gearbox id>.assembly` for added gearboxes. Added gearboxes get a unique id (two tablets may add one offline at the same time) and are ordered by creation time. Each form state stores `gearboxId`, `stages` and a copy of its gearbox entry, so a gearbox lost to a concurrent job edit is rebuilt.
+* The type is chosen when the job (or gearbox) is created, confirmed in a second step and locked. Changing it needs Admin approval and is refused once any form of that gearbox has been finalized. Removing a gearbox needs Admin approval; its saved PDFs are kept. Both are written to the audit log.
+* Shafts: Single = input + output, Double = + intermediate, Triple = + intermediate 1 and 2. Ratios per stage, gears/pinions per stage, bearings, shims and dimensional checks per shaft, and 4-point backlash per gear mesh. Required items (completeness check at Finalize) come from the matching definition.
+* Jobs from before Rev 1.5 become one Double gearbox (marked "default for jobs before Rev 1.5"). The Double templates use the same field names as before, so no data moves.
+* Labels: "Gearbox 1 of 2 · Triple reduction · S/N …" on the job folder, the form, every PDF page (header bar) and the completion record. File names add `_GB<n>` only when the job has 2+ gearboxes. The combined PDF is grouped per gearbox, with a cover page per gearbox when there are 2+. The zip uses one folder per gearbox (`Gearbox 1 of 2 - Triple - SN <serial>/`, with its PDFs and photos) when there are 2+; a single-gearbox zip keeps the old layout.
 
 ## Workflow (Customers > Customer file > Job folder > Form)
 * Home: searchable customer list (name, contact, phone, email, work order), New customer, Backup, Restore, Blank PDFs.
 * Customer file: contact details (Edit / Delete, where Delete removes all their jobs, photos and PDFs after a warning), the customer's jobs with Draft/Completed badges, and New job.
-* Job folder: work order, date, gearbox manufacturer/model/serial (auto-filled into both forms along with the customer name), Move to customer, forms with progress, job photos, saved final PDFs (all revisions), and Export job folder (zip of all final PDFs + photos + summary + combined PDF, or just the combined PDF).
+* Job folder: work order, date, one card per gearbox (type 🔒, manufacturer/model/serial auto-filled into that gearbox's forms, Change type / Remove, its forms), + Add gearbox, Move to customer, forms with progress, job photos, saved final PDFs (all revisions), and Export job folder (zip of all final PDFs + photos + summary + combined PDF, or just the combined PDF).
 * Breadcrumbs in the header plus a labelled back button.
 * Form: touch inputs that follow the PDF sections. Autosaves on every change. Photos per section and per component.
 * **Export PDF** (draft): the filled template, still editable, plus photo pages. File name `WO-<number>_<customer>_<form>.pdf`.

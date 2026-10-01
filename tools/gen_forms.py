@@ -6,13 +6,16 @@ import json, re, sys, os, shutil
 from pypdf import PdfReader
 
 HERE = os.path.dirname(os.path.abspath(__file__)); APP = os.path.dirname(HERE)
-SRC_A = "/workspace/gbx/make.py"; SRC_T = "/workspace/gbx/make_teardown.py"
-PDF_A = "/workspace/gearbox-assembly-checklist.pdf"; PDF_T = "/workspace/gearbox-teardown-analysis.pdf"
+sys.path.insert(0, HERE)
+import gbx_spec as G
+SRC_A = os.path.join(HERE, "make_assembly.py")
+N = 2   # stage count of the definition being generated (set in main loop)
 
 def load_assembly_data():
     src = open(SRC_A).read()
     src = src[:src.index("class Doc")]
-    ns = {}; exec(src, ns); return ns
+    os.environ["RG_STAGES"] = str(N)
+    ns = {"__file__": SRC_A, "__name__": "gen"}; exec(src, ns); return ns
 
 def F(name, label, **kw):
     d = {"type": "field", "name": name, "label": label}; d.update(kw); return d
@@ -38,8 +41,8 @@ def assembly():
     for title, items in ns["S"]:
         if title == "SHIM":
             rows = []
-            for shaft, loc in ns["SHIM_ROWS"]:
-                base = f"shim_{shaft.lower()}_{'de' if loc=='Drive end' else 'nde'}"
+            for skey, shaft, loc in ns["SHIM_ROWS"]:
+                base = f"shim_{skey}_{'de' if loc=='Drive end' else 'nde'}"
                 rows.append({"label": [shaft, loc], "cells": [{"kind": "text", "name": f"{base}_{k}"} for k in ("start","final","measured","spec")] + [{"kind": "check", "name": f"{base}_ok"}],
                              "req": {"id": base, "label": f"Shim record: {shaft} {loc}", "all": [f"{base}_final", f"{base}_measured", f"{base}_ok"]}})
             secs[-1]["blocks"].append({"type": "table", "title": "Bearing shim record",
@@ -74,12 +77,10 @@ def assembly():
                            "req": {"id": nm, "label": f"{sn}.{ii} {text}", "all": [nm] + [s["name"] for s in sub]}})
         secs.append({"id": f"s{sn}", "title": title, "blocks": blocks, "photos": True})
     return {"key": "assembly", "title": "Assembly Verification", "fileTitle": "Assembly-Verification",
-            "header": ns["HEADER"], "docTitle": ns["TITLE"], "template": "templates/gearbox-assembly-checklist.pdf",
+            "header": ns["HEADER"], "docTitle": ns["TITLE"], "template": f"templates/{G.template('assembly', N)}.pdf",
             "signedByField": "signoff_inspector_name", "sections": secs}
 
 # ---------------- Teardown Evaluation ----------------
-LOC6 = [("input_de", "Input", "DE"), ("input_nde", "Input", "NDE"), ("intermediate_de", "Intermediate", "DE"),
-        ("intermediate_nde", "Intermediate", "NDE"), ("output_de", "Output", "DE"), ("output_nde", "Output", "NDE")]
 
 def row(fields, rid=None, label=None, req=True):
     b = {"type": "row", "fields": fields}
@@ -94,12 +95,12 @@ def choice(prefix, opts, label=None, exclusive=False, req=None, notes=None):
     return b
 
 def teardown():
-    S = []
+    S = []; LOC6 = G.locs(N); SH = G.shafts(N)
     S.append({"id": "A", "title": "A. Job information", "photos": True, "blocks": [
         row([F("a_customer_name", "Customer name", link="customer"), F("a_work_order_number", "Work order number", link="wo")], "a_job"),
         row([F("a_date_received", "Date received", input="date"), F("a_manufacturer", "Manufacturer", link="manufacturer")], "a_recv"),
         row([F("a_model", "Model", link="model"), F("a_serial", "Serial number", link="serial")], "a_model"),
-        row([F("a_ratio_overall", "Overall reduction", suffix=": 1"), F("a_ratio_stage1", "Stage 1 ratio", suffix=": 1"), F("a_ratio_stage2", "Stage 2 ratio", suffix=": 1")], "a_ratios"),
+        row([F("a_ratio_overall", "Overall reduction", suffix=": 1")] + [F(f"a_ratio_stage{k}", f"Stage {k} ratio", suffix=": 1") for k in range(1, N + 1)], "a_ratios"),
         row([F("a_oil_capacity", "Oil capacity"), F("a_oil_grade", "Oil grade")], "a_oil"),
         row([F("a_application", "Application / driven equipment"), F("a_service_hours", "Service hours (if known)")], req=False),
         {**F("a_reported_failure", "Reported failure / customer complaint", multiline=True, rows=3), "req": {"id": "a_reported_failure", "label": "Reported failure / customer complaint", "all": ["a_reported_failure"]}},
@@ -122,21 +123,21 @@ def teardown():
         choice("c_appearance", [("clean", "Clean"), ("dark", "Dark"), ("milky", "Milky (water)"), ("sludge", "Sludge"), ("metallic", "Metallic particles")], label="Appearance", req="Oil appearance"),
         F("c_drain_plug_debris", "Magnetic drain plug debris description", multiline=True, rows=2),
     ]})
+    BL = [F(f"d_backlash_stage{k}", f"Backlash - Stage {k}") for k in range(1, N + 1)]
+    RO = [F("d_runout_input", "Ext. runout - Input shaft"), F("d_runout_output", "Ext. runout - Output shaft")]
     S.append({"id": "D", "title": "D. As-found measurements before teardown", "photos": True, "blocks": [
-        row([F("d_endplay_input", "Endplay - Input shaft"), F("d_endplay_intermediate", "Endplay - Intermediate shaft"), F("d_endplay_output", "Endplay - Output shaft")], "d_endplay", "As-found endplay"),
-        row([F("d_backlash_stage1", "Backlash - Stage 1"), F("d_backlash_stage2", "Backlash - Stage 2"), F("d_runout_input", "Ext. runout - Input shaft"), F("d_runout_output", "Ext. runout - Output shaft")], "d_backlash", "As-found backlash / runout"),
-    ]})
+        row([F(f"d_endplay_{k}", f"Endplay - {l} shaft") for k, l in SH], "d_endplay", "As-found endplay")] +
+        ([row(BL + RO, "d_backlash", "As-found backlash / runout")] if N <= 2 else
+         [row(BL, "d_backlash", "As-found backlash"), row(RO, "d_runout", "As-found external runout")])})
     eb = [{"type": "check", "name": n, "label": t, "fields": [], "req": {"id": n, "label": t, "all": [n]}} for n, t in [
         ("e_match_marked", "Match-mark housing, caps, and shafts before disassembly"), ("e_parts_tagged", "Parts tagged and kept in order"), ("e_seals_inspected", "Seals removed and inspected")]]
     eb.append({"type": "table", "title": "As-found shim record", "columns": ["Shaft", "Drive end (DE) as-found shim (in/mm)", "Non-drive end (NDE) as-found shim (in/mm)"], "labelCols": 1,
                "rows": [{"label": [l], "cells": [{"kind": "text", "name": f"e_shim_{k}_de_asfound"}, {"kind": "text", "name": f"e_shim_{k}_nde_asfound"}],
                          "req": {"id": f"e_shim_{k}", "label": f"As-found shim: {l}", "all": [f"e_shim_{k}_de_asfound", f"e_shim_{k}_nde_asfound"]}}
-                        for k, l in [("input", "Input"), ("intermediate", "Intermediate"), ("output", "Output")]]})
+                        for k, l in SH]})
     S.append({"id": "E", "title": "E. Teardown checklist", "photos": True, "blocks": eb})
     PN = [("pn", "Part no.")]; GEAR = [("pn", "Part no."), ("teeth", "Teeth")]
-    comps = [(f"f_{k}", n, f, False) for k, n, f in [("input_shaft", "Input shaft", PN), ("input_pinion", "Input pinion (stage 1)", GEAR),
-             ("intermediate_shaft", "Intermediate shaft", PN), ("intermediate_gear", "Intermediate gear (stage 1)", GEAR),
-             ("intermediate_pinion", "Intermediate pinion (stage 2)", GEAR), ("output_shaft", "Output shaft", PN), ("output_gear", "Output gear (stage 2)", GEAR)]]
+    comps = [(f"f_{k}", n, GEAR if kind == "gear" else PN, False) for k, n, kind in G.components(N)]
     comps += [(f"f_bearing_{k}", f"Bearing - {a} {b}", [("cone_pn", "Cone P/N"), ("cup_pn", "Cup P/N")], False) for k, a, b in LOC6]
     comps += [(f"f_{k}", n, PN, False) for k, n in [("input_seal", "Input seal"), ("output_seal", "Output seal"), ("keys", "Keys and keyways"),
               ("spacers", "Spacers and locknuts"), ("caps_shims", "Bearing caps and shims"), ("housing", "Housing and bearing bores"), ("breather_plugs", "Breather, plugs, sight glass")]]
@@ -189,8 +190,8 @@ def teardown():
     # k_customer_approval is a single checkbox without suffix
     S[-1]["blocks"][4]["options"][0]["name"] = "k_customer_approval"
     return {"key": "teardown", "title": "Teardown Evaluation", "fileTitle": "Teardown-Evaluation",
-            "header": "Ram Gear Gearbox Evaluation", "docTitle": "Double-Reduction Gearbox Teardown and Repair Analysis",
-            "template": "templates/gearbox-teardown-analysis.pdf", "signedByField": "k_inspected_name", "sections": S}
+            "header": "Ram Gear Gearbox Evaluation", "docTitle": G.titles(N)["teardown"],
+            "template": f"templates/{G.template('teardown', N)}.pdf", "signedByField": "k_inspected_name", "sections": S}
 
 def names_in(form):
     out = {}
@@ -224,14 +225,18 @@ def validate(form, pdf):
     mine = names_in(form)
     missing = set(pdfk) - set(mine); extra = set(mine) - set(pdfk)
     wrong = [k for k in mine if k in pdfk and pdfk[k] != mine[k]]
-    print(f"{form['key']}: pdf={len(pdfk)} json={len(mine)} missing={sorted(missing)} extra={sorted(extra)} kindmismatch={wrong}")
+    print(f"{form['id']}: pdf={len(pdfk)} json={len(mine)} missing={sorted(missing)} extra={sorted(extra)} kindmismatch={wrong}")
     return not (missing or extra or wrong)
 
 if __name__ == "__main__":
     # Order matters: the app lists forms in this order everywhere (Teardown Evaluation first).
-    forms = {"version": 1, "forms": [teardown(), assembly()]}
-    ok = validate(forms["forms"][0], PDF_T) & validate(forms["forms"][1], PDF_A)
-    json.dump(forms, open(os.path.join(APP, "forms.json"), "w"), indent=1, ensure_ascii=False)
-    if "--copy-templates" in sys.argv:
-        shutil.copy(PDF_A, os.path.join(APP, "templates")); shutil.copy(PDF_T, os.path.join(APP, "templates"))
+    # One definition per (form, reduction type); the app picks the one matching each gearbox's stage count.
+    out = []; ok = True
+    for n in (1, 2, 3):
+        N = n
+        for f in (teardown(), assembly()):
+            f["stages"] = n; f["id"] = f"{f['key']}@{n}"; f["reduction"] = G.TYPES[n]
+            ok &= validate(f, os.path.join(APP, f["template"]))
+            out.append(f)
+    json.dump({"version": 2, "forms": out}, open(os.path.join(APP, "forms.json"), "w"), indent=1, ensure_ascii=False)
     print("OK" if ok else "MISMATCH"); sys.exit(0 if ok else 1)

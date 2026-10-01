@@ -85,7 +85,8 @@ const PdfExport = (() => {
     page.drawText(clean(text), {x: M + 10, y: y - 14, size: 12, font: bold, color: NAVY});
   }
 
-  /* opts: {form, job, state, photos:[{blob,w,h,caption,label}], final: null | {signedBy, completedAt, revision, naLabels:[]}} */
+  /* opts: {form, job, state, photos:[{blob,w,h,caption,label}], final: null | {signedBy, completedAt, revision, naLabels:[]},
+           gearbox: {label:'Gearbox 1 of 2', count, reduction:'Triple', serial}} */
   async function build(opts) {
     const {form, job, state, photos, final} = opts;
     const doc = await PDFDocument.load(await template(form.template));
@@ -110,14 +111,20 @@ const PdfExport = (() => {
     let fonts = dr.lookup(PDFName.of('Font')); if (!fonts) { fonts = ctx.obj({}); dr.set(PDFName.of('Font'), fonts); }
     fonts.set(PDFName.of(font.name), font.ref);
     const zadb = await doc.embedFont(StandardFonts.ZapfDingbats); fonts.set(PDFName.of('ZaDb'), zadb.ref);
-    const woLine = `Work order ${job.wo || '-'}   |   Customer: ${job.customer || '-'}   |   ${form.title}`;
+    const gb = opts.gearbox || null, gbText = gb ? `${gb.label}  |  ${gb.reduction} reduction${gb.serial ? '  |  S/N ' + gb.serial : ''}` : '';
+    const woLine = `Work order ${job.wo || '-'}   |   Customer: ${job.customer || '-'}   |   ${form.title}${gb && gb.count > 1 ? '   |   ' + gb.label : ''}`;
     const baseCount = doc.getPageCount();
+    if (gb) for (const pg of doc.getPages()) {   // identify the gearbox on every template page: right-aligned in the navy header bar, under the title line
+      const t = clean(gbText), sz = 8.5, tw = bold.widthOfTextAtSize(t, sz);
+      pg.drawText(t, {x: W - M + 20 - tw, y: H - 46, size: sz, font: bold, color: rgb(0.86, 0.91, 0.97)});
+    }
     if (final || opts.flatten) af.flatten();
     if (final) {
       const pg = doc.addPage([W, H]);
       header(pg, font, bold, BRAND, woLine);
       let y = H - 92; sectionBar(pg, bold, y, 'Completion record'); y -= 38;
       const rows = [['Form', `${form.title} - ${form.docTitle}`], ['Status', 'Completed'], ['Revision', String(final.revision)],
+                    ...(gb ? [['Gearbox', gb.label + (gb.serial ? `  (S/N ${gb.serial})` : '')], ['Reduction', `${gb.reduction} reduction (${form.stages || '-'} stage${form.stages === 1 ? '' : 's'})`]] : []),
                     ['Completed', final.completedAt], ['Signed by', final.signedBy], ['Finalized by', final.finalizedBy || '-'], ['Inspected on', final.inspectedOn || '-'], ['Customer', job.customer || ''], ['Work order', job.wo || ''], ['App revision', final.appRev || '-']];
       for (const [a, b] of rows) {
         pg.drawText(a, {x: M + 6, y, size: 11, font: bold, color: NAVY});
@@ -152,18 +159,27 @@ const PdfExport = (() => {
       }
       footer(pg, font, `Form: ${form.template.split('/').pop().replace('.pdf', '')}`, `Photo page ${i / 2 + 1} of ${total}`);
     }
-    doc.setTitle(`${form.title} - WO ${job.wo || ''} - ${job.customer || ''}`);
+    doc.setTitle(`${form.title}${gb && gb.count > 1 ? ' - ' + gb.label : ''} - WO ${job.wo || ''} - ${job.customer || ''}`);
     doc.setProducer('Ram-Gear Manufacturing Incorporated app (pdf-lib)'); doc.setModificationDate(new Date());
     const bytes = await doc.save({updateFieldAppearances: false});
     return {bytes, pages: doc.getPageCount(), formPages: baseCount};
   }
   const safe = s => clean(s || '').trim().replace(/[^A-Za-z0-9._-]+/g, '-').replace(/-{2,}/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'NA';
   function filename(job, form, suffix) {
-    return `WO-${safe(job.wo)}_${safe(job.customer)}_${form.fileTitle}${suffix || ''}.pdf`;
+    return `WO-${safe(job.wo)}_${safe(job.customer)}_${form.fileTitle}${job.gbTag || ''}${suffix || ''}.pdf`;   // gbTag "_GB2" only for jobs with 2+ gearboxes
   }
-    async function combine(pdfBytesList, title) {
+  /* list items: PDF bytes, or {divider: {title, sub, lines:[]}} for a gearbox separator page */
+  async function combine(pdfBytesList, title) {
     const out = await PDFDocument.create();
+    let font = null, bold = null;
     for (const b of pdfBytesList) {
+      if (b && b.divider) {
+        if (!font) { font = await out.embedFont(StandardFonts.Helvetica); bold = await out.embedFont(StandardFonts.HelveticaBold); }
+        const pg = out.addPage([W, H]); header(pg, font, bold, BRAND, b.divider.sub || '');
+        sectionBar(pg, bold, H - 300, b.divider.title);
+        let y = H - 350; for (const ln of b.divider.lines || []) { pg.drawText(clean(ln), {x: M + 10, y, size: 12, font}); y -= 20; }
+        footer(pg, font, clean(title || ''), b.divider.title); continue;
+      }
       const src = await PDFDocument.load(b);
       (await out.copyPages(src, src.getPageIndices())).forEach(pg => out.addPage(pg));
     }
