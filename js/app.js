@@ -734,7 +734,7 @@
   /* Values that auto-fill into the gearbox's forms (customer name comes from the customer file, gearbox info from the gearbox). */
   function ctx(job, cust, gid = 'g1') {
     const m = gbMeta(job, gid);
-    return {customer: custName(job, cust), wo: job.wo || '', ...gbInfo(job, gid), date: job.date || '', gearbox: m.label, gearboxId: gid, gearboxCount: m.count, reduction: m.reduction, stages: m.stages, gbTag: m.count > 1 ? `_GB${m.index}` : ''};
+    return {customer: custName(job, cust), wo: job.wo || '', ...gbInfo(job, gid), date: job.date || '', gearbox: m.label, gearboxId: gid, gearboxCount: m.count, reduction: m.reduction, stages: m.stages, gbTag: m.index > 0 ? `_GB${m.index}` : ''};
   }
   const pdfGb = c => ({label: c.gearbox, count: c.gearboxCount, reduction: c.reduction, serial: c.serial});
   function getVal(job, key, name) {
@@ -1424,10 +1424,10 @@
     await flushSave(); toast('Building combined PDF…', 10000);
     try {
       const c = ctx(job, customer), docs = await DB.byJob('docs', job.id), parts = [], gbs = activeGbs(job), fs = formStates(job);
-      // grouped per gearbox (Teardown Evaluation before Assembly Verification); with 2+ gearboxes each group starts with a divider page
+      // grouped per gearbox (Teardown Evaluation before Assembly Verification); every group starts with a gearbox cover page (Rev 1.5.1: also for 1 gearbox)
       for (const g of gbs) {
         const mine = fs.filter(f => f.gid === g.id), gc = ctx(job, customer, g.id), m = gbMeta(job, g.id);
-        if (gbs.length > 1) parts.push({divider: {title: `${m.label}  -  ${m.reduction} reduction`, sub: `Work order ${c.wo || '-'}   |   Customer: ${c.customer || '-'}`,
+        parts.push({divider: {title: `${m.label}  -  ${m.reduction} reduction`, sub: `Work order ${c.wo || '-'}   |   Customer: ${c.customer || '-'}`,
           lines: [`Reduction type: ${m.reduction} reduction (${m.stages} stage${m.stages > 1 ? 's' : ''})`, `Manufacturer: ${gc.manufacturer || '-'}`, `Model: ${gc.model || '-'}`, `Serial number: ${gc.serial || '-'}`, '',
                   ...(mine.length ? mine.map(f => `${f.title}: ${f.st.status === 'completed' ? `Completed (final rev ${f.st.revision})` : `Draft (rev ${f.st.revision}, not finalized)`}`) : ['No forms for this gearbox'])]}});
         for (const f of mine) {
@@ -1448,10 +1448,10 @@
     const files = {}, store = {level: 0}, u8 = async b => new Uint8Array(await b.arrayBuffer());
     // Teardown Evaluation first: sort by form order, then revision; numeric prefixes keep that order in file browsers.
     const docs = (await DB.byJob('docs', job.id)).sort((a, b) => formIdx(job, a.formKey) - formIdx(job, b.formKey) || a.revision - b.revision || a.createdAt - b.createdAt);
-    // 1 gearbox: Saved documents/ and Photos/ as before. 2+ gearboxes: one subfolder per gearbox ("Gearbox 1 of 2 - Triple - SN 123/"),
-    // job photos stay in Photos/. Documents of a removed gearbox go to "Removed gearboxes/".
-    const gbs = activeGbs(job), multi = gbs.length > 1;
-    const gdir = gid => { const m = gbMeta(job, gid); return m.removed ? `Removed gearboxes/${m.label}` : multi ? gbFolder(m) : ''; };
+    // One subfolder per gearbox ("Gearbox 1 of 2 - Triple - SN 123/" with its PDFs and Photos/), also for single-gearbox jobs (Rev 1.5.1).
+    // Job photos stay in Photos/. Documents of a removed gearbox go to "Removed gearboxes/".
+    const gbs = activeGbs(job);
+    const gdir = gid => { const m = gbMeta(job, gid); return m.removed ? `Removed gearboxes/${m.label}` : gbFolder(m); };
     const docDir = d => { const g = gdir(parseKey(d.formKey).gid); return g ? `${folder}/${g}` : `${folder}/Saved documents`; };
     const cnt = {}; docs.forEach(d => { const k = docDir(d); cnt[k] = (cnt[k] || 0) + 1; d._zipName = `${String(cnt[k]).padStart(2, '0')}_${d.filename}`; d._zipPath = `${k}/${d._zipName}`; });
     for (const d of docs) files[d._zipPath] = [await u8(d.blob), store];
@@ -1464,11 +1464,11 @@
       pcnt[dir] = (pcnt[dir] || 0) + 1;
       const name = `${String(pcnt[dir]).padStart(2, '0')}_${S(p.scope === 'job' ? 'Job' : p.label)}${p.caption ? '_' + S(p.caption) : ''}.jpg`, rel = dir.slice(folder.length + 1) + '/' + name;
       files[`${dir}/${name}`] = [await u8(p.blob), store];
-      capLines.push(`${rel}\t${p.scope === 'job' ? 'Job photo' : `${multi || (gid && gbMeta(job, gid).removed) ? gbMeta(job, gid).label + ' / ' : ''}${titleOf(p.scope.split(':')[0])} / ${p.label}`}\t${p.caption || ''}`);
+      capLines.push(`${rel}\t${p.scope === 'job' ? 'Job photo' : `${gbMeta(job, gid).label} / ${titleOf(p.scope.split(':')[0])} / ${p.label}`}\t${p.caption || ''}`);
     }
     const summary = [`Ram-Gear Manufacturing Incorporated – job folder`, `Customer: ${c.customer}`, `Work order: ${c.wo}`, `Date: ${c.date}`, `Gearboxes: ${gbs.length}`, `Created on tablet: ${job.tabletId || '-'}`, `Created by: ${job.createdBy || '-'}`,
       customer.contact || customer.phone || customer.email ? `Contact: ${[customer.contact, customer.phone, customer.email].filter(Boolean).join(' / ')}` : '', '',
-      ...gbs.flatMap(g => { const m = gbMeta(job, g.id), gi = gbInfo(job, g.id); return [`${m.label}: ${m.reduction} reduction (${m.stages} stage${m.stages > 1 ? 's' : ''}, locked)${multi ? `  – folder "${gbFolder(m)}"` : ''}`,
+      ...gbs.flatMap(g => { const m = gbMeta(job, g.id), gi = gbInfo(job, g.id); return [`${m.label}: ${m.reduction} reduction (${m.stages} stage${m.stages > 1 ? 's' : ''}, locked)  – folder "${gbFolder(m)}"`,
         `  Gearbox: ${[gi.manufacturer, gi.model].filter(Boolean).join(' ') || '-'}  S/N ${gi.serial || '-'}`,
         ...formStates(job).filter(f => f.gid === g.id).map(f => { const st = f.st; return `  ${f.title}: ${st.status === 'completed' ? `Completed rev ${st.revision} ${fmtDate(st.completedAt)} by ${st.signedBy}, finalized by ${st.finalizedBy || '-'}, Inspected on: ${st.inspectedOn || '-'}` : `Draft (rev ${st.revision}), Tablet used for inspection: ${st.tabletUsed ?? TABLET}`}`; }), '']; }),
       'Saved documents:', ...(docs.length ? docs.map(d => `  ${d._zipPath.slice(folder.length + 1)}  (rev ${d.revision}, ${fmtDate(d.createdAt)}, signed by ${d.signedBy}${d.inspectedOn ? `, inspected on ${d.inspectedOn}` : ''})`) : ['  none']),

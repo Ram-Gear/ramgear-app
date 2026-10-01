@@ -2,6 +2,15 @@
 
 The revision number lives in `js/version.js` (see README › *Revision number*).
 
+## Rev 1.5.1 – 2026-10-01 (build 2026-10-01.2) – gearbox naming for every job
+
+- Single-gearbox jobs now use the same gearbox naming and layout as jobs with several gearboxes:
+  - PDF file names always carry the gearbox number, e.g. `WO-24-1187_Acme_Teardown-Evaluation_GB1_FINAL-rev1.pdf` (drafts too).
+  - The combined job PDF is always grouped per gearbox, and each group starts with a gearbox cover page (type, manufacturer, model, serial number, form status).
+  - The job zip always has one folder per gearbox, e.g. `Gearbox 1 of 1 - Double - SN 4471/`, with that gearbox's saved PDFs and photos. Job photos stay in `Photos/`; the old `Saved documents/` folder is no longer used.
+  - The PDF photo pages and the document title name the gearbox ("Gearbox 1 of 1").
+- PDFs already saved keep their original file names. The new names apply to PDFs created from now on and to new exports.
+
 ## Rev 1.5 – 2026-10-01 (build 2026-10-01.1) – gearboxes and reduction types
 
 - **Reduction type per gearbox: Single, Double or Triple.** Choosing it is required when you create a job. You then confirm it in a second step (**Confirm … & lock**), and it is **locked** 🔒. Only an Admin can change it (password/PIN, recorded in the audit log), and only while none of that gearbox's forms has been finalized.

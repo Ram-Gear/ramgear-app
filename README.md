@@ -70,7 +70,7 @@ Forms always appear in this order: **Teardown Evaluation first, then Assembly Ve
 * The type is chosen when the job (or gearbox) is created, confirmed in a second step and locked. Changing it needs Admin approval and is refused once any form of that gearbox has been finalized. Removing a gearbox needs Admin approval; its saved PDFs are kept. Both are written to the audit log.
 * Shafts: Single = input + output, Double = + intermediate, Triple = + intermediate 1 and 2. Ratios per stage, gears/pinions per stage, bearings, shims and dimensional checks per shaft, and 4-point backlash per gear mesh. Required items (completeness check at Finalize) come from the matching definition.
 * Jobs from before Rev 1.5 become one Double gearbox (marked "default for jobs before Rev 1.5"). The Double templates use the same field names as before, so no data moves.
-* Labels: "Gearbox 1 of 2 · Triple reduction · S/N …" on the job folder, the form, every PDF page (header bar) and the completion record. File names add `_GB<n>` only when the job has 2+ gearboxes. The combined PDF is grouped per gearbox, with a cover page per gearbox when there are 2+. The zip uses one folder per gearbox (`Gearbox 1 of 2 - Triple - SN <serial>/`, with its PDFs and photos) when there are 2+; a single-gearbox zip keeps the old layout.
+* Labels: "Gearbox 1 of 2 · Triple reduction · S/N …" on the job folder, the form, every PDF page (header bar) and the completion record. From Rev 1.5.1 this is the same for every job, including single-gearbox jobs: file names add `_GB<n>` (`..._Teardown-Evaluation_GB1_FINAL-rev1.pdf`), the combined PDF is grouped per gearbox with a cover page per gearbox, and the zip uses one folder per gearbox (`Gearbox 1 of 1 - Double - SN <serial>/`, with its PDFs and photos). Job photos stay in `Photos/`.
 
 ## Workflow (Customers > Customer file > Job folder > Form)
 * Home: searchable customer list (name, contact, phone, email, work order), New customer, Backup, Restore, Blank PDFs.
@@ -78,7 +78,7 @@ Forms always appear in this order: **Teardown Evaluation first, then Assembly Ve
 * Job folder: work order, date, one card per gearbox (type 🔒, manufacturer/model/serial auto-filled into that gearbox's forms, Change type / Remove, its forms), + Add gearbox, Move to customer, forms with progress, job photos, saved final PDFs (all revisions), and Export job folder (zip of all final PDFs + photos + summary + combined PDF, or just the combined PDF).
 * Breadcrumbs in the header plus a labelled back button.
 * Form: touch inputs that follow the PDF sections. Autosaves on every change. Photos per section and per component.
-* **Export PDF** (draft): the filled template, still editable, plus photo pages. File name `WO-<number>_<customer>_<form>.pdf`.
+* **Export PDF** (draft): the filled template, still editable, plus photo pages. File name `WO-<number>_<customer>_<form>_GB<n>.pdf`.
 * **Finalize**: lists every incomplete required item with *Go to* and *N/A*. Once everything is complete, you confirm who signs. The form is then locked (Completed, date, signer). A flattened final PDF (form + completion record listing N/A items + photo pages) is saved in the job as `..._FINAL-rev<N>.pdf`.
 * **Reopen**: asks for confirmation, then starts revision N+1. Earlier final PDFs are kept.
 

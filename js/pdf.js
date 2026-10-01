@@ -112,7 +112,7 @@ const PdfExport = (() => {
     fonts.set(PDFName.of(font.name), font.ref);
     const zadb = await doc.embedFont(StandardFonts.ZapfDingbats); fonts.set(PDFName.of('ZaDb'), zadb.ref);
     const gb = opts.gearbox || null, gbText = gb ? `${gb.label}  |  ${gb.reduction} reduction${gb.serial ? '  |  S/N ' + gb.serial : ''}` : '';
-    const woLine = `Work order ${job.wo || '-'}   |   Customer: ${job.customer || '-'}   |   ${form.title}${gb && gb.count > 1 ? '   |   ' + gb.label : ''}`;
+    const woLine = `Work order ${job.wo || '-'}   |   Customer: ${job.customer || '-'}   |   ${form.title}${gb ? '   |   ' + gb.label : ''}`;
     const baseCount = doc.getPageCount();
     if (gb) for (const pg of doc.getPages()) {   // identify the gearbox on every template page: right-aligned in the navy header bar, under the title line
       const t = clean(gbText), sz = 8.5, tw = bold.widthOfTextAtSize(t, sz);
@@ -159,14 +159,14 @@ const PdfExport = (() => {
       }
       footer(pg, font, `Form: ${form.template.split('/').pop().replace('.pdf', '')}`, `Photo page ${i / 2 + 1} of ${total}`);
     }
-    doc.setTitle(`${form.title}${gb && gb.count > 1 ? ' - ' + gb.label : ''} - WO ${job.wo || ''} - ${job.customer || ''}`);
+    doc.setTitle(`${form.title}${gb ? ' - ' + gb.label : ''} - WO ${job.wo || ''} - ${job.customer || ''}`);
     doc.setProducer('Ram-Gear Manufacturing Incorporated app (pdf-lib)'); doc.setModificationDate(new Date());
     const bytes = await doc.save({updateFieldAppearances: false});
     return {bytes, pages: doc.getPageCount(), formPages: baseCount};
   }
   const safe = s => clean(s || '').trim().replace(/[^A-Za-z0-9._-]+/g, '-').replace(/-{2,}/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'NA';
   function filename(job, form, suffix) {
-    return `WO-${safe(job.wo)}_${safe(job.customer)}_${form.fileTitle}${job.gbTag || ''}${suffix || ''}.pdf`;   // gbTag "_GB2" only for jobs with 2+ gearboxes
+    return `WO-${safe(job.wo)}_${safe(job.customer)}_${form.fileTitle}${job.gbTag || ''}${suffix || ''}.pdf`;   // gbTag "_GB1", "_GB2" … (every job, Rev 1.5.1)
   }
   /* list items: PDF bytes, or {divider: {title, sub, lines:[]}} for a gearbox separator page */
   async function combine(pdfBytesList, title) {
