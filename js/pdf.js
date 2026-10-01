@@ -64,7 +64,7 @@ const PdfExport = (() => {
       else if (b.type === 'row') b.fields.forEach(f => add(f.name, 'text', {link: f.link}));
       else if (b.type === 'check') { add(b.name, 'check'); b.fields.forEach(f => add(f.name, 'text')); if (b.notes) add(b.notes, 'text'); }
       else if (b.type === 'choice') { b.options.forEach(o => { add(o.name, 'check'); if (o.text) add(o.text, 'text'); }); if (b.notes) add(b.notes, 'text'); }
-      else if (b.type === 'table') b.rows.forEach(r => r.cells.forEach(c => add(c.name, c.kind)));
+      else if (b.type === 'table') b.rows.forEach(r => r.cells.forEach(c => c.kind === 'choice' ? c.options.forEach(o => add(o.name, 'check')) : add(c.name, c.kind)));   // 'choice' cell: Replace/Reuse (Rev 1.5.2)
       else if (b.type === 'component') { b.options.forEach(o => add(o.name, 'check')); b.fields.forEach(f => add(f.name, 'text')); add(b.findings, 'text', {multiline: true}); if (b.nameField) add(b.nameField, 'text'); }
     }
     return out;
@@ -120,7 +120,7 @@ const PdfExport = (() => {
     }
     if (final || opts.flatten) af.flatten();
     if (final) {
-      const pg = doc.addPage([W, H]);
+      let pg = doc.addPage([W, H]);
       header(pg, font, bold, BRAND, woLine);
       let y = H - 92; sectionBar(pg, bold, y, 'Completion record'); y -= 38;
       const rows = [['Form', `${form.title} - ${form.docTitle}`], ['Status', 'Completed'], ['Revision', String(final.revision)],
@@ -133,7 +133,10 @@ const PdfExport = (() => {
       y -= 8; pg.drawText('Items marked N/A (not applicable) at finalization:', {x: M + 6, y, size: 11, font: bold, color: NAVY}); y -= 18;
       const na = final.naLabels.length ? final.naLabels : ['None'];
       for (const t of na) for (const [i, ln] of wrap(t, font, 10, W - 2 * M - 30).entries()) {
-        if (y < 70) break;
+        if (y < 70) {   // long N/A list: continue on another page (Rev 1.5.2; it used to stop at the page bottom)
+          footer(pg, font, `Form: ${form.template.split('/').pop().replace('.pdf', '')}`, 'Completion record');
+          pg = doc.addPage([W, H]); header(pg, font, bold, BRAND, woLine); y = H - 92; sectionBar(pg, bold, y, 'Completion record (continued)'); y -= 38;
+        }
         pg.drawText((i ? '   ' : '- ') + ln, {x: M + 12, y, size: 10, font}); y -= 14;
       }
       footer(pg, font, `Form: ${form.template.split('/').pop().replace('.pdf', '')}`, 'Completion record');

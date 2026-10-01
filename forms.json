@@ -471,7 +471,8 @@
        "columns": [
         "Shaft",
         "Drive end (DE) as-found shim (in/mm)",
-        "Non-drive end (NDE) as-found shim (in/mm)"
+        "Non-drive end (NDE) as-found shim (in/mm)",
+        "Shim pack"
        ],
        "labelCols": 1,
        "rows": [
@@ -487,6 +488,20 @@
           {
            "kind": "text",
            "name": "e_shim_input_nde_asfound"
+          },
+          {
+           "kind": "choice",
+           "name": "e_shim_input_disp",
+           "options": [
+            {
+             "name": "e_shim_input_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "e_shim_input_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -495,6 +510,10 @@
           "all": [
            "e_shim_input_de_asfound",
            "e_shim_input_nde_asfound"
+          ],
+          "any": [
+           "e_shim_input_replace",
+           "e_shim_input_reuse"
           ]
          }
         },
@@ -510,6 +529,20 @@
           {
            "kind": "text",
            "name": "e_shim_output_nde_asfound"
+          },
+          {
+           "kind": "choice",
+           "name": "e_shim_output_disp",
+           "options": [
+            {
+             "name": "e_shim_output_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "e_shim_output_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -518,6 +551,10 @@
           "all": [
            "e_shim_output_de_asfound",
            "e_shim_output_nde_asfound"
+          ],
+          "any": [
+           "e_shim_output_replace",
+           "e_shim_output_reuse"
           ]
          }
         }
@@ -2351,7 +2388,8 @@
         "Final shim (in/mm)",
         "Measured endplay/preload",
         "Spec",
-        "OK"
+        "OK",
+        "Shim pack"
        ],
        "labelCols": 2,
        "rows": [
@@ -2380,6 +2418,20 @@
           {
            "kind": "check",
            "name": "shim_input_de_ok"
+          },
+          {
+           "kind": "choice",
+           "name": "shim_input_de_disp",
+           "options": [
+            {
+             "name": "shim_input_de_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "shim_input_de_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -2389,6 +2441,10 @@
            "shim_input_de_final",
            "shim_input_de_measured",
            "shim_input_de_ok"
+          ],
+          "any": [
+           "shim_input_de_replace",
+           "shim_input_de_reuse"
           ]
          }
         },
@@ -2417,6 +2473,20 @@
           {
            "kind": "check",
            "name": "shim_input_nde_ok"
+          },
+          {
+           "kind": "choice",
+           "name": "shim_input_nde_disp",
+           "options": [
+            {
+             "name": "shim_input_nde_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "shim_input_nde_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -2426,6 +2496,10 @@
            "shim_input_nde_final",
            "shim_input_nde_measured",
            "shim_input_nde_ok"
+          ],
+          "any": [
+           "shim_input_nde_replace",
+           "shim_input_nde_reuse"
           ]
          }
         },
@@ -2454,6 +2528,20 @@
           {
            "kind": "check",
            "name": "shim_output_de_ok"
+          },
+          {
+           "kind": "choice",
+           "name": "shim_output_de_disp",
+           "options": [
+            {
+             "name": "shim_output_de_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "shim_output_de_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -2463,6 +2551,10 @@
            "shim_output_de_final",
            "shim_output_de_measured",
            "shim_output_de_ok"
+          ],
+          "any": [
+           "shim_output_de_replace",
+           "shim_output_de_reuse"
           ]
          }
         },
@@ -2491,6 +2583,20 @@
           {
            "kind": "check",
            "name": "shim_output_nde_ok"
+          },
+          {
+           "kind": "choice",
+           "name": "shim_output_nde_disp",
+           "options": [
+            {
+             "name": "shim_output_nde_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "shim_output_nde_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -2500,6 +2606,10 @@
            "shim_output_nde_final",
            "shim_output_nde_measured",
            "shim_output_nde_ok"
+          ],
+          "any": [
+           "shim_output_nde_replace",
+           "shim_output_nde_reuse"
           ]
          }
         }
@@ -3448,7 +3558,8 @@
        "columns": [
         "Shaft",
         "Drive end (DE) as-found shim (in/mm)",
-        "Non-drive end (NDE) as-found shim (in/mm)"
+        "Non-drive end (NDE) as-found shim (in/mm)",
+        "Shim pack"
        ],
        "labelCols": 1,
        "rows": [
@@ -3464,6 +3575,20 @@
           {
            "kind": "text",
            "name": "e_shim_input_nde_asfound"
+          },
+          {
+           "kind": "choice",
+           "name": "e_shim_input_disp",
+           "options": [
+            {
+             "name": "e_shim_input_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "e_shim_input_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -3472,6 +3597,10 @@
           "all": [
            "e_shim_input_de_asfound",
            "e_shim_input_nde_asfound"
+          ],
+          "any": [
+           "e_shim_input_replace",
+           "e_shim_input_reuse"
           ]
          }
         },
@@ -3487,6 +3616,20 @@
           {
            "kind": "text",
            "name": "e_shim_intermediate_nde_asfound"
+          },
+          {
+           "kind": "choice",
+           "name": "e_shim_intermediate_disp",
+           "options": [
+            {
+             "name": "e_shim_intermediate_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "e_shim_intermediate_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -3495,6 +3638,10 @@
           "all": [
            "e_shim_intermediate_de_asfound",
            "e_shim_intermediate_nde_asfound"
+          ],
+          "any": [
+           "e_shim_intermediate_replace",
+           "e_shim_intermediate_reuse"
           ]
          }
         },
@@ -3510,6 +3657,20 @@
           {
            "kind": "text",
            "name": "e_shim_output_nde_asfound"
+          },
+          {
+           "kind": "choice",
+           "name": "e_shim_output_disp",
+           "options": [
+            {
+             "name": "e_shim_output_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "e_shim_output_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -3518,6 +3679,10 @@
           "all": [
            "e_shim_output_de_asfound",
            "e_shim_output_nde_asfound"
+          ],
+          "any": [
+           "e_shim_output_replace",
+           "e_shim_output_reuse"
           ]
          }
         }
@@ -5634,7 +5799,8 @@
         "Final shim (in/mm)",
         "Measured endplay/preload",
         "Spec",
-        "OK"
+        "OK",
+        "Shim pack"
        ],
        "labelCols": 2,
        "rows": [
@@ -5663,6 +5829,20 @@
           {
            "kind": "check",
            "name": "shim_input_de_ok"
+          },
+          {
+           "kind": "choice",
+           "name": "shim_input_de_disp",
+           "options": [
+            {
+             "name": "shim_input_de_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "shim_input_de_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -5672,6 +5852,10 @@
            "shim_input_de_final",
            "shim_input_de_measured",
            "shim_input_de_ok"
+          ],
+          "any": [
+           "shim_input_de_replace",
+           "shim_input_de_reuse"
           ]
          }
         },
@@ -5700,6 +5884,20 @@
           {
            "kind": "check",
            "name": "shim_input_nde_ok"
+          },
+          {
+           "kind": "choice",
+           "name": "shim_input_nde_disp",
+           "options": [
+            {
+             "name": "shim_input_nde_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "shim_input_nde_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -5709,6 +5907,10 @@
            "shim_input_nde_final",
            "shim_input_nde_measured",
            "shim_input_nde_ok"
+          ],
+          "any": [
+           "shim_input_nde_replace",
+           "shim_input_nde_reuse"
           ]
          }
         },
@@ -5737,6 +5939,20 @@
           {
            "kind": "check",
            "name": "shim_intermediate_de_ok"
+          },
+          {
+           "kind": "choice",
+           "name": "shim_intermediate_de_disp",
+           "options": [
+            {
+             "name": "shim_intermediate_de_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "shim_intermediate_de_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -5746,6 +5962,10 @@
            "shim_intermediate_de_final",
            "shim_intermediate_de_measured",
            "shim_intermediate_de_ok"
+          ],
+          "any": [
+           "shim_intermediate_de_replace",
+           "shim_intermediate_de_reuse"
           ]
          }
         },
@@ -5774,6 +5994,20 @@
           {
            "kind": "check",
            "name": "shim_intermediate_nde_ok"
+          },
+          {
+           "kind": "choice",
+           "name": "shim_intermediate_nde_disp",
+           "options": [
+            {
+             "name": "shim_intermediate_nde_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "shim_intermediate_nde_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -5783,6 +6017,10 @@
            "shim_intermediate_nde_final",
            "shim_intermediate_nde_measured",
            "shim_intermediate_nde_ok"
+          ],
+          "any": [
+           "shim_intermediate_nde_replace",
+           "shim_intermediate_nde_reuse"
           ]
          }
         },
@@ -5811,6 +6049,20 @@
           {
            "kind": "check",
            "name": "shim_output_de_ok"
+          },
+          {
+           "kind": "choice",
+           "name": "shim_output_de_disp",
+           "options": [
+            {
+             "name": "shim_output_de_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "shim_output_de_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -5820,6 +6072,10 @@
            "shim_output_de_final",
            "shim_output_de_measured",
            "shim_output_de_ok"
+          ],
+          "any": [
+           "shim_output_de_replace",
+           "shim_output_de_reuse"
           ]
          }
         },
@@ -5848,6 +6104,20 @@
           {
            "kind": "check",
            "name": "shim_output_nde_ok"
+          },
+          {
+           "kind": "choice",
+           "name": "shim_output_nde_disp",
+           "options": [
+            {
+             "name": "shim_output_nde_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "shim_output_nde_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -5857,6 +6127,10 @@
            "shim_output_nde_final",
            "shim_output_nde_measured",
            "shim_output_nde_ok"
+          ],
+          "any": [
+           "shim_output_nde_replace",
+           "shim_output_nde_reuse"
           ]
          }
         }
@@ -6884,7 +7158,8 @@
        "columns": [
         "Shaft",
         "Drive end (DE) as-found shim (in/mm)",
-        "Non-drive end (NDE) as-found shim (in/mm)"
+        "Non-drive end (NDE) as-found shim (in/mm)",
+        "Shim pack"
        ],
        "labelCols": 1,
        "rows": [
@@ -6900,6 +7175,20 @@
           {
            "kind": "text",
            "name": "e_shim_input_nde_asfound"
+          },
+          {
+           "kind": "choice",
+           "name": "e_shim_input_disp",
+           "options": [
+            {
+             "name": "e_shim_input_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "e_shim_input_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -6908,6 +7197,10 @@
           "all": [
            "e_shim_input_de_asfound",
            "e_shim_input_nde_asfound"
+          ],
+          "any": [
+           "e_shim_input_replace",
+           "e_shim_input_reuse"
           ]
          }
         },
@@ -6923,6 +7216,20 @@
           {
            "kind": "text",
            "name": "e_shim_intermediate_nde_asfound"
+          },
+          {
+           "kind": "choice",
+           "name": "e_shim_intermediate_disp",
+           "options": [
+            {
+             "name": "e_shim_intermediate_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "e_shim_intermediate_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -6931,6 +7238,10 @@
           "all": [
            "e_shim_intermediate_de_asfound",
            "e_shim_intermediate_nde_asfound"
+          ],
+          "any": [
+           "e_shim_intermediate_replace",
+           "e_shim_intermediate_reuse"
           ]
          }
         },
@@ -6946,6 +7257,20 @@
           {
            "kind": "text",
            "name": "e_shim_intermediate2_nde_asfound"
+          },
+          {
+           "kind": "choice",
+           "name": "e_shim_intermediate2_disp",
+           "options": [
+            {
+             "name": "e_shim_intermediate2_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "e_shim_intermediate2_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -6954,6 +7279,10 @@
           "all": [
            "e_shim_intermediate2_de_asfound",
            "e_shim_intermediate2_nde_asfound"
+          ],
+          "any": [
+           "e_shim_intermediate2_replace",
+           "e_shim_intermediate2_reuse"
           ]
          }
         },
@@ -6969,6 +7298,20 @@
           {
            "kind": "text",
            "name": "e_shim_output_nde_asfound"
+          },
+          {
+           "kind": "choice",
+           "name": "e_shim_output_disp",
+           "options": [
+            {
+             "name": "e_shim_output_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "e_shim_output_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -6977,6 +7320,10 @@
           "all": [
            "e_shim_output_de_asfound",
            "e_shim_output_nde_asfound"
+          ],
+          "any": [
+           "e_shim_output_replace",
+           "e_shim_output_reuse"
           ]
          }
         }
@@ -9387,7 +9734,8 @@
         "Final shim (in/mm)",
         "Measured endplay/preload",
         "Spec",
-        "OK"
+        "OK",
+        "Shim pack"
        ],
        "labelCols": 2,
        "rows": [
@@ -9416,6 +9764,20 @@
           {
            "kind": "check",
            "name": "shim_input_de_ok"
+          },
+          {
+           "kind": "choice",
+           "name": "shim_input_de_disp",
+           "options": [
+            {
+             "name": "shim_input_de_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "shim_input_de_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -9425,6 +9787,10 @@
            "shim_input_de_final",
            "shim_input_de_measured",
            "shim_input_de_ok"
+          ],
+          "any": [
+           "shim_input_de_replace",
+           "shim_input_de_reuse"
           ]
          }
         },
@@ -9453,6 +9819,20 @@
           {
            "kind": "check",
            "name": "shim_input_nde_ok"
+          },
+          {
+           "kind": "choice",
+           "name": "shim_input_nde_disp",
+           "options": [
+            {
+             "name": "shim_input_nde_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "shim_input_nde_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -9462,6 +9842,10 @@
            "shim_input_nde_final",
            "shim_input_nde_measured",
            "shim_input_nde_ok"
+          ],
+          "any": [
+           "shim_input_nde_replace",
+           "shim_input_nde_reuse"
           ]
          }
         },
@@ -9490,6 +9874,20 @@
           {
            "kind": "check",
            "name": "shim_intermediate_de_ok"
+          },
+          {
+           "kind": "choice",
+           "name": "shim_intermediate_de_disp",
+           "options": [
+            {
+             "name": "shim_intermediate_de_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "shim_intermediate_de_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -9499,6 +9897,10 @@
            "shim_intermediate_de_final",
            "shim_intermediate_de_measured",
            "shim_intermediate_de_ok"
+          ],
+          "any": [
+           "shim_intermediate_de_replace",
+           "shim_intermediate_de_reuse"
           ]
          }
         },
@@ -9527,6 +9929,20 @@
           {
            "kind": "check",
            "name": "shim_intermediate_nde_ok"
+          },
+          {
+           "kind": "choice",
+           "name": "shim_intermediate_nde_disp",
+           "options": [
+            {
+             "name": "shim_intermediate_nde_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "shim_intermediate_nde_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -9536,6 +9952,10 @@
            "shim_intermediate_nde_final",
            "shim_intermediate_nde_measured",
            "shim_intermediate_nde_ok"
+          ],
+          "any": [
+           "shim_intermediate_nde_replace",
+           "shim_intermediate_nde_reuse"
           ]
          }
         },
@@ -9564,6 +9984,20 @@
           {
            "kind": "check",
            "name": "shim_intermediate2_de_ok"
+          },
+          {
+           "kind": "choice",
+           "name": "shim_intermediate2_de_disp",
+           "options": [
+            {
+             "name": "shim_intermediate2_de_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "shim_intermediate2_de_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -9573,6 +10007,10 @@
            "shim_intermediate2_de_final",
            "shim_intermediate2_de_measured",
            "shim_intermediate2_de_ok"
+          ],
+          "any": [
+           "shim_intermediate2_de_replace",
+           "shim_intermediate2_de_reuse"
           ]
          }
         },
@@ -9601,6 +10039,20 @@
           {
            "kind": "check",
            "name": "shim_intermediate2_nde_ok"
+          },
+          {
+           "kind": "choice",
+           "name": "shim_intermediate2_nde_disp",
+           "options": [
+            {
+             "name": "shim_intermediate2_nde_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "shim_intermediate2_nde_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -9610,6 +10062,10 @@
            "shim_intermediate2_nde_final",
            "shim_intermediate2_nde_measured",
            "shim_intermediate2_nde_ok"
+          ],
+          "any": [
+           "shim_intermediate2_nde_replace",
+           "shim_intermediate2_nde_reuse"
           ]
          }
         },
@@ -9638,6 +10094,20 @@
           {
            "kind": "check",
            "name": "shim_output_de_ok"
+          },
+          {
+           "kind": "choice",
+           "name": "shim_output_de_disp",
+           "options": [
+            {
+             "name": "shim_output_de_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "shim_output_de_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -9647,6 +10117,10 @@
            "shim_output_de_final",
            "shim_output_de_measured",
            "shim_output_de_ok"
+          ],
+          "any": [
+           "shim_output_de_replace",
+           "shim_output_de_reuse"
           ]
          }
         },
@@ -9675,6 +10149,20 @@
           {
            "kind": "check",
            "name": "shim_output_nde_ok"
+          },
+          {
+           "kind": "choice",
+           "name": "shim_output_nde_disp",
+           "options": [
+            {
+             "name": "shim_output_nde_replace",
+             "label": "Replace"
+            },
+            {
+             "name": "shim_output_nde_reuse",
+             "label": "Reuse"
+            }
+           ]
           }
          ],
          "req": {
@@ -9684,6 +10172,10 @@
            "shim_output_nde_final",
            "shim_output_nde_measured",
            "shim_output_nde_ok"
+          ],
+          "any": [
+           "shim_output_nde_replace",
+           "shim_output_nde_reuse"
           ]
          }
         }

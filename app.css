@@ -127,6 +127,7 @@ tr.missing td{background:#fdecea}
 .tbl td.rowlabel{font-weight:700}
 .tbl td input{min-height:44px;padding:8px;font-size:16px;min-width:64px}
 .tbl td.c{text-align:center;width:60px}
+.tbl td.cc{padding:4px 6px}.tbl td.cc .choices.rr{display:flex;flex-wrap:nowrap;gap:8px;justify-content:center}.tbl td.cc .chk.pill{min-height:var(--tap);white-space:nowrap}
 .tbl .na-col{width:64px;background:transparent!important;border:0;text-align:center}
 .tbl tr.is-na td:not(.na-col){opacity:.5}
 /* components */

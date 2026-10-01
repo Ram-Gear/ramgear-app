@@ -202,12 +202,12 @@ def build(total):
     c.save()
     return buf.getvalue(), d.page
 
-def header_row(d, cols, h=30):
+def header_row(d, cols, h=30, fsz=9):
     c=d.c; x=M
     c.setFillColor(NAVY); c.rect(M, d.y-h, sum(w for _,w in cols), h, fill=1, stroke=0)
     c.setFillColor(colors.white)
     for label,w in cols:
-        lines = label.split("\n"); fsz=9
+        lines = label.split("\n")
         c.setFont("Helvetica-Bold", fsz)
         yy = d.y - h/2 + (len(lines)-1)*5.5 - 3
         for ln in lines:
@@ -217,14 +217,14 @@ def header_row(d, cols, h=30):
 
 def shim_table(d):
     c=d.c
-    cols=[("Shaft",78),("Location",84),("Starting shim\n(in/mm)",82),("Final shim\n(in/mm)",82),
-          ("Measured\nendplay/preload",96),("Spec",62),("OK",44)]
+    cols=[("Shaft",78),("Location",70),("Starting shim\n(in/mm)",60),("Final shim\n(in/mm)",54),
+          ("Measured\nendplay/preload",68),("Spec",40),("OK",34),("Shim pack\nReplace / Reuse",124)]
     tot=sum(w for _,w in cols); assert abs(tot-(W-2*M))<2, tot
     rh=32
     d.need(22+30+rh*len(SHIM_ROWS)+10)
     d.y -= 4
     c.setFillColor(NAVY); c.setFont("Helvetica-Bold", 11); c.drawString(M, d.y-12, "BEARING SHIM RECORD"); d.y -= 20
-    header_row(d, cols)
+    header_row(d, cols, fsz=8.5)
     keys=["start","final","measured","spec"]
     for ri,(skey,shaft,loc) in enumerate(SHIM_ROWS):
         y=d.y; c.setFillColor(LIGHT if ri%2 else colors.white); c.rect(M,y-rh,tot,rh,fill=1,stroke=0)
@@ -235,9 +235,20 @@ def shim_table(d):
         x=M+cols[0][1]+cols[1][1]
         for k,(lbl,w) in zip(keys,cols[2:6]):
             d.tf(f"{base}_{k}", x+3, y-rh+4, w-6, tip=f"{shaft} {loc} {lbl.replace(chr(10),' ')}"); x+=w
-        d.cb(f"{base}_ok", x+(cols[6][1]-CB)/2, y-rh+6, tip=f"{shaft} {loc} OK")
+        d.cb(f"{base}_ok", x+(cols[6][1]-CB)/2, y-rh+6, tip=f"{shaft} {loc} OK"); x+=cols[6][1]
+        replace_reuse(d, base, x, y, rh, cols[7][1], f"{shaft} {loc} shim pack")
         d.y -= rh
     d.y -= 12
+
+def replace_reuse(d, base, x, y, rh, cw, tip):
+    """Rev 1.5.2: single-choice shim disposition, fields <base>_replace / <base>_reuse"""
+    c=d.c; fs=9; opts=[("replace","Replace"),("reuse","Reuse")]
+    tot=sum(CB+3+c.stringWidth(l,"Helvetica",fs) for _,l in opts)+8
+    xx=x+(cw-tot)/2; cy=y-rh+(rh-CB)/2
+    for k,l in opts:
+        d.cb(f"{base}_{k}", xx, cy, tip=f"{tip}: {l}")
+        c.setFillColor(colors.black); c.setFont("Helvetica",fs); c.drawString(xx+CB+3, cy+CB/2-3.2, l)
+        xx+=CB+3+c.stringWidth(l,"Helvetica",fs)+8
 
 def backlash_table(d):
     c=d.c

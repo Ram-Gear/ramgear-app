@@ -20,6 +20,9 @@ def load_assembly_data():
 def F(name, label, **kw):
     d = {"type": "field", "name": name, "label": label}; d.update(kw); return d
 
+def rr(base):   # Rev 1.5.2: single-choice shim disposition cell
+    return {"kind": "choice", "name": f"{base}_disp", "options": [{"name": f"{base}_replace", "label": "Replace"}, {"name": f"{base}_reuse", "label": "Reuse"}]}
+
 # ---------------- Assembly Verification ----------------
 def assembly():
     ns = load_assembly_data()
@@ -43,10 +46,10 @@ def assembly():
             rows = []
             for skey, shaft, loc in ns["SHIM_ROWS"]:
                 base = f"shim_{skey}_{'de' if loc=='Drive end' else 'nde'}"
-                rows.append({"label": [shaft, loc], "cells": [{"kind": "text", "name": f"{base}_{k}"} for k in ("start","final","measured","spec")] + [{"kind": "check", "name": f"{base}_ok"}],
-                             "req": {"id": base, "label": f"Shim record: {shaft} {loc}", "all": [f"{base}_final", f"{base}_measured", f"{base}_ok"]}})
+                rows.append({"label": [shaft, loc], "cells": [{"kind": "text", "name": f"{base}_{k}"} for k in ("start","final","measured","spec")] + [{"kind": "check", "name": f"{base}_ok"}, rr(base)],
+                             "req": {"id": base, "label": f"Shim record: {shaft} {loc}", "all": [f"{base}_final", f"{base}_measured", f"{base}_ok"], "any": [f"{base}_replace", f"{base}_reuse"]}})
             secs[-1]["blocks"].append({"type": "table", "title": "Bearing shim record",
-                "columns": ["Shaft", "Location", "Starting shim (in/mm)", "Final shim (in/mm)", "Measured endplay/preload", "Spec", "OK"], "labelCols": 2, "rows": rows})
+                "columns": ["Shaft", "Location", "Starting shim (in/mm)", "Final shim (in/mm)", "Measured endplay/preload", "Spec", "OK", "Shim pack"], "labelCols": 2, "rows": rows})
             continue
         if title == "BACKLASH":
             rows = []
@@ -131,9 +134,9 @@ def teardown():
          [row(BL, "d_backlash", "As-found backlash"), row(RO, "d_runout", "As-found external runout")])})
     eb = [{"type": "check", "name": n, "label": t, "fields": [], "req": {"id": n, "label": t, "all": [n]}} for n, t in [
         ("e_match_marked", "Match-mark housing, caps, and shafts before disassembly"), ("e_parts_tagged", "Parts tagged and kept in order"), ("e_seals_inspected", "Seals removed and inspected")]]
-    eb.append({"type": "table", "title": "As-found shim record", "columns": ["Shaft", "Drive end (DE) as-found shim (in/mm)", "Non-drive end (NDE) as-found shim (in/mm)"], "labelCols": 1,
-               "rows": [{"label": [l], "cells": [{"kind": "text", "name": f"e_shim_{k}_de_asfound"}, {"kind": "text", "name": f"e_shim_{k}_nde_asfound"}],
-                         "req": {"id": f"e_shim_{k}", "label": f"As-found shim: {l}", "all": [f"e_shim_{k}_de_asfound", f"e_shim_{k}_nde_asfound"]}}
+    eb.append({"type": "table", "title": "As-found shim record", "columns": ["Shaft", "Drive end (DE) as-found shim (in/mm)", "Non-drive end (NDE) as-found shim (in/mm)", "Shim pack"], "labelCols": 1,
+               "rows": [{"label": [l], "cells": [{"kind": "text", "name": f"e_shim_{k}_de_asfound"}, {"kind": "text", "name": f"e_shim_{k}_nde_asfound"}, rr(f"e_shim_{k}")],
+                         "req": {"id": f"e_shim_{k}", "label": f"As-found shim: {l}", "all": [f"e_shim_{k}_de_asfound", f"e_shim_{k}_nde_asfound"], "any": [f"e_shim_{k}_replace", f"e_shim_{k}_reuse"]}}
                         for k, l in SH]})
     S.append({"id": "E", "title": "E. Teardown checklist", "photos": True, "blocks": eb})
     PN = [("pn", "Part no.")]; GEAR = [("pn", "Part no."), ("teeth", "Teeth")]
@@ -211,7 +214,9 @@ def names_in(form):
                 if b.get("notes"): add(b["notes"], "text")
             elif t == "table":
                 for r in b["rows"]:
-                    for c in r["cells"]: add(c["name"], c["kind"])
+                    for c in r["cells"]:
+                        if c["kind"] == "choice": [add(o["name"], "check") for o in c["options"]]
+                        else: add(c["name"], c["kind"])
             elif t == "component":
                 for o in b["options"]: add(o["name"], "check")
                 for f in b["fields"]: add(f["name"], "text")

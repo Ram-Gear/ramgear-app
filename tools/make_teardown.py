@@ -158,6 +158,14 @@ class Doc:
                     c.drawString(x+5, y-rh/2-3.5, labels[li]); li += 1
                 elif kind == "tf":
                     s.tf(f"{prefix}_{rk}_{key}", x+3, y-rh+4, cw-6, tip=tip)
+                elif kind == "rr":   # Rev 1.5.2: Replace / Reuse single choice -> <prefix>_<row>_replace / _reuse
+                    fs = 9; opts = [("replace", "Replace"), ("reuse", "Reuse")]
+                    tot = sum(CB + 3 + c.stringWidth(l, "Helvetica", fs) for _, l in opts) + 8
+                    xx = x + (cw - tot)/2; cy = y - rh + (rh - CB)/2
+                    for k, l in opts:
+                        s.cb(f"{prefix}_{rk}_{k}", xx, cy, tip=f"{' '.join(labels)} shim pack: {l}")
+                        c.setFillColor(colors.black); c.setFont("Helvetica", fs); c.drawString(xx + CB + 3, cy + CB/2 - 3.2, l)
+                        xx += CB + 3 + c.stringWidth(l, "Helvetica", fs) + 8
                 else:
                     s.cb(f"{prefix}_{rk}_{key}", x+(cw-CB)/2, y-rh+(rh-CB)/2, tip=tip)
                 x += cw
@@ -239,8 +247,8 @@ def build(total):
     d.check_item("e_match_marked", "Match-mark housing, caps, and shafts before disassembly")
     d.check_item("e_parts_tagged", "Parts tagged and kept in order")
     d.check_item("e_seals_inspected", "Seals removed and inspected")
-    d.table("e_shim", [("Shaft", 150, "label", None), ("Drive end (DE)\nas-found shim (in/mm)", (CW-150)/2, "tf", "de_asfound"),
-                       ("Non-drive end (NDE)\nas-found shim (in/mm)", (CW-150)/2, "tf", "nde_asfound")],
+    d.table("e_shim", [("Shaft", 120, "label", None), ("Drive end (DE)\nas-found shim (in/mm)", (CW-252)/2, "tf", "de_asfound"),
+                       ("Non-drive end (NDE)\nas-found shim (in/mm)", (CW-252)/2, "tf", "nde_asfound"), ("Shim pack\nReplace / Reuse", 132, "rr", None)],
             [(k, [l]) for k, l in SH], rh=30, title="AS-FOUND SHIM RECORD")
     # F
     d.section("F. Component inventory and repair assessment", extra=90)

@@ -2,6 +2,17 @@
 
 The revision number lives in `js/version.js` (see README › *Revision number*).
 
+## Rev 1.5.2 – 2026-10-01 (build 2026-10-01.3) – shim Replace / Reuse
+
+- Every shim record row now has a **Shim pack: Replace / Reuse** choice, for all reduction types (Single, Double, Triple):
+  - Assembly Verification, Bearing shim record: one per shaft and end (DE / NDE).
+  - Teardown Evaluation, As-found shim record: one per shaft.
+- Single choice with large tap targets; picking one clears the other. Required for finalize as part of the row; N/A for the row still works as before.
+- Printed in the shim tables of the PDF templates (new column), so it shows in draft, final and combined PDFs. All six templates and `forms.json` were regenerated; existing field names are unchanged.
+- Existing jobs: the new choice starts blank, nothing else changes. Forms already finalized keep their saved PDFs; draft forms need the choice (or N/A) before finalizing.
+- Synced with the rest of the form values.
+- Fix: a long "Items marked N/A" list on the completion record now continues on another page ("Completion record (continued)") instead of being cut off at the bottom of the page.
+
 ## Rev 1.5.1 – 2026-10-01 (build 2026-10-01.2) – gearbox naming for every job
 
 - Single-gearbox jobs now use the same gearbox naming and layout as jobs with several gearboxes:

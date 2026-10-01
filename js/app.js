@@ -1226,8 +1226,9 @@
           <div class="choices ${b.exclusive ? 'seg' : ''}" ${b.exclusive ? 'data-exclusive="1"' : ''}>${b.options.map(o => cbox(o.name, o.label, 'pill') + (o.text ? `<input class="other-text" type="text" data-name="${esc(o.text)}" value="${esc(v(o.text))}" placeholder="Specify" ${dis}>` : '')).join('')}</div>
           ${b.notes ? `<label class="fld sub"><span>Notes</span>${input({name: b.notes, label: 'Notes'}, v(b.notes), {locked})}</label>` : ''}</div>`;
       case 'table': return `<div class="blk tablewrap"><h4 class="subhead">${esc(b.title)}</h4><table class="tbl"><thead><tr>${b.columns.map(c => `<th>${esc(c)}</th>`).join('')}<th class="na-col"></th></tr></thead><tbody>
-          ${b.rows.map(r => `<tr ${reqAttr(r)}>${r.label.map((l, i) => `<td class="${i ? '' : 'rowlabel'}">${esc(l)}</td>`).join('')}${r.cells.map(c => c.kind === 'check'
-            ? `<td class="c">${cbox(c.name, '', 'solo')}</td>` : `<td>${input({name: c.name}, v(c.name), {locked, aria: c.name})}</td>`).join('')}<td class="na-col">${naBtn(r, locked)}</td></tr>`).join('')}</tbody></table></div>`;
+          ${b.rows.map(r => `<tr ${reqAttr(r)}>${r.label.map((l, i) => `<td class="${i ? '' : 'rowlabel'}">${esc(l)}</td>`).join('')}${r.cells.map(c => c.kind === 'choice'
+            ? `<td class="cc"><div class="choices seg rr" data-exclusive="1" role="radiogroup" aria-label="Shim pack">${c.options.map(o => cbox(o.name, o.label, 'pill ' + o.label.toLowerCase())).join('')}</div></td>`
+            : c.kind === 'check' ? `<td class="c">${cbox(c.name, '', 'solo')}</td>` : `<td>${input({name: c.name}, v(c.name), {locked, aria: c.name})}</td>`).join('')}<td class="na-col">${naBtn(r, locked)}</td></tr>`).join('')}</tbody></table></div>`;
       case 'component': return `<div class="blk comp" ${reqAttr(b)} id="comp-${esc(b.id)}">
           <div class="comp-head">${b.nameField ? `<label class="other-name"><span>Other:</span>${input({name: b.nameField, label: 'Other component name'}, v(b.nameField), {locked})}</label>` : `<b>${esc(b.name)}</b>`}
             <div class="choices seg" data-exclusive="1">${b.options.map(o => cbox(o.name, o.label, 'pill ' + o.label.toLowerCase())).join('')}</div>${naBtn(b, locked)}</div>
