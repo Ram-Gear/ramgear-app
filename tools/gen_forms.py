@@ -252,5 +252,13 @@ if __name__ == "__main__":
             f["stages"] = f"p{k}"; f["id"] = f"{f['key']}@p{k}"; f["reduction"] = f"Planetary {k}-stage"; f["kind"] = "planetary"; f["pstages"] = k
             ok &= validate(f, os.path.join(APP, f["template"]))
             out.append(f)
+    # Rev 1.6.1: template page range of every section (photos print right after the page where their section ends)
+    for f in out:
+        lay = json.load(open(os.path.join(HERE, "layout", os.path.basename(f["template"])[:-4] + ".json")))
+        by = {e["title"]: e for e in lay["sections"]}; f["templatePages"] = lay["pages"]
+        for sec in f["sections"]:
+            e = by.get(sec["title"])
+            if not e: print("NO LAYOUT", f["id"], sec["title"], list(by)); ok = False; continue
+            sec["pages"] = [e["start"], e["end"]]
     json.dump({"version": 2, "forms": out}, open(os.path.join(APP, "forms.json"), "w"), indent=1, ensure_ascii=False)
     print("OK" if ok else "MISMATCH"); sys.exit(0 if ok else 1)

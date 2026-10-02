@@ -167,6 +167,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      1
      ]
     },
     {
@@ -282,6 +286,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      1
      ]
     },
     {
@@ -360,6 +368,10 @@
        "multiline": true,
        "rows": 2
       }
+     ],
+     "pages": [
+      2,
+      2
      ]
     },
     {
@@ -419,6 +431,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      2,
+      2
      ]
     },
     {
@@ -560,6 +576,10 @@
         }
        ]
       }
+     ],
+     "pages": [
+      2,
+      2
      ]
     },
     {
@@ -1245,6 +1265,10 @@
        },
        "nameField": "f_other3_name"
       }
+     ],
+     "pages": [
+      3,
+      4
      ]
     },
     {
@@ -1337,6 +1361,10 @@
        "multiline": true,
        "rows": 3
       }
+     ],
+     "pages": [
+      5,
+      5
      ]
     },
     {
@@ -1528,6 +1556,10 @@
        "multiline": true,
        "rows": 2
       }
+     ],
+     "pages": [
+      5,
+      5
      ]
     },
     {
@@ -1603,6 +1635,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      6,
+      6
      ]
     },
     {
@@ -1679,6 +1715,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      6,
+      6
      ]
     },
     {
@@ -1762,6 +1802,10 @@
        "label": "Customer approval date",
        "input": "date"
       }
+     ],
+     "pages": [
+      7,
+      7
      ]
     },
     {
@@ -1792,12 +1836,17 @@
        ],
        "help": "Add as many photos as needed (camera or gallery) and give each a short caption, e.g. As received, Disassembled or a component name. They print in this section of the PDF. Optional."
       }
+     ],
+     "pages": [
+      8,
+      8
      ]
     }
    ],
    "stages": 1,
    "id": "teardown@1",
-   "reduction": "Single"
+   "reduction": "Single",
+   "templatePages": 8
   },
   {
    "key": "assembly",
@@ -1929,7 +1978,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      1,
+      1
+     ]
     },
     {
      "id": "s1",
@@ -2072,7 +2125,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      1,
+      2
+     ]
     },
     {
      "id": "s2",
@@ -2182,7 +2239,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      2,
+      2
+     ]
     },
     {
      "id": "s3",
@@ -2228,7 +2289,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      2,
+      2
+     ]
     },
     {
      "id": "s4",
@@ -2306,7 +2371,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      2,
+      2
+     ]
     },
     {
      "id": "s5",
@@ -2646,7 +2715,11 @@
        ]
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      3,
+      3
+     ]
     },
     {
      "id": "s6",
@@ -2784,7 +2857,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      3,
+      4
+     ]
     },
     {
      "id": "s7",
@@ -2843,7 +2920,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      4,
+      4
+     ]
     },
     {
      "id": "s8",
@@ -2957,7 +3038,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      4,
+      4
+     ]
     },
     {
      "id": "s9",
@@ -3003,7 +3088,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      4,
+      5
+     ]
     },
     {
      "id": "notes",
@@ -3017,6 +3106,10 @@
        "multiline": true,
        "rows": 6
       }
+     ],
+     "pages": [
+      5,
+      5
      ]
     },
     {
@@ -3092,12 +3185,17 @@
         ]
        }
       }
+     ],
+     "pages": [
+      5,
+      5
      ]
     }
    ],
    "stages": 1,
    "id": "assembly@1",
-   "reduction": "Single"
+   "reduction": "Single",
+   "templatePages": 5
   },
   {
    "key": "teardown",
@@ -3272,6 +3370,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      1
      ]
     },
     {
@@ -3387,6 +3489,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      1
      ]
     },
     {
@@ -3465,6 +3571,10 @@
        "multiline": true,
        "rows": 2
       }
+     ],
+     "pages": [
+      2,
+      2
      ]
     },
     {
@@ -3536,6 +3646,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      2,
+      2
      ]
     },
     {
@@ -3718,6 +3832,10 @@
         }
        ]
       }
+     ],
+     "pages": [
+      2,
+      2
      ]
     },
     {
@@ -4599,6 +4717,10 @@
        },
        "nameField": "f_other3_name"
       }
+     ],
+     "pages": [
+      3,
+      5
      ]
     },
     {
@@ -4691,6 +4813,10 @@
        "multiline": true,
        "rows": 3
       }
+     ],
+     "pages": [
+      5,
+      5
      ]
     },
     {
@@ -4962,6 +5088,10 @@
        "multiline": true,
        "rows": 2
       }
+     ],
+     "pages": [
+      6,
+      6
      ]
     },
     {
@@ -5037,6 +5167,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      6,
+      6
      ]
     },
     {
@@ -5113,6 +5247,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      7,
+      7
      ]
     },
     {
@@ -5196,6 +5334,10 @@
        "label": "Customer approval date",
        "input": "date"
       }
+     ],
+     "pages": [
+      7,
+      7
      ]
     },
     {
@@ -5226,12 +5368,17 @@
        ],
        "help": "Add as many photos as needed (camera or gallery) and give each a short caption, e.g. As received, Disassembled or a component name. They print in this section of the PDF. Optional."
       }
+     ],
+     "pages": [
+      8,
+      8
      ]
     }
    ],
    "stages": 2,
    "id": "teardown@2",
-   "reduction": "Double"
+   "reduction": "Double",
+   "templatePages": 8
   },
   {
    "key": "assembly",
@@ -5370,7 +5517,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      1,
+      1
+     ]
     },
     {
      "id": "s1",
@@ -5513,7 +5664,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      1,
+      2
+     ]
     },
     {
      "id": "s2",
@@ -5623,7 +5778,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      2,
+      2
+     ]
     },
     {
      "id": "s3",
@@ -5669,7 +5828,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      2,
+      2
+     ]
     },
     {
      "id": "s4",
@@ -5747,7 +5910,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      2,
+      3
+     ]
     },
     {
      "id": "s5",
@@ -6197,7 +6364,11 @@
        ]
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      3,
+      3
+     ]
     },
     {
      "id": "s6",
@@ -6384,7 +6555,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      3,
+      4
+     ]
     },
     {
      "id": "s7",
@@ -6443,7 +6618,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      4,
+      4
+     ]
     },
     {
      "id": "s8",
@@ -6557,7 +6736,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      4,
+      5
+     ]
     },
     {
      "id": "s9",
@@ -6603,7 +6786,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      5,
+      5
+     ]
     },
     {
      "id": "notes",
@@ -6617,6 +6804,10 @@
        "multiline": true,
        "rows": 6
       }
+     ],
+     "pages": [
+      5,
+      5
      ]
     },
     {
@@ -6692,12 +6883,17 @@
         ]
        }
       }
+     ],
+     "pages": [
+      5,
+      5
      ]
     }
    ],
    "stages": 2,
    "id": "assembly@2",
-   "reduction": "Double"
+   "reduction": "Double",
+   "templatePages": 5
   },
   {
    "key": "teardown",
@@ -6879,6 +7075,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      1
      ]
     },
     {
@@ -6994,6 +7194,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      1
      ]
     },
     {
@@ -7072,6 +7276,10 @@
        "multiline": true,
        "rows": 2
       }
+     ],
+     "pages": [
+      2,
+      2
      ]
     },
     {
@@ -7166,6 +7374,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      2,
+      2
      ]
     },
     {
@@ -7389,6 +7601,10 @@
         }
        ]
       }
+     ],
+     "pages": [
+      2,
+      2
      ]
     },
     {
@@ -8466,6 +8682,10 @@
        },
        "nameField": "f_other3_name"
       }
+     ],
+     "pages": [
+      3,
+      6
      ]
     },
     {
@@ -8558,6 +8778,10 @@
        "multiline": true,
        "rows": 3
       }
+     ],
+     "pages": [
+      6,
+      6
      ]
     },
     {
@@ -8909,6 +9133,10 @@
        "multiline": true,
        "rows": 2
       }
+     ],
+     "pages": [
+      6,
+      7
      ]
     },
     {
@@ -8984,6 +9212,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      7,
+      7
      ]
     },
     {
@@ -9060,6 +9292,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      7,
+      7
      ]
     },
     {
@@ -9143,6 +9379,10 @@
        "label": "Customer approval date",
        "input": "date"
       }
+     ],
+     "pages": [
+      8,
+      8
      ]
     },
     {
@@ -9173,12 +9413,17 @@
        ],
        "help": "Add as many photos as needed (camera or gallery) and give each a short caption, e.g. As received, Disassembled or a component name. They print in this section of the PDF. Optional."
       }
+     ],
+     "pages": [
+      9,
+      9
      ]
     }
    ],
    "stages": 3,
    "id": "teardown@3",
-   "reduction": "Triple"
+   "reduction": "Triple",
+   "templatePages": 9
   },
   {
    "key": "assembly",
@@ -9335,7 +9580,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      1,
+      1
+     ]
     },
     {
      "id": "s1",
@@ -9478,7 +9727,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      1,
+      2
+     ]
     },
     {
      "id": "s2",
@@ -9588,7 +9841,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      2,
+      2
+     ]
     },
     {
      "id": "s3",
@@ -9634,7 +9891,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      2,
+      2
+     ]
     },
     {
      "id": "s4",
@@ -9712,7 +9973,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      2,
+      3
+     ]
     },
     {
      "id": "s5",
@@ -10272,7 +10537,11 @@
        ]
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      3,
+      3
+     ]
     },
     {
      "id": "s6",
@@ -10508,7 +10777,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      4,
+      4
+     ]
     },
     {
      "id": "s7",
@@ -10567,7 +10840,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      4,
+      4
+     ]
     },
     {
      "id": "s8",
@@ -10681,7 +10958,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      5,
+      5
+     ]
     },
     {
      "id": "s9",
@@ -10727,7 +11008,11 @@
        }
       }
      ],
-     "photos": true
+     "photos": true,
+     "pages": [
+      5,
+      5
+     ]
     },
     {
      "id": "notes",
@@ -10741,6 +11026,10 @@
        "multiline": true,
        "rows": 6
       }
+     ],
+     "pages": [
+      5,
+      5
      ]
     },
     {
@@ -10816,12 +11105,17 @@
         ]
        }
       }
+     ],
+     "pages": [
+      6,
+      6
      ]
     }
    ],
    "stages": 3,
    "id": "assembly@3",
-   "reduction": "Triple"
+   "reduction": "Triple",
+   "templatePages": 6
   },
   {
    "key": "teardown",
@@ -10989,6 +11283,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      1
      ]
     },
     {
@@ -11104,6 +11402,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      2
      ]
     },
     {
@@ -11182,6 +11484,10 @@
        "multiline": true,
        "rows": 2
       }
+     ],
+     "pages": [
+      2,
+      2
      ]
     },
     {
@@ -11241,6 +11547,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      2,
+      2
      ]
     },
     {
@@ -11382,6 +11692,10 @@
         }
        ]
       }
+     ],
+     "pages": [
+      3,
+      3
      ]
     },
     {
@@ -12399,6 +12713,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      3,
+      5
      ]
     },
     {
@@ -12852,6 +13170,10 @@
        },
        "nameField": "f_other3_name"
       }
+     ],
+     "pages": [
+      5,
+      6
      ]
     },
     {
@@ -12975,6 +13297,10 @@
        "multiline": true,
        "rows": 3
       }
+     ],
+     "pages": [
+      6,
+      7
      ]
     },
     {
@@ -13122,6 +13448,10 @@
        "multiline": true,
        "rows": 2
       }
+     ],
+     "pages": [
+      7,
+      7
      ]
     },
     {
@@ -13197,6 +13527,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      7,
+      7
      ]
     },
     {
@@ -13273,6 +13607,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      8,
+      8
      ]
     },
     {
@@ -13356,6 +13694,10 @@
        "label": "Customer approval date",
        "input": "date"
       }
+     ],
+     "pages": [
+      8,
+      8
      ]
     },
     {
@@ -13386,6 +13728,10 @@
        ],
        "help": "Add as many photos as needed (camera or gallery) and give each a short caption, e.g. As received, Disassembled or a component name. They print in this section of the PDF. Optional."
       }
+     ],
+     "pages": [
+      9,
+      9
      ]
     }
    ],
@@ -13394,7 +13740,8 @@
    "id": "teardown@p1",
    "reduction": "Planetary 1-stage",
    "kind": "planetary",
-   "pstages": 1
+   "pstages": 1,
+   "templatePages": 9
   },
   {
    "key": "assembly",
@@ -13526,6 +13873,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      1
      ]
     },
     {
@@ -13650,6 +14001,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      1
      ]
     },
     {
@@ -13715,6 +14070,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      2
      ]
     },
     {
@@ -14276,6 +14635,10 @@
         }
        ]
       }
+     ],
+     "pages": [
+      2,
+      3
      ]
     },
     {
@@ -14341,6 +14704,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      3,
+      3
      ]
     },
     {
@@ -14640,6 +15007,10 @@
         }
        ]
       }
+     ],
+     "pages": [
+      4,
+      4
      ]
     },
     {
@@ -14716,6 +15087,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      4,
+      4
      ]
     },
     {
@@ -14800,6 +15175,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      4,
+      5
      ]
     },
     {
@@ -14814,6 +15193,10 @@
        "multiline": true,
        "rows": 6
       }
+     ],
+     "pages": [
+      5,
+      5
      ]
     },
     {
@@ -14889,6 +15272,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      5,
+      5
      ]
     }
    ],
@@ -14897,7 +15284,8 @@
    "id": "assembly@p1",
    "reduction": "Planetary 1-stage",
    "kind": "planetary",
-   "pstages": 1
+   "pstages": 1,
+   "templatePages": 5
   },
   {
    "key": "teardown",
@@ -15072,6 +15460,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      1
      ]
     },
     {
@@ -15187,6 +15579,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      2
      ]
     },
     {
@@ -15265,6 +15661,10 @@
        "multiline": true,
        "rows": 2
       }
+     ],
+     "pages": [
+      2,
+      2
      ]
     },
     {
@@ -15324,6 +15724,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      2,
+      2
      ]
     },
     {
@@ -15465,6 +15869,10 @@
         }
        ]
       }
+     ],
+     "pages": [
+      3,
+      3
      ]
     },
     {
@@ -16482,6 +16890,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      3,
+      5
      ]
     },
     {
@@ -17499,6 +17911,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      5,
+      7
      ]
     },
     {
@@ -17952,6 +18368,10 @@
        },
        "nameField": "f_other3_name"
       }
+     ],
+     "pages": [
+      7,
+      8
      ]
     },
     {
@@ -18075,6 +18495,10 @@
        "multiline": true,
        "rows": 3
       }
+     ],
+     "pages": [
+      8,
+      9
      ]
     },
     {
@@ -18261,6 +18685,10 @@
        "multiline": true,
        "rows": 2
       }
+     ],
+     "pages": [
+      9,
+      9
      ]
     },
     {
@@ -18336,6 +18764,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      9,
+      10
      ]
     },
     {
@@ -18412,6 +18844,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      10,
+      10
      ]
     },
     {
@@ -18495,6 +18931,10 @@
        "label": "Customer approval date",
        "input": "date"
       }
+     ],
+     "pages": [
+      10,
+      10
      ]
     },
     {
@@ -18525,6 +18965,10 @@
        ],
        "help": "Add as many photos as needed (camera or gallery) and give each a short caption, e.g. As received, Disassembled or a component name. They print in this section of the PDF. Optional."
       }
+     ],
+     "pages": [
+      11,
+      11
      ]
     }
    ],
@@ -18533,7 +18977,8 @@
    "id": "teardown@p2",
    "reduction": "Planetary 2-stage",
    "kind": "planetary",
-   "pstages": 2
+   "pstages": 2,
+   "templatePages": 11
   },
   {
    "key": "assembly",
@@ -18672,6 +19117,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      1
      ]
     },
     {
@@ -18796,6 +19245,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      1
      ]
     },
     {
@@ -18861,6 +19314,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      2
      ]
     },
     {
@@ -19422,6 +19879,10 @@
         }
        ]
       }
+     ],
+     "pages": [
+      2,
+      3
      ]
     },
     {
@@ -19983,6 +20444,10 @@
         }
        ]
       }
+     ],
+     "pages": [
+      3,
+      4
      ]
     },
     {
@@ -20048,6 +20513,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      4,
+      4
      ]
     },
     {
@@ -20402,6 +20871,10 @@
         }
        ]
       }
+     ],
+     "pages": [
+      5,
+      5
      ]
     },
     {
@@ -20478,6 +20951,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      5,
+      5
      ]
     },
     {
@@ -20562,6 +21039,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      5,
+      6
      ]
     },
     {
@@ -20576,6 +21057,10 @@
        "multiline": true,
        "rows": 6
       }
+     ],
+     "pages": [
+      6,
+      6
      ]
     },
     {
@@ -20651,6 +21136,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      6,
+      6
      ]
     }
    ],
@@ -20659,7 +21148,8 @@
    "id": "assembly@p2",
    "reduction": "Planetary 2-stage",
    "kind": "planetary",
-   "pstages": 2
+   "pstages": 2,
+   "templatePages": 6
   },
   {
    "key": "teardown",
@@ -20841,6 +21331,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      1
      ]
     },
     {
@@ -20956,6 +21450,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      2
      ]
     },
     {
@@ -21034,6 +21532,10 @@
        "multiline": true,
        "rows": 2
       }
+     ],
+     "pages": [
+      2,
+      2
      ]
     },
     {
@@ -21093,6 +21595,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      2,
+      2
      ]
     },
     {
@@ -21234,6 +21740,10 @@
         }
        ]
       }
+     ],
+     "pages": [
+      3,
+      3
      ]
     },
     {
@@ -22251,6 +22761,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      3,
+      5
      ]
     },
     {
@@ -23268,6 +23782,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      5,
+      7
      ]
     },
     {
@@ -24285,6 +24803,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      7,
+      9
      ]
     },
     {
@@ -24738,6 +25260,10 @@
        },
        "nameField": "f_other3_name"
       }
+     ],
+     "pages": [
+      9,
+      10
      ]
     },
     {
@@ -24861,6 +25387,10 @@
        "multiline": true,
        "rows": 3
       }
+     ],
+     "pages": [
+      10,
+      11
      ]
     },
     {
@@ -25086,6 +25616,10 @@
        "multiline": true,
        "rows": 2
       }
+     ],
+     "pages": [
+      11,
+      11
      ]
     },
     {
@@ -25161,6 +25695,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      11,
+      12
      ]
     },
     {
@@ -25237,6 +25775,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      12,
+      12
      ]
     },
     {
@@ -25320,6 +25862,10 @@
        "label": "Customer approval date",
        "input": "date"
       }
+     ],
+     "pages": [
+      12,
+      13
      ]
     },
     {
@@ -25350,6 +25896,10 @@
        ],
        "help": "Add as many photos as needed (camera or gallery) and give each a short caption, e.g. As received, Disassembled or a component name. They print in this section of the PDF. Optional."
       }
+     ],
+     "pages": [
+      14,
+      14
      ]
     }
    ],
@@ -25358,7 +25908,8 @@
    "id": "teardown@p3",
    "reduction": "Planetary 3-stage",
    "kind": "planetary",
-   "pstages": 3
+   "pstages": 3,
+   "templatePages": 14
   },
   {
    "key": "assembly",
@@ -25515,6 +26066,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      1
      ]
     },
     {
@@ -25639,6 +26194,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      1
      ]
     },
     {
@@ -25704,6 +26263,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      2,
+      2
      ]
     },
     {
@@ -26265,6 +26828,10 @@
         }
        ]
       }
+     ],
+     "pages": [
+      2,
+      3
      ]
     },
     {
@@ -26826,6 +27393,10 @@
         }
        ]
       }
+     ],
+     "pages": [
+      3,
+      4
      ]
     },
     {
@@ -27387,6 +27958,10 @@
         }
        ]
       }
+     ],
+     "pages": [
+      5,
+      6
      ]
     },
     {
@@ -27452,6 +28027,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      6,
+      6
      ]
     },
     {
@@ -27861,6 +28440,10 @@
         }
        ]
       }
+     ],
+     "pages": [
+      6,
+      7
      ]
     },
     {
@@ -27937,6 +28520,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      7,
+      7
      ]
     },
     {
@@ -28021,6 +28608,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      7,
+      7
      ]
     },
     {
@@ -28035,6 +28626,10 @@
        "multiline": true,
        "rows": 6
       }
+     ],
+     "pages": [
+      7,
+      8
      ]
     },
     {
@@ -28110,6 +28705,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      8,
+      8
      ]
     }
    ],
@@ -28118,7 +28717,8 @@
    "id": "assembly@p3",
    "reduction": "Planetary 3-stage",
    "kind": "planetary",
-   "pstages": 3
+   "pstages": 3,
+   "templatePages": 8
   },
   {
    "key": "teardown",
@@ -28307,6 +28907,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      1
      ]
     },
     {
@@ -28422,6 +29026,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      2
      ]
     },
     {
@@ -28500,6 +29108,10 @@
        "multiline": true,
        "rows": 2
       }
+     ],
+     "pages": [
+      2,
+      2
      ]
     },
     {
@@ -28559,6 +29171,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      2,
+      2
      ]
     },
     {
@@ -28700,6 +29316,10 @@
         }
        ]
       }
+     ],
+     "pages": [
+      3,
+      3
      ]
     },
     {
@@ -29717,6 +30337,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      3,
+      5
      ]
     },
     {
@@ -30734,6 +31358,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      5,
+      7
      ]
     },
     {
@@ -31751,6 +32379,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      7,
+      9
      ]
     },
     {
@@ -32768,6 +33400,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      9,
+      11
      ]
     },
     {
@@ -33221,6 +33857,10 @@
        },
        "nameField": "f_other3_name"
       }
+     ],
+     "pages": [
+      12,
+      13
      ]
     },
     {
@@ -33344,6 +33984,10 @@
        "multiline": true,
        "rows": 3
       }
+     ],
+     "pages": [
+      13,
+      13
      ]
     },
     {
@@ -33608,6 +34252,10 @@
        "multiline": true,
        "rows": 2
       }
+     ],
+     "pages": [
+      14,
+      14
      ]
     },
     {
@@ -33683,6 +34331,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      14,
+      14
      ]
     },
     {
@@ -33759,6 +34411,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      14,
+      15
      ]
     },
     {
@@ -33842,6 +34498,10 @@
        "label": "Customer approval date",
        "input": "date"
       }
+     ],
+     "pages": [
+      15,
+      15
      ]
     },
     {
@@ -33872,6 +34532,10 @@
        ],
        "help": "Add as many photos as needed (camera or gallery) and give each a short caption, e.g. As received, Disassembled or a component name. They print in this section of the PDF. Optional."
       }
+     ],
+     "pages": [
+      16,
+      16
      ]
     }
    ],
@@ -33880,7 +34544,8 @@
    "id": "teardown@p4",
    "reduction": "Planetary 4-stage",
    "kind": "planetary",
-   "pstages": 4
+   "pstages": 4,
+   "templatePages": 16
   },
   {
    "key": "assembly",
@@ -34044,6 +34709,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      1
      ]
     },
     {
@@ -34168,6 +34837,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      1,
+      1
      ]
     },
     {
@@ -34233,6 +34906,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      2,
+      2
      ]
     },
     {
@@ -34794,6 +35471,10 @@
         }
        ]
       }
+     ],
+     "pages": [
+      2,
+      3
      ]
     },
     {
@@ -35355,6 +36036,10 @@
         }
        ]
       }
+     ],
+     "pages": [
+      3,
+      4
      ]
     },
     {
@@ -35916,6 +36601,10 @@
         }
        ]
       }
+     ],
+     "pages": [
+      5,
+      6
      ]
     },
     {
@@ -36477,6 +37166,10 @@
         }
        ]
       }
+     ],
+     "pages": [
+      6,
+      7
      ]
     },
     {
@@ -36542,6 +37235,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      7,
+      7
      ]
     },
     {
@@ -37006,6 +37703,10 @@
         }
        ]
       }
+     ],
+     "pages": [
+      8,
+      8
      ]
     },
     {
@@ -37082,6 +37783,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      8,
+      8
      ]
     },
     {
@@ -37166,6 +37871,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      8,
+      9
      ]
     },
     {
@@ -37180,6 +37889,10 @@
        "multiline": true,
        "rows": 6
       }
+     ],
+     "pages": [
+      9,
+      9
      ]
     },
     {
@@ -37255,6 +37968,10 @@
         ]
        }
       }
+     ],
+     "pages": [
+      9,
+      9
      ]
     }
    ],
@@ -37263,7 +37980,8 @@
    "id": "assembly@p4",
    "reduction": "Planetary 4-stage",
    "kind": "planetary",
-   "pstages": 4
+   "pstages": 4,
+   "templatePages": 9
   }
  ]
 }

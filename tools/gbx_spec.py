@@ -62,3 +62,15 @@ def draw_photo_page(c, M, W, ytop, ybot, navy, grid, grey):
         c.setFillColor(grid); c.setFont("Helvetica", 10); c.drawCentredString(W / 2, top - fh / 2, f"Photo {i + 1}")
         c.setFillColor(navy); c.setFont("Helvetica-Bold", 10); c.drawString(M, top - fh - 18, "Caption:")
         c.setStrokeColor(grid); c.setLineWidth(0.5); c.line(M + 52, top - fh - 20, W - M, top - fh - 20)
+
+def write_layout(pdf_path, layout, pages):
+    """Rev 1.6.1: tools/layout/<template>.json = [{title, start, end}] (1-based pages). A section ends on the page where the
+    next section's heading was requested (before any page break it caused); the last one ends on the last page."""
+    import json, os
+    out = []
+    for i, e in enumerate(layout):
+        nxt = layout[i + 1] if i + 1 < len(layout) else None
+        end = (nxt["start"] - 1 if nxt["title"] == teardown_photos_section()["title"] else nxt["before"]) if nxt else pages   # L always starts on a new page
+        out.append({"title": e["title"], "start": e["start"], "end": max(end, e["start"])})
+    d = os.path.join(os.path.dirname(os.path.abspath(__file__)), "layout"); os.makedirs(d, exist_ok=True)
+    json.dump({"pages": pages, "sections": out}, open(os.path.join(d, os.path.basename(pdf_path)[:-4] + ".json"), "w"), indent=1)

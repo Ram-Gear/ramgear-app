@@ -1143,19 +1143,23 @@
   }
 
   /* ---------- photos ---------- */
-  function photoPanel(scope, label, locked, suggest) {
-    return `<div class="photos" data-scope="${esc(scope)}" data-label="${esc(label)}" ${locked ? 'data-locked="1"' : ''} ${suggest ? `data-suggest="${esc(suggest)}"` : ''}>
+  function photoPanel(scope, label, locked, suggest, catchAll) {
+    return `<div class="photos" data-scope="${esc(scope)}" data-label="${esc(label)}" ${locked ? 'data-locked="1"' : ''} ${suggest ? `data-suggest="${esc(suggest)}"` : ''} ${catchAll ? `data-catchall="${esc(catchAll)}"` : ''}>
       ${locked ? '' : `<div class="photo-btns"><button type="button" class="btn cam" data-cam="1" data-scope="${esc(scope)}" data-label="${esc(label)}">📷 Take photo</button><label class="btn" for="fileGallery" data-scope="${esc(scope)}" data-label="${esc(label)}">🖼 Choose from gallery</label></div>`}
       <div class="thumbs"></div></div>`;
   }
   async function fillPhotoPanels(job) {
     const photos = (await DB.byJob('photos', job.id)).sort((a, b) => a.createdAt - b.createdAt);
+    const plan = current.formKey && fdef(job, current.formKey) ? photoPlan(job, current.formKey) : null;
     for (const panel of $$('.photos')) {
-      const list = photos.filter(p => p.scope === panel.dataset.scope), locked = !!panel.dataset.locked;
+      // a form's catch-all panel (teardown L / assembly "Additional photos") also shows photos whose section is unknown (Rev 1.6.1)
+      const catchAll = panel.dataset.catchall && plan, own = p => p.scope === panel.dataset.scope || (catchAll && p.scope.startsWith(panel.dataset.catchall + ':') && !plan.known[p.scope]);
+      const list = photos.filter(own), locked = !!panel.dataset.locked;
       $('.thumbs', panel).innerHTML = list.map(p => `<figure class="thumb" data-id="${p.id}"><img src="${objUrl(p.thumb || p.blob)}" alt="${esc(p.caption || 'photo')}" data-full="${p.id}">
         ${locked ? `<figcaption>${esc(p.caption)}</figcaption>` : `<input class="cap" placeholder="Caption" value="${esc(p.caption)}" data-cap="${p.id}" maxlength="120" autocomplete="off" ${panel.dataset.suggest ? `list="${esc(panel.dataset.suggest)}"` : ''}><button class="del" data-delphoto="${p.id}" aria-label="Delete photo">✕</button>`}</figure>`).join('')
         || (locked ? '<p class="muted small">No photos.</p>' : '');
-      const summary = panel.closest('details') && $('.pcount', panel.closest('details')); if (summary) summary.textContent = list.length ? `(${list.length})` : '';
+      const det = panel.closest('details'), summary = det && $('.pcount', det); if (summary) summary.textContent = list.length ? `(${list.length})` : '';
+      if (det && list.length && !det.dataset.seen) { det.open = true; det.dataset.seen = '1'; }   // Rev 1.6.1: a section's own photos are shown right there
     }
     view.onclick = viewClick(photos);
   }
@@ -1262,7 +1266,7 @@
         const dl = `capsuggest-${b.id}`, comps = fdef(job, key).sections.flatMap(s => s.blocks).filter(x => x.type === 'component' && !x.nameField).map(x => x.name);
         return `<div class="blk tphotos" id="blk-${esc(b.id)}"><p class="muted small">${esc(b.help || '')}</p>
           <datalist id="${dl}">${[...(b.suggest || []), ...comps].map(o => `<option value="${esc(o)}"></option>`).join('')}</datalist>
-          ${photoPanel(`${key}:${b.scope}`, b.label, locked, dl)}</div>`;
+          ${photoPanel(`${key}:${b.scope}`, b.label, locked, dl, key)}</div>`;
       }
     }
     return '';
@@ -1292,13 +1296,14 @@
         ${completed ? `<div class="lockbar">🔒 Completed ${esc(fmtDate(st.completedAt))}, signed by <b>${esc(st.signedBy)}</b>${st.finalizedBy ? `, finalized by <b>${esc(st.finalizedBy)}</b>` : ''}${st.inspectedOn ? ` · Inspected on: <b>${esc(st.inspectedOn)}</b>` : ''}. This form is read-only. The final PDF is saved in the job's documents. Tap <b>Reopen</b> to start revision ${st.revision + 1}.</div>` : ''}
         ${st.history.length && !locked ? `<div class="infobar">Revision ${st.revision} (reopened). Earlier final PDFs are kept in the job's saved documents.</div>` : ''}
       </div>
-      <nav class="chips">${form.sections.map(s => `<a href="#" data-jump="sec-${s.id}">${esc(/^[A-Z0-9]+\./.test(s.title) ? s.title.replace(/^([A-Z0-9]+)\.\s*/, '$1 · ') : s.title)}</a>`).join('')}<a href="#" data-jump="sec-photos-all">Photos</a></nav>
+      <nav class="chips">${form.sections.map(s => `<a href="#" data-jump="sec-${s.id}">${esc(/^[A-Z0-9]+\./.test(s.title) ? s.title.replace(/^([A-Z0-9]+)\.\s*/, '$1 · ') : s.title)}</a>`).join('')}${hasPhotoBlock(form) ? '' : `<a href="#" data-jump="sec-more">${MORE_TITLE}</a>`}<a href="#" data-jump="sec-photos-all">Photos</a></nav>
       <div class="formbody ${locked ? 'locked' : ''}" id="formBody">
         ${form.sections.map(s => `<section class="sec" id="sec-${s.id}"><h3 class="sec-title">${esc(s.title)}</h3>
           ${s.blocks.map(b => renderBlock(job, key, b, locked)).join('')}
           ${s.photos ? `<details class="sec-photos"><summary>Section photos <span class="pcount"></span></summary>${photoPanel(`${key}:${s.id}`, s.title, locked)}</details>` : ''}
         </section>`).join('')}
-        <section class="sec" id="sec-photos-all"><h3 class="sec-title">Job photos</h3><p class="muted small">Job-level photos (shared by all forms of this job) are appended to the PDF along with the section and component photos above.</p>${photoPanel('job', 'Job photo', false)}</section>
+        ${hasPhotoBlock(form) ? '' : `<section class="sec" id="sec-more"><h3 class="sec-title">${MORE_TITLE}</h3><p class="muted small">General photos for this form. They print after the last section of the PDF. Photos taken in a section print right after that section.</p>${photoPanel(`${key}:more`, MORE_TITLE, locked, '', key)}</section>`}
+        <section class="sec" id="sec-photos-all"><h3 class="sec-title">Job photos</h3><p class="muted small">Job-level photos (shared by all forms of this job) print at the end of every form's PDF. Section and component photos print right after their own section.</p>${photoPanel('job', 'Job photo', false)}</section>
       </div>`;
     const body = $('#formBody'); window.scrollTo(0, 0);
     if (!locked) recalc(job, key);
@@ -1414,7 +1419,7 @@
     try {
       const c = ctx(job, current.customer, gid);
       const naLabels = reqsOf(job, key).filter(r => st.na[r.req.id] && reqState(job, key, r.req) !== 'skip').map(r => `${r.section}: ${r.req.label}`);
-      const out = await PdfExport.build({form, job: c, state: st, gearbox: pdfGb(c), photos: await photosFor(job, key), sectionPhotos: await sectionPhotosFor(job, key), final: {signedBy, completedAt: fmtDate(now), revision: st.revision, naLabels, inspectedOn, finalizedBy: userName(), appRev: REV_LABEL}});
+      const out = await PdfExport.build({form, job: c, state: st, gearbox: pdfGb(c), photos: await photosFor(job, key), groups: await photoGroups(job, key), final: {signedBy, completedAt: fmtDate(now), revision: st.revision, naLabels, inspectedOn, finalizedBy: userName(), appRev: REV_LABEL}});
       const blob = new Blob([out.bytes], {type: 'application/pdf'});
       const filename = PdfExport.filename(c, form, `_FINAL-rev${st.revision}`);
       const doc = {id: DB.uid(), jobId: job.id, customerId: job.customerId, formKey: key, gearboxId: gid, gearbox: c.gearbox, stages: c.stages, reduction: c.reduction, typeLabel: c.typeLabel, revision: st.revision, filename, createdAt: now.getTime(), signedBy, inspectedOn, finalizedBy: userName(), appRev: REV_LABEL, pages: out.pages, size: blob.size, blob};
@@ -1438,20 +1443,36 @@
   }
 
   /* ---------- export ---------- */
-  function photoOrder(job, key) {
-    const form = fdef(job, key), order = ['job'];
-    for (const s of form.sections) { order.push(`${key}:${s.id}`); for (const b of s.blocks) if (b.type === 'component') order.push(`${key}:${b.id}`); }
-    return order;
+  /* Rev 1.6.1: where each photo of a form belongs. Section scope `${key}:<section id>`, component scope `${key}:<component id>`
+     (printed with its section), teardown L `${key}:L`, assembly `${key}:more`. Unknown scopes (e.g. after a type change)
+     go to the catch-all group: L for the Teardown Evaluation, "Additional photos" for the Assembly Verification. */
+  const MORE_TITLE = 'Additional photos', hasPhotoBlock = form => form.sections.some(s => s.blocks.some(b => b.type === 'photos'));
+  function photoPlan(job, key) {
+    const form = fdef(job, key), groups = [], known = {};
+    let catchAll = null;
+    for (const s of form.sections) {
+      const g = {secId: s.id, title: s.title, after: s.pages ? s.pages[1] : null, photos: []};
+      known[`${key}:${s.id}`] = {g, sub: ''};
+      for (const b of s.blocks) {
+        if (b.type === 'component') known[`${key}:${b.id}`] = {g, sub: b.name, comp: b.id};
+        if (b.type === 'photos') { known[`${key}:${b.scope}`] = {g, sub: ''}; catchAll = g; g.empty = 'No teardown photos were added.'; }
+      }
+      groups.push(g);
+    }
+    if (!catchAll) { catchAll = {secId: 'more', title: MORE_TITLE, after: form.templatePages || null, photos: []}; known[`${key}:more`] = {g: catchAll, sub: ''}; groups.push(catchAll); }
+    return {groups, known, catchAll};
   }
-  const photoBlockScopes = (job, key) => fdef(job, key).sections.flatMap(s => s.blocks).filter(b => b.type === 'photos').map(b => `${key}:${b.scope}`);
-  async function photosFor(job, key) {
-    const all = (await DB.byJob('photos', job.id)).sort((a, b) => a.createdAt - b.createdAt), out = [], own = photoBlockScopes(job, key);
-    for (const sc of photoOrder(job, key)) if (!own.includes(sc)) for (const p of all.filter(x => x.scope === sc)) out.push({blob: p.blob, w: p.w, h: p.h, caption: p.caption, label: sc === 'job' ? 'Job photo' : p.label});
-    return out;
+  function photoPlace(job, key, scope, label) {   // -> {group, sub}
+    const pl = photoPlan(job, key), k = pl.known[scope];
+    return k ? {group: k.g, sub: k.sub, comp: k.comp} : {group: pl.catchAll, sub: label || ''};
   }
-  async function sectionPhotosFor(job, key) {   // Rev 1.6: L. Teardown photos
-    const own = photoBlockScopes(job, key); if (!own.length) return [];
-    return (await DB.byJob('photos', job.id)).filter(p => own.includes(p.scope)).sort((a, b) => a.createdAt - b.createdAt).map(p => ({blob: p.blob, w: p.w, h: p.h, caption: p.caption}));
+  async function photoGroups(job, key) {
+    const pl = photoPlan(job, key), all = (await DB.byJob('photos', job.id)).filter(p => p.scope.startsWith(key + ':')).sort((a, b) => a.createdAt - b.createdAt);
+    for (const p of all) { const k = pl.known[p.scope], g = k ? k.g : pl.catchAll; g.photos.push({blob: p.blob, w: p.w, h: p.h, caption: p.caption, sub: k ? k.sub : (p.label || '')}); }
+    return pl.groups.filter(g => g.photos.length || g.empty).map(g => ({title: g.title, after: g.after, photos: g.photos, empty: g.empty}));
+  }
+  async function photosFor(job) {   // job photos (shared by all forms), printed at the end
+    return (await DB.byJob('photos', job.id)).filter(p => p.scope === 'job').sort((a, b) => a.createdAt - b.createdAt).map(p => ({blob: p.blob, w: p.w, h: p.h, caption: p.caption}));
   }
   async function exportForm(job, key) {
     await flushSave();
@@ -1463,7 +1484,7 @@
     toast('Building PDF…', 8000);
     try {
       const c = ctx(job, current.customer, parseKey(key).gid);
-      const out = await PdfExport.build({form, job: c, state: st, gearbox: pdfGb(c), photos: await photosFor(job, key), sectionPhotos: await sectionPhotosFor(job, key), final: null});
+      const out = await PdfExport.build({form, job: c, state: st, gearbox: pdfGb(c), photos: await photosFor(job, key), groups: await photoGroups(job, key), final: null});
       await fileReady(new Blob([out.bytes], {type: 'application/pdf'}), PdfExport.filename(c, form), 'Draft PDF ready (fields editable)');
     } catch (e) { console.error(e); modal(`<h2>PDF failed</h2><p>${esc(e.message)}</p>`, [{label: 'Close', value: 'cancel'}]); }
   }
@@ -1480,7 +1501,7 @@
         for (const f of mine) {
           const fin = docs.filter(d => d.formKey === f.key).sort((a, b) => b.revision - a.revision || b.createdAt - a.createdAt)[0];
           if (f.st.status === 'completed' && fin) parts.push(new Uint8Array(await fin.blob.arrayBuffer()));
-          else parts.push((await PdfExport.build({form: f.def, job: gc, state: f.st, gearbox: pdfGb(gc), photos: await photosFor(job, f.key), sectionPhotos: await sectionPhotosFor(job, f.key), final: null, flatten: true})).bytes);
+          else parts.push((await PdfExport.build({form: f.def, job: gc, state: f.st, gearbox: pdfGb(gc), photos: await photosFor(job, f.key), groups: await photoGroups(job, f.key), final: null, flatten: true})).bytes);
         }
       }
       if (!fs.length) { toast('This job has no forms'); return null; }
@@ -1503,15 +1524,27 @@
     const cnt = {}; docs.forEach(d => { const k = docDir(d); cnt[k] = (cnt[k] || 0) + 1; d._zipName = `${String(cnt[k]).padStart(2, '0')}_${d.filename}`; d._zipPath = `${k}/${d._zipName}`; });
     for (const d of docs) files[d._zipPath] = [await u8(d.blob), store];
     files[`${folder}/${comb.filename}`] = [new Uint8Array(comb.bytes), store];
-    const scopeRank = sc => sc === 'job' ? -1 : formIdx(job, sc.split(':')[0]);
-    const photos = (await DB.byJob('photos', job.id)).sort((a, b) => scopeRank(a.scope) - scopeRank(b.scope) || a.createdAt - b.createdAt), capLines = [];
+    // Rev 1.6.1: photos in report order (job photos, then per form: section by section); file names start with the section, e.g. 03_Teardown-C_Oil-condition_<caption>.jpg
+    const place = p => {
+      if (p.scope === 'job') return null;
+      const key = p.scope.slice(0, p.scope.lastIndexOf(':'));
+      try { const f = fdef(job, key); if (!f) return null; const pl = photoPlan(job, key), k = pl.known[p.scope], g = k ? k.g : pl.catchAll;
+        const tok = (/^([A-Z0-9]+)\./.exec(g.title) || [])[1];
+        return {key, f, g, idx: pl.groups.indexOf(g), sub: k ? k.sub : (p.label || ''), prefix: `${f.fileTitle.split('-')[0]}-${tok || g.title}`, name: tok ? g.title.replace(/^[A-Z0-9]+\.\s*/, '') : ''};
+      } catch (e) { return null; }
+    };
+    const photos = (await DB.byJob('photos', job.id)).map(p => ({p, pl: place(p)})).sort((a, b) => {
+      const ra = a.p.scope === 'job' ? -1 : formIdx(job, a.p.scope.split(':')[0]), rb = b.p.scope === 'job' ? -1 : formIdx(job, b.p.scope.split(':')[0]);
+      return ra - rb || (a.pl ? a.pl.idx : 999) - (b.pl ? b.pl.idx : 999) || a.p.createdAt - b.p.createdAt;
+    }), capLines = [];
     const pcnt = {};
-    for (const p of photos) {
+    for (const {p, pl} of photos) {
       const gid = p.scope === 'job' ? null : parseKey(p.scope.split(':')[0]).gid, g = gid ? gdir(gid) : '', dir = g ? `${folder}/${g}/Photos` : `${folder}/Photos`;
       pcnt[dir] = (pcnt[dir] || 0) + 1;
-      const name = `${String(pcnt[dir]).padStart(2, '0')}_${S(p.scope === 'job' ? 'Job' : p.label)}${p.caption ? '_' + S(p.caption) : ''}.jpg`, rel = dir.slice(folder.length + 1) + '/' + name;
+      const parts = p.scope === 'job' ? ['Job'] : pl ? [pl.prefix, pl.sub || pl.name] : [p.label];
+      const name = `${String(pcnt[dir]).padStart(2, '0')}_${parts.filter(Boolean).map(S).join('_')}${p.caption ? '_' + S(p.caption) : ''}.jpg`, rel = dir.slice(folder.length + 1) + '/' + name;
       files[`${dir}/${name}`] = [await u8(p.blob), store];
-      capLines.push(`${rel}\t${p.scope === 'job' ? 'Job photo' : `${gbMeta(job, gid).label} / ${titleOf(p.scope.split(':')[0])} / ${p.label}`}\t${p.caption || ''}`);
+      capLines.push(`${rel}\t${p.scope === 'job' ? 'Job photo' : `${gbMeta(job, gid).label} / ${titleOf(p.scope.split(':')[0])} / ${pl ? pl.g.title + (pl.sub ? ' / ' + pl.sub : '') : p.label}`}\t${p.caption || ''}`);
     }
     const summary = [`Ram-Gear Manufacturing Incorporated – job folder`, `Customer: ${c.customer}`, `Work order: ${c.wo}`, `Date: ${c.date}`, `Gearboxes: ${gbs.length}`, `Created on tablet: ${job.tabletId || '-'}`, `Created by: ${job.createdBy || '-'}`,
       customer.contact || customer.phone || customer.email ? `Contact: ${[customer.contact, Phone.format(customer.phone), customer.email].filter(Boolean).join(' / ')}` : '', '',

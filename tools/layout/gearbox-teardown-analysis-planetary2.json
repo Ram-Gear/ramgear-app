@@ -1,0 +1,75 @@
+{
+ "pages": 11,
+ "sections": [
+  {
+   "title": "A. Job information",
+   "start": 1,
+   "end": 1
+  },
+  {
+   "title": "B. As-received condition",
+   "start": 1,
+   "end": 2
+  },
+  {
+   "title": "C. Oil condition",
+   "start": 2,
+   "end": 2
+  },
+  {
+   "title": "D. As-found measurements before teardown",
+   "start": 2,
+   "end": 2
+  },
+  {
+   "title": "E. Teardown checklist",
+   "start": 3,
+   "end": 3
+  },
+  {
+   "title": "P1. Planetary stage 1",
+   "start": 3,
+   "end": 5
+  },
+  {
+   "title": "P2. Planetary stage 2",
+   "start": 5,
+   "end": 7
+  },
+  {
+   "title": "F. Input, output, housing and lubrication",
+   "start": 7,
+   "end": 8
+  },
+  {
+   "title": "G. Failure modes observed",
+   "start": 8,
+   "end": 9
+  },
+  {
+   "title": "H. Dimensional checks",
+   "start": 9,
+   "end": 9
+  },
+  {
+   "title": "I. Root cause",
+   "start": 9,
+   "end": 10
+  },
+  {
+   "title": "J. Repair summary",
+   "start": 10,
+   "end": 10
+  },
+  {
+   "title": "K. Sign-off",
+   "start": 10,
+   "end": 10
+  },
+  {
+   "title": "L. Teardown photos",
+   "start": 11,
+   "end": 11
+  }
+ ]
+}

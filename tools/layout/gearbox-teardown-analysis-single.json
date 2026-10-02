@@ -1,0 +1,65 @@
+{
+ "pages": 8,
+ "sections": [
+  {
+   "title": "A. Job information",
+   "start": 1,
+   "end": 1
+  },
+  {
+   "title": "B. As-received condition",
+   "start": 1,
+   "end": 1
+  },
+  {
+   "title": "C. Oil condition",
+   "start": 2,
+   "end": 2
+  },
+  {
+   "title": "D. As-found measurements before teardown",
+   "start": 2,
+   "end": 2
+  },
+  {
+   "title": "E. Teardown checklist",
+   "start": 2,
+   "end": 2
+  },
+  {
+   "title": "F. Component inventory and repair assessment",
+   "start": 3,
+   "end": 4
+  },
+  {
+   "title": "G. Failure modes observed",
+   "start": 5,
+   "end": 5
+  },
+  {
+   "title": "H. Dimensional checks",
+   "start": 5,
+   "end": 5
+  },
+  {
+   "title": "I. Root cause",
+   "start": 6,
+   "end": 6
+  },
+  {
+   "title": "J. Repair summary",
+   "start": 6,
+   "end": 6
+  },
+  {
+   "title": "K. Sign-off",
+   "start": 7,
+   "end": 7
+  },
+  {
+   "title": "L. Teardown photos",
+   "start": 8,
+   "end": 8
+  }
+ ]
+}

@@ -22,11 +22,12 @@ NAVY = colors.HexColor("#1F3A5F"); LIGHT = colors.HexColor("#E8EEF5"); GRID = co
 FILL = colors.HexColor("#F7FAFD"); GREY = colors.HexColor("#333333")
 CW = W - 2*M
 
+LAYOUT = []   # Rev 1.6.1: section page ranges -> tools/layout/<template>.json (photos print right after their section)
 class Doc:
     def __init__(s, buf, total):
         s.c = canvas.Canvas(buf, pagesize=letter, pageCompression=1)
         s.c.setTitle(TITLE); s.c.setAuthor("Gary Gillham"); s.c.setSubject("Gearbox teardown and repair analysis")
-        s.total = total; s.page = 0; s.names = set()
+        s.total = total; s.page = 0; s.names = set(); s.layout = LAYOUT; LAYOUT.clear()
         s.newpage(first=True)
     def decorate(s):
         c = s.c
@@ -56,7 +57,7 @@ class Doc:
             borderColor=NAVY, fillColor=colors.white, textColor=NAVY, borderWidth=1.2, borderStyle="solid",
             forceBorder=True, checked=False)
     def section(s, title, extra=0):
-        s.need(30 + extra); s.y -= 6
+        before = s.page; s.need(30 + extra); s.layout.append({"title": title, "before": before, "start": s.page}); s.y -= 6
         c = s.c; c.setFillColor(LIGHT); c.rect(M, s.y-20, CW, 22, fill=1, stroke=0)
         c.setFillColor(NAVY); c.rect(M, s.y-20, 4, 22, fill=1, stroke=0)
         c.setFont("Helvetica-Bold", 12); c.drawString(M+10, s.y-14, title); s.y -= 30
@@ -325,6 +326,7 @@ def main():
     w._root_object["/AcroForm"][NameObject("/NeedAppearances")] = BooleanObject(True)
     w.compress_identical_objects()
     with open(OUT, "wb") as f: w.write(f)
+    G.write_layout(OUT, LAYOUT, n)
     print("teardown", G.TYPES[N], "pages", n, OUT)
 
 if __name__ == "__main__":

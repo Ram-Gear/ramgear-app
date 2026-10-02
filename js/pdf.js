@@ -85,12 +85,45 @@ const PdfExport = (() => {
     page.drawText(clean(text), {x: M + 10, y: y - 14, size: 12, font: bold, color: NAVY});
   }
 
-  /* opts: {form, job, state, photos:[{blob,w,h,caption,label}], sectionPhotos:[{blob,w,h,caption}] (L. Teardown photos), final: null | {signedBy, completedAt, revision, naLabels:[]},
+  /* Rev 1.6.1: photo grid pages inserted after page `after` (1-based): per group a "Photos - <section>" bar, 3 photos per row
+     (~2.3 in wide, aspect preserved) with the caption under each, and a note that full-size photos are in the app / job export. */
+  const NOTE = 'Full-size photos available in the Ram-Gear app / job export.';
+  async function photoGrid(doc, groups, after, o) {
+    const COLS = 3, GAP = 16, CW = (W - 2 * M - GAP * (COLS - 1)) / COLS, BOXH = 132, CAP = 3, ROWH = BOXH + 8 + CAP * 10.5 + 8, TOP = H - 66, BOT = 64;
+    let pg = null, y = 0, idx = after, title = '';
+    const newPage = () => { pg = doc.insertPage(idx++, [W, H]); header(pg, o.font, o.bold, o.header, null); o.stamp(pg); y = TOP; footer(pg, o.font, o.formId, `Photos - ${title}`); };
+    const bar = t => { sectionBar(pg, o.bold, y, t); y -= 30; };
+    for (const g of groups) {
+      title = g.title; const list = g.photos || [];
+      if (!pg || y - 30 - (list.length ? ROWH : 24) - 18 < BOT) newPage(); else y -= 8;
+      bar(`Photos - ${g.title}`);
+      if (!list.length) { pg.drawText(clean(g.empty || 'No photos.'), {x: M + 6, y: y - 12, size: 10.5, font: o.font, color: GREY}); y -= 26; continue; }
+      for (let i = 0; i < list.length; i += COLS) {
+        if (y - ROWH - 18 < BOT) { newPage(); bar(`Photos - ${g.title} (continued)`); }
+        for (let j = 0; j < COLS && i + j < list.length; j++) {
+          const ph = list[i + j], x0 = M + j * (CW + GAP);
+          const img = await doc.embedJpg(new Uint8Array(await ph.blob.arrayBuffer()));
+          const k = Math.min(CW / img.width, BOXH / img.height), iw = img.width * k, ih = img.height * k, x = x0;   // left-aligned with its caption
+          pg.drawImage(img, {x, y: y - ih, width: iw, height: ih});
+          pg.drawRectangle({x, y: y - ih, width: iw, height: ih, borderColor: GRID, borderWidth: 0.5});
+          let cy = y - BOXH - 12;
+          const lines = wrap(`Photo ${i + j + 1}: ${ph.caption || '(no caption)'}`, o.bold, 8.5, CW).slice(0, ph.sub ? CAP - 1 : CAP);
+          for (const ln of lines) { pg.drawText(ln, {x: x0, y: cy, size: 8.5, font: o.bold, color: NAVY}); cy -= 10.5; }
+          if (ph.sub) pg.drawText(wrap(ph.sub, o.font, 8, CW)[0], {x: x0, y: cy, size: 8, font: o.font, color: GREY});
+        }
+        y -= ROWH;
+      }
+      pg.drawText(NOTE, {x: M, y: y - 4, size: 8, font: o.ital, color: GREY}); y -= 18;
+    }
+  }
+
+  /* opts: {form, job, state,  /* opts: {form, job, state, photos:[{blob,w,h,caption}] (job photos, at the end), groups:[{title, after: template page, photos:[{blob,w,h,caption,sub}], empty}] (Rev 1.6.1), final: null | {signedBy, completedAt, revision, naLabels:[]},
            gearbox: {label:'Gearbox 1 of 2', count, reduction:'Triple', typeLabel:'Triple reduction' | 'Planetary 2-stage', stagesText, serial}} */
   async function build(opts) {
     const {form, job, state, photos, final} = opts;
     const doc = await PDFDocument.load(await template(form.template));
     const font = await doc.embedFont(StandardFonts.Helvetica), bold = await doc.embedFont(StandardFonts.HelveticaBold);
+    const ital = await doc.embedFont(StandardFonts.HelveticaOblique);
     // Rev 1.6: "L. Teardown photos" is the template's last page (empty frames for paper use); it is replaced by the captioned photos.
     const pSec = form.sections.find(s => s.blocks.some(b => b.type === 'photos')), tplPages = doc.getPageCount();
     if (pSec) doc.removePage(tplPages - 1);
@@ -116,32 +149,13 @@ const PdfExport = (() => {
     const zadb = await doc.embedFont(StandardFonts.ZapfDingbats); fonts.set(PDFName.of('ZaDb'), zadb.ref);
     const gb = opts.gearbox || null, gbText = gb ? `${gb.label}  |  ${gb.typeLabel || gb.reduction + ' reduction'}${gb.serial ? '  |  S/N ' + gb.serial : ''}` : '';
     const woLine = `Work order ${job.wo || '-'}   |   Customer: ${job.customer || '-'}   |   ${form.title}${gb ? '   |   ' + gb.label : ''}`;
-    if (pSec) {
-      const list = opts.sectionPhotos || [], per = 2, n = Math.max(1, Math.ceil(list.length / per)), formId = `Form: ${form.template.split('/').pop().replace('.pdf', '')}`;
-      for (let pi = 0; pi < n; pi++) {
-        const pg = doc.addPage([W, H]); header(pg, font, bold, form.header || BRAND, null);
-        sectionBar(pg, bold, H - 70, pi ? `${pSec.title} (continued)` : pSec.title);
-        const top0 = H - 104, slotH = (top0 - 62) / per;
-        if (!list.length) pg.drawText('No teardown photos were added.', {x: M + 6, y: top0 - 14, size: 11, font, color: GREY});
-        for (let j = 0; j < per && pi * per + j < list.length; j++) {
-          const idx = pi * per + j, ph = list[idx], top = top0 - j * slotH;
-          const img = await doc.embedJpg(new Uint8Array(await ph.blob.arrayBuffer()));
-          const capLines = wrap(`Photo ${idx + 1}: ${ph.caption || '(no caption)'}`, bold, 10.5, W - 2 * M).slice(0, 2);
-          const boxH = slotH - 16 - capLines.length * 13 - 6, boxW = W - 2 * M;
-          const k = Math.min(boxW / img.width, boxH / img.height), iw = img.width * k, ih = img.height * k, x = M + (boxW - iw) / 2;
-          pg.drawImage(img, {x, y: top - ih, width: iw, height: ih});
-          pg.drawRectangle({x, y: top - ih, width: iw, height: ih, borderColor: GRID, borderWidth: 0.5});
-          let cy = top - ih - 14;
-          for (const ln of capLines) { pg.drawText(ln, {x, y: cy, size: 10.5, font: bold, color: NAVY}); cy -= 13; }
-        }
-        footer(pg, font, formId, `${pSec.title}  |  page ${pi + 1} of ${n}`);
-      }
-    }
+    const stamp = pg => { if (!gb) return; const t = clean(gbText), sz = 8.5, tw = bold.widthOfTextAtSize(t, sz); pg.drawText(t, {x: W - M + 20 - tw, y: H - 46, size: sz, font: bold, color: rgb(0.86, 0.91, 0.97)}); };
+    for (const pg of doc.getPages()) stamp(pg);   // identify the gearbox on every template page: right-aligned in the navy header bar, under the title line
+    // Rev 1.6.1: each section's photos print right after the template page where that section ends (L / Additional photos after the last page)
+    const formId = `Form: ${form.template.split('/').pop().replace('.pdf', '')}`, last = doc.getPageCount(), at = {};
+    for (const g of opts.groups || []) { const p = Math.min(g.after || last, last); (at[p] = at[p] || []).push(g); }
+    for (const p of Object.keys(at).map(Number).sort((a, b) => b - a)) await photoGrid(doc, at[p], p, {font, bold, ital, header: form.header || BRAND, formId, stamp});
     const baseCount = doc.getPageCount();
-    if (gb) for (const pg of doc.getPages()) {   // identify the gearbox on every template page: right-aligned in the navy header bar, under the title line
-      const t = clean(gbText), sz = 8.5, tw = bold.widthOfTextAtSize(t, sz);
-      pg.drawText(t, {x: W - M + 20 - tw, y: H - 46, size: sz, font: bold, color: rgb(0.86, 0.91, 0.97)});
-    }
     if (final || opts.flatten) af.flatten();
     if (final) {
       let pg = doc.addPage([W, H]);
@@ -165,27 +179,8 @@ const PdfExport = (() => {
       }
       footer(pg, font, `Form: ${form.template.split('/').pop().replace('.pdf', '')}`, 'Completion record');
     }
-    // Photo pages, two per page
-    const total = Math.ceil(photos.length / 2);
-    for (let i = 0; i < photos.length; i += 2) {
-      const pg = doc.addPage([W, H]);
-      header(pg, font, bold, BRAND, `Photos  |  ${woLine}`);
-      const slotTop = H - 88, slotH = (slotTop - 62) / 2;
-      for (let j = 0; j < 2 && i + j < photos.length; j++) {
-        const ph = photos[i + j], top = slotTop - j * slotH;
-        const img = await doc.embedJpg(new Uint8Array(await ph.blob.arrayBuffer()));
-        sectionBar(pg, bold, top, `Photo ${i + j + 1}: ${ph.label}`);
-        const capLines = ph.caption ? wrap(ph.caption, font, 10, W - 2 * M).slice(0, 2) : [];
-        const boxTop = top - 28, boxH = slotH - 34 - capLines.length * 13 - 10, boxW = W - 2 * M;
-        const k = Math.min(boxW / img.width, boxH / img.height);
-        const iw = img.width * k, ih = img.height * k;
-        pg.drawImage(img, {x: M + (boxW - iw) / 2, y: boxTop - ih, width: iw, height: ih});
-        pg.drawRectangle({x: M + (boxW - iw) / 2, y: boxTop - ih, width: iw, height: ih, borderColor: GRID, borderWidth: 0.5});
-        let cy = boxTop - ih - 14;
-        for (const ln of capLines) { pg.drawText(ln, {x: M, y: cy, size: 10, font, color: rgb(0, 0, 0)}); cy -= 13; }
-      }
-      footer(pg, font, `Form: ${form.template.split('/').pop().replace('.pdf', '')}`, `Photo page ${i / 2 + 1} of ${total}`);
-    }
+    // Job photos (shared by all forms of the job): same grid, at the end
+    if (photos.length) await photoGrid(doc, [{title: 'Job photos', photos}], doc.getPageCount(), {font, bold, ital, header: BRAND, formId, stamp});
     doc.setTitle(`${form.title}${gb ? ' - ' + gb.label : ''} - WO ${job.wo || ''} - ${job.customer || ''}`);
     doc.setProducer('Ram-Gear Manufacturing Incorporated app (pdf-lib)'); doc.setModificationDate(new Date());
     const bytes = await doc.save({updateFieldAppearances: false});

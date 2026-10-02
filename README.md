@@ -79,6 +79,10 @@ Forms always appear in this order: **Teardown Evaluation first, then Assembly Ve
 * Planetary forms: one section `P<i>` per stage (tooth counts, number of planets, calculated ratio `1 + Z ring / Z sun` in a read-only `calc` field, measured ratio, backlash / float / endplay / thrust washer table, sun, planets (rows above the number of planets are not required, `req.ifCount`), ring, carrier, coupling), plus input / output / housing / lubrication components and shim records with Replace / Reuse.
 * **L. Teardown photos**: last section of every Teardown Evaluation (block type `photos`, photo scope `<form key>:L`, label "Teardown photos", caption suggestions in a datalist). Optional. The template's last page (empty photo frames for paper use) is replaced in app PDFs by the captioned photos, two per page (`PdfExport.build({sectionPhotos})`); these photos are not repeated on the appended photo pages. Zip: gearbox `Photos/` folder, `captions.tsv`.
 
+## Photos in the report (Rev 1.6.1)
+* The template builders write `tools/layout/<template>.json` (page range of each section); `gen_forms.py` copies it into `forms.json` (`section.pages = [start, end]`, `form.templatePages`).
+* `photoPlan(job, key)` in `js/app.js` maps photo scopes to sections: `<key>:<section id>`, `<key>:<component id>` (printed with its section), `<key>:L` (teardown), `<key>:more` (assembly "Additional photos"); unknown scopes go to L / Additional photos. `PdfExport.build({groups})` inserts a 3-per-row grid after page `section.pages[1]`; job photos go at the end.
+
 ## Workflow (Customers > Customer file > Job folder > Form)
 * Home: searchable customer list (name, contact, phone, email, work order), New customer, Backup, Restore, Blank PDFs.
 * Customer dialog (New / Edit): all single-line fields the same height (natural widths); phone typed as `XXX-XXX-XXXX` (`js/phone.js`).

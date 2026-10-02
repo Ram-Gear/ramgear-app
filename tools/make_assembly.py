@@ -102,11 +102,12 @@ S = [
 SHIM_ROWS = [(k, l, loc) for k, l in SH for loc in ("Drive end", "Non-drive end")]   # (key, shaft label, location)
 BL_ROWS = G.meshes(N)
 
+LAYOUT = []   # Rev 1.6.1: section page ranges -> tools/layout/<template>.json
 class Doc:
     def __init__(s, buf, total):
         s.c = canvas.Canvas(buf, pagesize=letter, pageCompression=1)
         s.c.setTitle(TITLE); s.c.setAuthor("Gary Gillham"); s.c.setSubject("Assembly checklist")
-        s.total = total; s.page = 0; s.names=set()
+        s.total = total; s.page = 0; s.names=set(); s.layout = LAYOUT; LAYOUT.clear()
         s.newpage(first=True)
     def decorate(s):
         c = s.c
@@ -141,7 +142,7 @@ class Doc:
             buttonStyle="check", borderColor=NAVY, fillColor=colors.white, textColor=NAVY,
             borderWidth=1.2, borderStyle="solid", forceBorder=True, checked=False)
     def section(s, title, extra=0):
-        s.need(26 + extra)
+        before = s.page; s.need(26 + extra); s.layout.append({"title": title, "before": before, "start": s.page})
         s.y -= 6
         c=s.c; c.setFillColor(LIGHT); c.rect(M, s.y-20, W-2*M, 22, fill=1, stroke=0)
         c.setFillColor(NAVY); c.rect(M, s.y-20, 4, 22, fill=1, stroke=0)
@@ -306,6 +307,7 @@ def main():
     w.compress_identical_objects()
     out = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates", G.template("assembly", N) + ".pdf")
     with open(out, "wb") as f: w.write(f)
+    G.write_layout(out, LAYOUT, n)
     print("assembly", G.TYPES[N], "pages", n, out)
 
 if __name__ == "__main__":

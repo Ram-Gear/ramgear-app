@@ -2,6 +2,19 @@
 
 The revision number lives in `js/version.js` (see README › *Revision number*).
 
+## Rev 1.6.1 – 2026-10-02 (build 2026-10-02.3) – photos printed with their section
+
+- PDF report (final, draft and combined): each section's photos now print **right after that section**, not grouped at the end.
+  - They follow the template page where the section ends; a section that spans pages gets its photos after its last page.
+  - Each group has a "Photos - C. Oil condition" heading and a grid of 3 photos per row (about 2.3 in wide, aspect ratio kept). The caption is under each photo, and a part's photos also show the part name.
+  - A note line under each grid reads: "Full-size photos available in the Ram-Gear app / job export."
+- **L. Teardown photos** stays for general teardown photos, now in the same grid. The Assembly Verification gets an **Additional photos** section at the end, both in the app and in the PDF.
+- Photos whose section is unknown (for example after a gearbox type change) go to L (teardown) or Additional photos (assembly). This applies to camera and gallery photos alike.
+- Job photos print at the end of each form, in the same grid. The old two-per-page photo pages are gone.
+- App: a section's or part's photo panel opens by itself when it has photos, so its thumbnails show right there. Tap to view full size; deleting works as before.
+- Zip: photos stay full size in each gearbox's `Photos/` folder, numbered in report order. File names start with the section, e.g. `03_Teardown-C_Oil-condition_Sample-jar.jpg` or `07_Assembly-1_Prep-and-inspection_<caption>.jpg`. `captions.tsv` lists the section (and part).
+- All gearbox types. `forms.json` now carries each section's template page range (from `tools/layout/*.json`, written by the template builders); the templates themselves are unchanged.
+
 ## Rev 1.6 – 2026-10-02 (build 2026-10-02.2) – Planetary gearboxes and teardown photos
 
 - New gearbox type **Planetary**, next to Single / Double / Triple reduction. Choosing Planetary also asks for the number of **planetary stages (1–4)**. Type and stage count are confirmed and locked together, per gearbox, like the other types. Changing either needs the Admin password/PIN, is written to the audit log ("Planetary 2-stage → Planetary 4-stage") and is refused once a form of that gearbox has been finalized.

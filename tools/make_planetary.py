@@ -204,6 +204,7 @@ def render(form, out):
     from reportlab.lib import colors
     W, H = letter; M = 42; TOP = H - 64; BOT = 66; FH = 24; CB = 20; FS = 11; CW = W - 2 * M
     NAVY = colors.HexColor("#1F3A5F"); LIGHT = colors.HexColor("#E8EEF5"); GRID = colors.HexColor("#9AA8B8"); FILL = colors.HexColor("#F7FAFD"); GREY = colors.HexColor("#333333")
+    LAYOUT = []   # Rev 1.6.1: section page ranges
     CALC = colors.HexColor("#EEF2F6"); formid = os.path.basename(form["template"])[:-4]
     class D:
         def __init__(s, buf, total):
@@ -230,7 +231,7 @@ def render(form, out):
             s.c.acroForm.checkbox(name=name, tooltip=tip or name, x=x, y=y, size=CB, buttonStyle="check", borderColor=NAVY, fillColor=colors.white, textColor=NAVY,
                                   borderWidth=1.2, borderStyle="solid", forceBorder=True, checked=False)
         def section(s, title, extra):
-            s.need(30 + extra); s.y -= 6; c = s.c
+            before = s.page; s.need(30 + extra); LAYOUT.append({"title": title, "before": before, "start": s.page}); s.y -= 6; c = s.c
             c.setFillColor(LIGHT); c.rect(M, s.y - 20, CW, 22, fill=1, stroke=0); c.setFillColor(NAVY); c.rect(M, s.y - 20, 4, 22, fill=1, stroke=0)
             c.setFont("Helvetica-Bold", 12); c.drawString(M + 10, s.y - 14, title); s.y -= 30
         def subhead(s, text, extra=40):
@@ -336,7 +337,7 @@ def render(form, out):
     def first_h(b):
         return {"table": 180, "component": 46, "choice": 34, "check": 30}.get(b["type"], 48)
     def build(total):
-        buf = io.BytesIO(); d = D(buf, total)
+        buf = io.BytesIO(); LAYOUT.clear(); d = D(buf, total)
         for sec in form["sections"]:
             if any(b["type"] == "photos" for b in sec["blocks"]): d.newpage()   # L. Teardown photos: own last page
             d.section(sec["title"], extra=first_h(sec["blocks"][0]) if sec["blocks"] else 0)
@@ -357,6 +358,7 @@ def render(form, out):
     from pypdf.generic import NameObject, BooleanObject
     w = PdfWriter(clone_from=PdfReader(io.BytesIO(data))); w._root_object["/AcroForm"][NameObject("/NeedAppearances")] = BooleanObject(True); w.compress_identical_objects()
     with open(out, "wb") as f: w.write(f)
+    G.write_layout(out, LAYOUT, n)
     return n
 
 def helical_shared():

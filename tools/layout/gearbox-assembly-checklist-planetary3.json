@@ -1,0 +1,65 @@
+{
+ "pages": 8,
+ "sections": [
+  {
+   "title": "A. Gearbox information",
+   "start": 1,
+   "end": 1
+  },
+  {
+   "title": "1. Prep and inspection",
+   "start": 1,
+   "end": 1
+  },
+  {
+   "title": "2. Input shaft and seal",
+   "start": 2,
+   "end": 2
+  },
+  {
+   "title": "P1. Planetary stage 1",
+   "start": 2,
+   "end": 3
+  },
+  {
+   "title": "P2. Planetary stage 2",
+   "start": 3,
+   "end": 4
+  },
+  {
+   "title": "P3. Planetary stage 3",
+   "start": 5,
+   "end": 6
+  },
+  {
+   "title": "3. Output shaft, bearings and seals",
+   "start": 6,
+   "end": 6
+  },
+  {
+   "title": "4. Bearing shims",
+   "start": 6,
+   "end": 7
+  },
+  {
+   "title": "5. Housing and lubrication",
+   "start": 7,
+   "end": 7
+  },
+  {
+   "title": "6. Final checks and run test",
+   "start": 7,
+   "end": 7
+  },
+  {
+   "title": "Notes",
+   "start": 7,
+   "end": 8
+  },
+  {
+   "title": "Sign-off",
+   "start": 8,
+   "end": 8
+  }
+ ]
+}

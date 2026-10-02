@@ -1,0 +1,65 @@
+{
+ "pages": 6,
+ "sections": [
+  {
+   "title": "A. Gearbox information",
+   "start": 1,
+   "end": 1
+  },
+  {
+   "title": "1. Prep and inspection",
+   "start": 1,
+   "end": 2
+  },
+  {
+   "title": "2. Shaft subassemblies (input, intermediate 1, intermediate 2, output)",
+   "start": 2,
+   "end": 2
+  },
+  {
+   "title": "3. Housing preparation",
+   "start": 2,
+   "end": 2
+  },
+  {
+   "title": "4. Shaft installation and gear mesh",
+   "start": 2,
+   "end": 3
+  },
+  {
+   "title": "5. Bearing endplay or preload (each shaft)",
+   "start": 3,
+   "end": 3
+  },
+  {
+   "title": "6. Gear mesh verification",
+   "start": 4,
+   "end": 4
+  },
+  {
+   "title": "7. Seals, closures, fittings",
+   "start": 4,
+   "end": 4
+  },
+  {
+   "title": "8. Lubrication and run-in",
+   "start": 5,
+   "end": 5
+  },
+  {
+   "title": "9. Final and documentation",
+   "start": 5,
+   "end": 5
+  },
+  {
+   "title": "Notes",
+   "start": 5,
+   "end": 5
+  },
+  {
+   "title": "Sign-off",
+   "start": 6,
+   "end": 6
+  }
+ ]
+}
