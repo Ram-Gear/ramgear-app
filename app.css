@@ -333,3 +333,9 @@ body.locked .appbar,body.locked main,body.locked #toast{display:none}
 /* Rev 1.6: L. Teardown photos */
 .tphotos .photos{margin-top:8px}
 .tphotos .thumbs{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+
+/* Rev 1.7: Parts Summary */
+.tbl.parts td.num{text-align:right;font-variant-numeric:tabular-nums}
+.tbl.parts td{vertical-align:top}
+.partsstatus{font-size:15px}
+.fld.apponly input{background:#fffdf3}

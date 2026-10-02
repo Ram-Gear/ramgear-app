@@ -2,6 +2,22 @@
 
 The revision number lives in `js/version.js` (see README › *Revision number*).
 
+## Rev 1.7 – 2026-10-02 (build 2026-10-02.4) – Parts Summary
+
+- New **Parts Summary** per gearbox (all types, including Planetary), built automatically from the Teardown Evaluation and the shim Replace / Reuse choices of both forms:
+  - **Parts to replace**: every component marked Replace and planet gears marked Replace, with part / description, location (shaft / stage / end), qty needed, part no. (bearing cone / cup P/N, seal P/N) and failure mode / notes (the findings). A separate **Parts to repair** list.
+  - **Shim packs to replace**: per shaft, the Assembly Verification choice if made, otherwise the Teardown's as-found choice.
+  - **Totals by type**: bearings by type (e.g. "Tapered roller bearing – 4"), seals, gaskets / O-rings, shim packs.
+  - **Job roll-up** across all gearboxes, with totals and the same part merged.
+- Optional component fields **Qty needed** and (bearings) **Bearing type**, for the Parts Summary only (not printed on the form templates; not required to finalize). Default qty: 1, 2 for a shaft's bearing pair, per planet for planet bearings / pins (1) and thrust washers (2). If the number of planets is empty, 3 is assumed and noted. Bearings with cone / cup fields default to Tapered roller bearing. Named "Other component" rows are grouped by their name (bearing / seal / gasket / O-ring).
+- App: **Parts Summary** card and view in the job folder. It updates live from the drafts and is labeled DRAFT until that gearbox's Teardown Evaluation is finalized (then FINAL).
+- PDF (Ram-Gear header, job / customer / WO / gearbox, Tablet ID, app rev):
+  - Added at the end of the final Teardown PDF.
+  - In the combined job PDF after each gearbox's teardown sections (no duplicate), with the job roll-up at the end.
+  - On its own with **Download Parts Summary**.
+- Zip: `WO-…_Parts-Summary.pdf` and `WO-…_Parts-Summary.csv` (UTF-8, Excel-friendly) in the job folder.
+- Tests: new `e2e_parts.py` (Chromium + Firefox, local / mock only).
+
 ## Rev 1.6.1 – 2026-10-02 (build 2026-10-02.3) – photos printed with their section
 
 - PDF report (final, draft and combined): each section's photos now print **right after that section**, not grouped at the end.

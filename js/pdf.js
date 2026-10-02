@@ -65,7 +65,7 @@ const PdfExport = (() => {
       else if (b.type === 'check') { add(b.name, 'check'); b.fields.forEach(f => add(f.name, 'text')); if (b.notes) add(b.notes, 'text'); }
       else if (b.type === 'choice') { b.options.forEach(o => { add(o.name, 'check'); if (o.text) add(o.text, 'text'); }); if (b.notes) add(b.notes, 'text'); }
       else if (b.type === 'table') b.rows.forEach(r => r.cells.forEach(c => c.kind === 'choice' ? c.options.forEach(o => add(o.name, 'check')) : add(c.name, c.kind)));   // 'choice' cell: Replace/Reuse (Rev 1.5.2)
-      else if (b.type === 'component') { b.options.forEach(o => add(o.name, 'check')); b.fields.forEach(f => add(f.name, 'text')); add(b.findings, 'text', {multiline: true}); if (b.nameField) add(b.nameField, 'text'); }
+      else if (b.type === 'component') { b.options.forEach(o => add(o.name, 'check')); b.fields.filter(f => !f.appOnly).forEach(f => add(f.name, 'text')); add(b.findings, 'text', {multiline: true}); if (b.nameField) add(b.nameField, 'text'); }
     }
     return out;
   }
@@ -117,6 +117,68 @@ const PdfExport = (() => {
     }
   }
 
+
+  /* Rev 1.7: Parts Summary pages. data: {meta: {customer, wo, date, tablet, rev, generated}, gearboxes: [{label, typeLabel, serial,
+     manufacturer, model, status: 'DRAFT' | 'FINAL', summary: Parts.gearbox()}], roll: Parts.rollup() | null} */
+  async function partsPages(doc, data) {
+    const font = await doc.embedFont(StandardFonts.Helvetica), bold = await doc.embedFont(StandardFonts.HelveticaBold), ital = await doc.embedFont(StandardFonts.HelveticaOblique);
+    const RED = rgb(0.75, 0.16, 0.12), GREEN = rgb(0.1, 0.45, 0.2), m = data.meta, q = n => Parts.fmtQty(n);
+    let pg, y, n0 = doc.getPageCount(), title = '';
+    const foot = () => footer(pg, font, `Tablet: ${m.tablet || '-'}   |   App ${m.rev || '-'}   |   Generated ${m.generated || ''}`, `Parts Summary - ${title}`);
+    const newPage = () => { pg = doc.addPage([W, H]); foot(); header(pg, font, bold, BRAND, `Parts Summary   |   Work order ${m.wo || '-'}   |   Customer: ${m.customer || '-'}${m.date ? '   |   Date ' + m.date : ''}`); y = H - 92; };
+    const need = h => { if (y - h < 66) { newPage(); return true; } return false; };
+    function table(head, cols, rows, empty) {
+      // cols: [{t, w, align}] ; rows: [[cells]]
+      need(22 + 18 + (rows.length ? 16 : 18));
+      pg.drawText(clean(head), {x: M, y: y - 12, size: 11, font: bold, color: NAVY}); y -= 20;
+      const hdr = () => { pg.drawRectangle({x: M, y: y - 16, width: W - 2 * M, height: 16, color: NAVY}); let x = M; for (const c of cols) { pg.drawText(c.t, {x: c.align === 'r' ? x + c.w - 6 - bold.widthOfTextAtSize(c.t, 8) : x + 4, y: y - 11.5, size: 8, font: bold, color: rgb(1, 1, 1)}); x += c.w; } y -= 16; };
+      hdr();
+      if (!rows.length) { pg.drawText(clean(empty), {x: M + 4, y: y - 13, size: 9, font: ital, color: GREY}); y -= 24; return; }
+      rows.forEach((r, ri) => {
+        const lines = r.map((v, i) => wrap(String(v == null ? '' : v), i === 0 ? bold : font, 8.5, cols[i].w - 8));
+        const h = Math.max(...lines.map(l => l.length)) * 10.5 + 6;
+        if (need(h)) hdr();
+        if (ri % 2) pg.drawRectangle({x: M, y: y - h, width: W - 2 * M, height: h, color: LIGHT});
+        let x = M;
+        lines.forEach((ls, i) => { ls.forEach((ln, k) => { const f = i === 0 ? bold : font, tw = f.widthOfTextAtSize(ln, 8.5); pg.drawText(ln, {x: cols[i].align === 'r' ? x + cols[i].w - 6 - tw : x + 4, y: y - 11 - k * 10.5, size: 8.5, font: f, color: rgb(0, 0, 0)}); }); x += cols[i].w; });
+        pg.drawLine({start: {x: M, y: y - h}, end: {x: W - M, y: y - h}, thickness: 0.4, color: GRID}); y -= h;
+      });
+      y -= 12;
+    }
+    const PCOLS = [{t: 'Part / description', w: 140}, {t: 'Location', w: 100}, {t: 'Qty', w: 32, align: 'r'}, {t: 'Part no.', w: 96}, {t: 'Failure mode / notes', w: W - 2 * M - 368}];
+    const prow = it => [it.desc + (it.type && it.cat !== 'Other' && it.cat !== 'Gears' && it.cat !== 'Shafts' ? ` (${it.type})` : ''), it.loc, q(it.qty), it.pn, it.notes];
+    for (const g of data.rollOnly ? [] : data.gearboxes) {
+      title = g.label; newPage();
+      sectionBar(pg, bold, y, `Parts Summary - ${g.label}  |  ${g.typeLabel}`);
+      const st = g.status === 'FINAL' ? 'FINAL' : 'DRAFT', sw = bold.widthOfTextAtSize(st, 12);
+      pg.drawRectangle({x: W - M - sw - 18, y: y - 19, width: sw + 14, height: 20, borderColor: st === 'FINAL' ? GREEN : RED, borderWidth: 1.5});
+      pg.drawText(st, {x: W - M - sw - 11, y: y - 14, size: 12, font: bold, color: st === 'FINAL' ? GREEN : RED});
+      y -= 32;
+      const info = [['Customer', m.customer], ['Work order', m.wo], ['Gearbox', `${g.label}  (${g.typeLabel})`], ['Manufacturer / model', [g.manufacturer, g.model].filter(Boolean).join(' ') || '-'], ['Serial number', g.serial || '-'], ['Tablet ID', m.tablet || '-'],
+                    ['Status', st === 'FINAL' ? 'Teardown Evaluation finalized' : (g.noTeardown ? 'No Teardown Evaluation for this gearbox' : 'DRAFT - Teardown Evaluation not finalized; quantities may change')]];
+      for (const [a, b] of info) { pg.drawText(a, {x: M + 4, y: y - 10, size: 9.5, font: bold, color: NAVY}); pg.drawText(clean(b || '-'), {x: M + 130, y: y - 10, size: 9.5, font}); y -= 14; }
+      y -= 10;
+      table('Parts to replace', PCOLS, g.summary.replace.map(prow), 'No components marked Replace.');
+      table('Parts to repair', PCOLS, g.summary.repair.map(prow), 'No components marked Repair.');
+      table('Shim packs to replace', [{t: 'Item', w: 140}, {t: 'Location', w: 180}, {t: 'Qty', w: 32, align: 'r'}, {t: 'From', w: W - 2 * M - 352}], g.summary.shims.map(s => [s.desc, s.loc, q(s.qty), s.src]), 'No shim packs marked Replace.');
+      table('Totals by type (parts to replace)', [{t: 'Type', w: 240}, {t: 'Group', w: 160}, {t: 'Qty', w: W - 2 * M - 400, align: 'r'}], g.summary.totals.map(t => [t.type, t.cat, q(t.qty)]), 'No bearings, seals, gaskets or shim packs to replace.');
+    }
+    if (data.roll) {
+      title = 'Job roll-up'; newPage(); sectionBar(pg, bold, y, `Parts Summary - job roll-up (${data.gearboxes.length} gearbox${data.gearboxes.length === 1 ? '' : 'es'})`); y -= 34;
+      const drafts = data.gearboxes.filter(g => g.status !== 'FINAL').map(g => g.label);
+      if (drafts.length) { pg.drawText(clean(`DRAFT: ${drafts.join(', ')} not finalized; quantities may change.`), {x: M + 4, y: y - 10, size: 9.5, font: bold, color: RED}); y -= 20; }
+      table('Totals by type, all gearboxes', [{t: 'Type', w: 240}, {t: 'Group', w: 160}, {t: 'Qty', w: W - 2 * M - 400, align: 'r'}], data.roll.totals.map(t => [t.type, t.cat, q(t.qty)]), 'No bearings, seals, gaskets or shim packs to replace.');
+      table('All parts to replace (same part merged)', [{t: 'Part / description', w: 170}, {t: 'Part no.', w: 110}, {t: 'Qty', w: 32, align: 'r'}, {t: 'Gearboxes', w: W - 2 * M - 312}],
+            data.roll.lines.map(l => [l.desc + (l.type ? ` (${l.type})` : ''), l.pn, q(l.qty), l.where.join(', ')]), 'Nothing to replace.');
+      pg.drawText(clean(`Parts to repair: ${data.roll.repairs} line(s) - see each gearbox.`), {x: M + 4, y: y - 4, size: 9, font: ital, color: GREY}); y -= 16;
+    }
+    return doc.getPageCount() - n0;
+  }
+  async function partsPdf(data) {
+    const doc = await PDFDocument.create(); await partsPages(doc, data);
+    doc.setTitle(`Parts Summary - WO ${data.meta.wo || ''} - ${data.meta.customer || ''}`); doc.setProducer('Ram-Gear Manufacturing Incorporated app (pdf-lib)');
+    return doc.save();
+  }
   /* opts: {form, job, state,  /* opts: {form, job, state, photos:[{blob,w,h,caption}] (job photos, at the end), groups:[{title, after: template page, photos:[{blob,w,h,caption,sub}], empty}] (Rev 1.6.1), final: null | {signedBy, completedAt, revision, naLabels:[]},
            gearbox: {label:'Gearbox 1 of 2', count, reduction:'Triple', typeLabel:'Triple reduction' | 'Planetary 2-stage', stagesText, serial}} */
   async function build(opts) {
@@ -181,10 +243,11 @@ const PdfExport = (() => {
     }
     // Job photos (shared by all forms of the job): same grid, at the end
     if (photos.length) await photoGrid(doc, [{title: 'Job photos', photos}], doc.getPageCount(), {font, bold, ital, header: BRAND, formId, stamp});
+    const partsN = opts.parts ? await partsPages(doc, opts.parts) : 0;   // Rev 1.7: Parts Summary at the end of the final Teardown PDF
     doc.setTitle(`${form.title}${gb ? ' - ' + gb.label : ''} - WO ${job.wo || ''} - ${job.customer || ''}`);
     doc.setProducer('Ram-Gear Manufacturing Incorporated app (pdf-lib)'); doc.setModificationDate(new Date());
     const bytes = await doc.save({updateFieldAppearances: false});
-    return {bytes, pages: doc.getPageCount(), formPages: baseCount};
+    return {bytes, pages: doc.getPageCount(), formPages: baseCount, partsPages: partsN};
   }
   const safe = s => clean(s || '').trim().replace(/[^A-Za-z0-9._-]+/g, '-').replace(/-{2,}/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'NA';
   function filename(job, form, suffix) {
@@ -202,11 +265,11 @@ const PdfExport = (() => {
         let y = H - 350; for (const ln of b.divider.lines || []) { pg.drawText(clean(ln), {x: M + 10, y, size: 12, font}); y -= 20; }
         footer(pg, font, clean(title || ''), b.divider.title); continue;
       }
-      const src = await PDFDocument.load(b);
-      (await out.copyPages(src, src.getPageIndices())).forEach(pg => out.addPage(pg));
+      const src = await PDFDocument.load(b && b.pdf ? b.pdf : b), drop = (b && b.dropLast) || 0;   // {pdf, dropLast}: leave out a final teardown's own Parts Summary pages
+      (await out.copyPages(src, src.getPageIndices().slice(0, src.getPageCount() - drop))).forEach(pg => out.addPage(pg));
     }
     out.setTitle(title || 'Ram Gear job'); out.setProducer('Ram-Gear Manufacturing Incorporated app (pdf-lib)');
     return out.save();
   }
-  return {build, filename, fieldKinds, clean, safe, combine};
+  return {build, filename, fieldKinds, clean, safe, combine, partsPdf};
 })();

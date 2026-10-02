@@ -197,6 +197,50 @@ def teardown():
             "header": "Ram Gear Gearbox Evaluation", "docTitle": G.titles(N)["teardown"],
             "template": f"templates/{G.template('teardown', N)}.pdf", "signedByField": "k_inspected_name", "sections": S}
 
+
+# ---------------- Rev 1.7: Parts Summary metadata (app-only; nothing changes in the PDF templates) ----------------
+BTYPES = ["Tapered roller bearing", "Cylindrical roller bearing", "Spherical roller bearing", "Ball bearing", "Needle roller bearing", "Thrust bearing", "Angular contact ball bearing", "Bushing / sleeve bearing"]
+def parts_meta(f):
+    """Teardown components get {"parts": {cat, loc, type, qty | perPlanet}} and two optional app-only fields: Qty needed and
+    (bearings) Bearing type. Planet rows and shim rows get table-level "parts" / "shims" markers. Assembly: shim rows only."""
+    for sec in f["sections"]:
+        stage = re.match(r"P(\d+)\.", sec["title"])
+        for b in sec["blocks"]:
+            if b["type"] == "table":
+                choice = [c for r in b["rows"] for c in r["cells"] if c["kind"] == "choice"]
+                if not choice: continue
+                labels = [o["label"] for o in choice[0]["options"]]
+                if labels == ["Replace", "Reuse"]: b["shims"] = True
+                elif stage and labels == ["Reuse", "Repair", "Replace"]:
+                    b["parts"] = {"name": "Planet gear", "loc": f"Stage {stage.group(1)}", "cat": "Gears"}
+                continue
+            if b["type"] != "component" or f["key"] != "teardown": continue
+            i, n = b["id"], b["name"]
+            m = re.match(r"p(\d+)_", i)
+            if m: loc = f"Stage {m.group(1)}"
+            elif i.startswith("f_bearing_"): loc = n.split(" - ", 1)[1]
+            elif re.match(r"f_(input|intermediate2?|output)_(shaft|gear|pinion)$", i):
+                sh = re.match(r"(.*?) (shaft|gear|pinion)", n).group(1); st = re.search(r"\((stage \d)\)", n)
+                loc = sh + (", " + st.group(1) if st else "")
+            elif i.startswith("f_input"): loc = "Input"
+            elif i.startswith("f_output"): loc = "Output"
+            elif i in ("f_housing", "f_breather_plugs", "f_lube"): loc = "Housing"
+            else: loc = ""
+            bearing = "bearing" in i and "caps" not in i
+            seal = "seal" in i
+            meta = {"loc": loc, "cat": "Bearings" if bearing else "Seals" if seal else "Gears" if re.search(r"(gear|pinion|sun|ring)$", i) else "Shafts" if i.endswith("_shaft") else "Other"}
+            if bearing: meta["type"] = "Needle roller bearing" if "planet_bearings" in i else "Tapered roller bearing" if any(x["name"].endswith("_cone_pn") for x in b["fields"]) else "Ball bearing"
+            if seal: meta["type"] = "Oil seal"
+            if re.search(r"_planet_(pins|bearings)$", i): meta["perPlanet"] = 1
+            elif i.endswith("_thrust_washers"): meta["perPlanet"] = 2
+            elif i in ("f_input_bearings", "f_output_bearings"): meta["qty"] = 2
+            else: meta["qty"] = 1
+            if m and "perPlanet" in meta: meta["countField"] = f"p{m.group(1)}_planet_count"
+            b["parts"] = meta
+            b["fields"] = b["fields"] + [{"name": f"{i}_qty", "label": "Qty needed", "appOnly": True, "input": "number"}]
+            if bearing: b["fields"].append({"name": f"{i}_btype", "label": "Bearing type", "appOnly": True, "suggest": "btypes"})
+    return f
+
 def names_in(form):
     out = {}
     def add(n, kind): out[n] = kind
@@ -220,7 +264,8 @@ def names_in(form):
                         else: add(c["name"], c["kind"])
             elif t == "component":
                 for o in b["options"]: add(o["name"], "check")
-                for f in b["fields"]: add(f["name"], "text")
+                for f in b["fields"]:
+                    if not f.get("appOnly"): add(f["name"], "text")
                 add(b["findings"], "text")
                 if b.get("nameField"): add(b["nameField"], "text")
     return out
@@ -252,6 +297,7 @@ if __name__ == "__main__":
             f["stages"] = f"p{k}"; f["id"] = f"{f['key']}@p{k}"; f["reduction"] = f"Planetary {k}-stage"; f["kind"] = "planetary"; f["pstages"] = k
             ok &= validate(f, os.path.join(APP, f["template"]))
             out.append(f)
+    for f in out: parts_meta(f)
     # Rev 1.6.1: template page range of every section (photos print right after the page where their section ends)
     for f in out:
         lay = json.load(open(os.path.join(HERE, "layout", os.path.basename(f["template"])[:-4] + ".json")))
@@ -260,5 +306,5 @@ if __name__ == "__main__":
             e = by.get(sec["title"])
             if not e: print("NO LAYOUT", f["id"], sec["title"], list(by)); ok = False; continue
             sec["pages"] = [e["start"], e["end"]]
-    json.dump({"version": 2, "forms": out}, open(os.path.join(APP, "forms.json"), "w"), indent=1, ensure_ascii=False)
+    json.dump({"version": 2, "forms": out, "bearingTypes": BTYPES}, open(os.path.join(APP, "forms.json"), "w"), indent=1, ensure_ascii=False)
     print("OK" if ok else "MISMATCH"); sys.exit(0 if ok else 1)

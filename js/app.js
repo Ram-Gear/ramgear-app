@@ -14,6 +14,7 @@
     cust: c => `#/c/${encodeURIComponent(c)}`,
     job: (c, j) => `#/c/${encodeURIComponent(c)}/j/${encodeURIComponent(j)}`,
     form: (c, j, k) => `#/c/${encodeURIComponent(c)}/j/${encodeURIComponent(j)}/f/${k}`,
+    parts: (c, j) => `#/c/${encodeURIComponent(c)}/j/${encodeURIComponent(j)}/parts`,
   };
 
   const fmtDate = t => t ? new Date(t).toLocaleString([], {year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'}) : '';
@@ -820,6 +821,7 @@
     document.title = APP_TITLE;
     try {
       if (h[0] === 'c' && h[1] && h[2] === 'j' && h[3] && h[4] === 'f' && h[5]) await renderForm(h[1], h[3], h[5]);
+      else if (h[0] === 'c' && h[1] && h[2] === 'j' && h[3] && h[4] === 'parts') await renderParts(h[1], h[3]);
       else if (h[0] === 'c' && h[1] && h[2] === 'j' && h[3]) await renderJob(h[1], h[3]);
       else if (h[0] === 'c' && h[1]) await renderCustomer(h[1]);
       else if (h[0] === 'settings') await renderSettings();
@@ -1083,6 +1085,11 @@
         }).join('')}</div>
       </section>`; }).join('')}
       <section class="card addgb">${jobStatus(job) === 'completed' ? `<p class="muted small">All forms are finalized. To add another gearbox, an Admin reopens a form first.</p>` : `<div class="fr-actions" style="justify-content:flex-start"><button class="btn" id="addGbBtn">+ Add gearbox</button><span class="muted small" style="align-self:center">Each gearbox gets its own reduction type and its own Teardown Evaluation and Assembly Verification.</span></div>`}</section>
+      <section class="card" id="partsCard">
+        <div class="card-head"><h2>Parts Summary</h2><span class="muted small">Bad pieces and quantities needed, from the Teardown Evaluation and the shim choices</span></div>
+        <div class="muted small" id="partsBrief">${esc(partsBrief(job))}</div>
+        <div class="fr-actions" style="justify-content:flex-start;margin-top:8px"><a class="btn primary" id="partsBtn" href="${P.parts(cid, jid)}">Parts Summary</a><button class="btn" id="partsPdfBtn">Download Parts Summary</button></div>
+      </section>
       <section class="card">
         <div class="card-head"><h2>Job photos</h2><span class="muted small">Included on the photo pages of every form export</span></div>
         ${photoPanel('job', 'Job photo', false)}
@@ -1130,6 +1137,7 @@
       toast('Saved PDF deleted'); renderJob(cid, jid);
     });
     $('#zipBtn').onclick = () => exportJobZip(job, customer);
+    $('#partsPdfBtn').onclick = () => downloadParts(job, customer);
     $('#combinedBtn').onclick = async () => { const r = await combinedPdf(job, customer); if (r) fileReady(r.blob, r.filename, 'Combined job PDF ready'); };
     await fillPhotoPanels(job);
   }
@@ -1234,9 +1242,9 @@
     const n = esc(f.name), dis = opts.locked ? 'disabled' : '', link = f.link ? `data-link="${f.link}"` : '';
     const ro = f.link === 'customer' ? 'readonly title="Edit the name in the customer file"' : '';
     if (f.multiline) return `<textarea data-name="${n}" ${link} rows="${f.rows || 3}" ${dis} aria-label="${esc(f.label || '')}">${esc(val)}</textarea>`;
-    const type = f.input === 'date' ? 'date' : 'text';
+    const type = f.input === 'date' ? 'date' : 'text', extra = `${f.input === 'number' ? 'inputmode="decimal"' : ''} ${f.placeholder ? `placeholder="${esc(f.placeholder)}"` : ''} ${f.suggest ? `list="dl-${esc(f.suggest)}"` : ''}`;
     const calc = f.calc ? 'readonly class="calc" tabindex="-1" title="Calculated from the tooth counts"' : '';
-    return `<input type="${type}" data-name="${n}" ${link} ${ro} ${calc} value="${esc(val)}" ${dis} autocomplete="off" aria-label="${esc(f.label || opts.aria || '')}">`;
+    return `<input type="${type}" data-name="${n}" ${link} ${ro} ${calc} value="${esc(val)}" ${dis} ${extra} autocomplete="off" aria-label="${esc(f.label || opts.aria || '')}">`;
   }
   function renderBlock(job, key, b, locked) {
     const v = n => getVal(job, key, n) || '', chk = n => job.forms[key].values[n] ? 'checked' : '', dis = locked ? 'disabled' : '';
@@ -1259,7 +1267,7 @@
       case 'component': return `<div class="blk comp" ${reqAttr(b)} id="comp-${esc(b.id)}">
           <div class="comp-head">${b.nameField ? `<label class="other-name"><span>Other:</span>${input({name: b.nameField, label: 'Other component name'}, v(b.nameField), {locked})}</label>` : `<b>${esc(b.name)}</b>`}
             <div class="choices seg" data-exclusive="1">${b.options.map(o => cbox(o.name, o.label, 'pill ' + o.label.toLowerCase())).join('')}</div>${naBtn(b, locked)}</div>
-          <div class="comp-body"><div class="row cols${b.fields.length + 1}">${b.fields.map(f => `<label class="fld"><span>${esc(f.label)}</span>${input(f, v(f.name), {locked})}</label>`).join('')}</div>
+          <div class="comp-body"><div class="row cols${b.fields.length + 1}">${b.fields.map(f => `<label class="fld ${f.appOnly ? 'apponly' : ''}"><span>${esc(f.label)}${f.appOnly ? ' <i class="auto">for Parts Summary</i>' : ''}</span>${input(f.appOnly && /_qty$/.test(f.name) && b.parts ? {...f, placeholder: `default ${Parts.qtyHint(b.parts)}`} : f, v(f.name), {locked})}</label>`).join('')}</div>
             <label class="fld"><span>Findings</span>${input({name: b.findings, label: 'Findings', multiline: true, rows: 2}, v(b.findings), {locked})}</label>
             <details class="comp-photos"><summary>Photos <span class="pcount"></span></summary>${photoPanel(`${key}:${b.id}`, b.name, locked)}</details></div></div>`;
       case 'photos': {   // Rev 1.6: L. Teardown photos (optional; printed in this section of the PDF)
@@ -1297,6 +1305,7 @@
         ${st.history.length && !locked ? `<div class="infobar">Revision ${st.revision} (reopened). Earlier final PDFs are kept in the job's saved documents.</div>` : ''}
       </div>
       <nav class="chips">${form.sections.map(s => `<a href="#" data-jump="sec-${s.id}">${esc(/^[A-Z0-9]+\./.test(s.title) ? s.title.replace(/^([A-Z0-9]+)\.\s*/, '$1 · ') : s.title)}</a>`).join('')}${hasPhotoBlock(form) ? '' : `<a href="#" data-jump="sec-more">${MORE_TITLE}</a>`}<a href="#" data-jump="sec-photos-all">Photos</a></nav>
+      <datalist id="dl-btypes">${(FORMS.bearingTypes || []).map(t => `<option value="${esc(t)}"></option>`).join('')}</datalist>
       <div class="formbody ${locked ? 'locked' : ''}" id="formBody">
         ${form.sections.map(s => `<section class="sec" id="sec-${s.id}"><h3 class="sec-title">${esc(s.title)}</h3>
           ${s.blocks.map(b => renderBlock(job, key, b, locked)).join('')}
@@ -1419,10 +1428,11 @@
     try {
       const c = ctx(job, current.customer, gid);
       const naLabels = reqsOf(job, key).filter(r => st.na[r.req.id] && reqState(job, key, r.req) !== 'skip').map(r => `${r.section}: ${r.req.label}`);
-      const out = await PdfExport.build({form, job: c, state: st, gearbox: pdfGb(c), photos: await photosFor(job, key), groups: await photoGroups(job, key), final: {signedBy, completedAt: fmtDate(now), revision: st.revision, naLabels, inspectedOn, finalizedBy: userName(), appRev: REV_LABEL}});
+      const parts = parseKey(key).base === 'teardown' ? partsData(job, current.customer, [gid], false, gid) : null;
+      const out = await PdfExport.build({form, job: c, state: st, gearbox: pdfGb(c), photos: await photosFor(job, key), groups: await photoGroups(job, key), parts, final: {signedBy, completedAt: fmtDate(now), revision: st.revision, naLabels, inspectedOn, finalizedBy: userName(), appRev: REV_LABEL}});
       const blob = new Blob([out.bytes], {type: 'application/pdf'});
       const filename = PdfExport.filename(c, form, `_FINAL-rev${st.revision}`);
-      const doc = {id: DB.uid(), jobId: job.id, customerId: job.customerId, formKey: key, gearboxId: gid, gearbox: c.gearbox, stages: c.stages, reduction: c.reduction, typeLabel: c.typeLabel, revision: st.revision, filename, createdAt: now.getTime(), signedBy, inspectedOn, finalizedBy: userName(), appRev: REV_LABEL, pages: out.pages, size: blob.size, blob};
+      const doc = {id: DB.uid(), jobId: job.id, customerId: job.customerId, formKey: key, gearboxId: gid, gearbox: c.gearbox, stages: c.stages, reduction: c.reduction, typeLabel: c.typeLabel, revision: st.revision, filename, createdAt: now.getTime(), signedBy, inspectedOn, finalizedBy: userName(), appRev: REV_LABEL, pages: out.pages, partsPages: out.partsPages || 0, size: blob.size, blob};
       await DB.put('docs', doc);
       Object.assign(st, {status: 'completed', completedAt: now.getTime(), signedBy, inspectedOn, finalizedBy: userName(), tabletUsed: inspectedOn, snapshot: c, gearboxId: gid, stages: c.stages});
       st.history.push({revision: st.revision, completedAt: now.getTime(), signedBy, inspectedOn, finalizedBy: userName(), docId: doc.id});
@@ -1440,6 +1450,60 @@
     Object.assign(st, {status: 'draft', revision: st.revision + 1, reopenedAt: Date.now(), tabletUsed: TABLET});
     delete st.completedAt; delete st.signedBy; delete st.snapshot; delete st.inspectedOn; delete st.finalizedBy;
     await saveJob(job); toast(`Reopened as revision ${st.revision}`); renderForm(job.customerId, job.id, key);
+  }
+
+  /* ---------- Rev 1.7: Parts Summary ---------- */
+  function gbParts(job, gid) {
+    const tk = fkey(gid, 'teardown'), ak = fkey(gid, 'assembly'), ts = job.forms[tk], as = job.forms[ak];
+    return Parts.gearbox({td: ts && ts.enabled ? fdef(job, tk) : null, tdVals: (ts && ts.values) || {}, as: as && as.enabled ? fdef(job, ak) : null, asVals: (as && as.values) || {}});
+  }
+  /* gids: null = all active gearboxes; finalGid: the teardown being finalized right now counts as FINAL */
+  function partsData(job, customer, gids, withRoll, finalGid) {
+    const list = (gids || activeGbs(job).map(g => g.id)).map(gid => {
+      const m = gbMeta(job, gid), info = gbInfo(job, gid), ts = job.forms[fkey(gid, 'teardown')];
+      return {gid, label: m.label, typeLabel: m.typeLabel, serial: info.serial, manufacturer: info.manufacturer, model: info.model, noTeardown: !(ts && ts.enabled),
+              status: gid === finalGid || (ts && ts.enabled && ts.status === 'completed') ? 'FINAL' : 'DRAFT', summary: gbParts(job, gid)};
+    });
+    return {meta: {customer: custName(job, customer), wo: job.wo || '', date: job.date || '', tablet: TABLET || '-', rev: REV_LABEL, generated: fmtDate(Date.now()), user: userName()},
+            gearboxes: list, roll: withRoll ? Parts.rollup(list) : null};
+  }
+  const partsRollOnly = (job, customer) => ({...partsData(job, customer, null, true), rollOnly: true});   // combined PDF: roll-up page only (gearbox pages follow each teardown)
+  const partsName = (c, ext) => `WO-${PdfExport.safe(c.wo)}_${PdfExport.safe(c.customer)}_Parts-Summary.${ext}`;
+  function partsBrief(job) {
+    const gbs = activeGbs(job); let r = 0, p = 0, s = 0;
+    for (const g of gbs) { const x = gbParts(job, g.id); r += x.replace.length; p += x.repair.length; s += x.shims.length; }
+    return `${r} part line${r === 1 ? '' : 's'} to replace, ${p} to repair, ${s} shim pack${s === 1 ? '' : 's'} to replace (${gbs.length} gearbox${gbs.length === 1 ? '' : 'es'})`;
+  }
+  async function downloadParts(job, customer) {
+    toast('Building Parts Summary…', 6000);
+    try { const bytes = await PdfExport.partsPdf(partsData(job, customer, null, true)); await fileReady(new Blob([bytes], {type: 'application/pdf'}), partsName(ctx(job, customer), 'pdf'), 'Parts Summary PDF ready'); }
+    catch (e) { console.error(e); modal(`<h2>PDF failed</h2><p>${esc(e.message)}</p>`, [{label: 'Close', value: 'cancel'}]); }
+  }
+  async function renderParts(cid, jid) {
+    const {customer, job} = await load(cid, jid); if (!job) return;
+    current = {customer, job, formKey: null};
+    bar([crumbHome, {label: customer.name, href: P.cust(cid)}, {label: `WO ${job.wo}`, href: P.job(cid, jid)}, {label: 'Parts Summary'}], `<button class="btn primary" id="partsDlBtn">Download Parts Summary</button>`, {label: `WO ${job.wo}`, href: P.job(cid, jid)});
+    const d = partsData(job, customer, null, true), q = Parts.fmtQty;
+    const tbl = (cls, head, cols, rows, empty) => `<h4 class="subhead">${esc(head)}</h4>${rows.length ? `<div class="tablewrap"><table class="tbl parts ${cls}"><thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map((v, i) => `<td${i === 2 && cols[2] === 'Qty' ? ' class="num"' : ''}>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : `<p class="muted small">${esc(empty)}</p>`}`;
+    const PC = ['Part / description', 'Location', 'Qty', 'Part no.', 'Failure mode / notes'];
+    const prow = it => [it.desc + (it.type && !['Other', 'Gears', 'Shafts'].includes(it.cat) ? ` (${it.type})` : ''), it.loc, q(it.qty), it.pn || '', it.notes || ''];
+    view.innerHTML = `
+      <section class="card"><div class="card-head"><h2>Parts Summary</h2><span class="muted small">WO ${esc(job.wo)} · ${esc(d.meta.customer)} · Tablet ${esc(d.meta.tablet)} · ${esc(REV_LABEL)}</span></div>
+        <p class="muted small">Built automatically from each gearbox's Teardown Evaluation (components marked Replace or Repair, planet rows) and the shim pack Replace / Reuse choices of both forms. It updates as the forms are filled in. Quantity: the <b>Qty needed</b> entered on a part row, otherwise the default (1, 2 for a shaft's bearing pair, per planet for planet parts).</p></section>
+      ${d.gearboxes.map(g => `<section class="card partsgb" data-partsgb="${g.gid}">
+        <div class="card-head"><h2>${esc(g.label)}</h2><span class="typetag">${esc(g.typeLabel)}</span>${g.serial ? `<span class="muted small">S/N ${esc(g.serial)}</span>` : ''}
+          <span class="right"><span class="badge ${g.status === 'FINAL' ? 'done' : 'draft'} partsstatus">${g.status === 'FINAL' ? 'FINAL' : 'DRAFT'}</span></span></div>
+        ${g.status !== 'FINAL' ? `<p class="muted small">${g.noTeardown ? 'This gearbox has no Teardown Evaluation.' : 'DRAFT until the Teardown Evaluation is finalized; quantities may still change.'}</p>` : ''}
+        ${tbl('replace', 'Parts to replace', PC, g.summary.replace.map(prow), 'No components marked Replace.')}
+        ${tbl('repair', 'Parts to repair', PC, g.summary.repair.map(prow), 'No components marked Repair.')}
+        ${tbl('shims', 'Shim packs to replace', ['Item', 'Location', 'Qty', 'From'], g.summary.shims.map(x => [x.desc, x.loc, q(x.qty), x.src]), 'No shim packs marked Replace.')}
+        ${tbl('totals', 'Totals by type', ['Type', 'Group', 'Qty'], g.summary.totals.map(t => [t.type, t.cat, q(t.qty)]), 'No bearings, seals, gaskets or shim packs to replace.')}
+      </section>`).join('')}
+      <section class="card" id="partsRoll"><div class="card-head"><h2>Job roll-up</h2><span class="muted small">All ${d.gearboxes.length} gearbox${d.gearboxes.length === 1 ? '' : 'es'}</span></div>
+        ${tbl('rolltotals', 'Totals by type, all gearboxes', ['Type', 'Group', 'Qty'], d.roll.totals.map(t => [t.type, t.cat, q(t.qty)]), 'No bearings, seals, gaskets or shim packs to replace.')}
+        ${tbl('rolllines', 'All parts to replace (same part merged)', ['Part / description', 'Part no.', 'Qty', 'Gearboxes'], d.roll.lines.map(l => [l.desc + (l.type ? ` (${l.type})` : ''), l.pn, q(l.qty), l.where.join(', ')]), 'Nothing to replace.')}
+      </section>`;
+    $('#partsDlBtn').onclick = () => downloadParts(job, customer);
   }
 
   /* ---------- export ---------- */
@@ -1500,11 +1564,13 @@
                   ...(mine.length ? mine.map(f => `${f.title}: ${f.st.status === 'completed' ? `Completed (final rev ${f.st.revision})` : `Draft (rev ${f.st.revision}, not finalized)`}`) : ['No forms for this gearbox'])]}});
         for (const f of mine) {
           const fin = docs.filter(d => d.formKey === f.key).sort((a, b) => b.revision - a.revision || b.createdAt - a.createdAt)[0];
-          if (f.st.status === 'completed' && fin) parts.push(new Uint8Array(await fin.blob.arrayBuffer()));
+          if (f.st.status === 'completed' && fin) parts.push({pdf: new Uint8Array(await fin.blob.arrayBuffer()), dropLast: fin.partsPages || 0});   // its own Parts Summary is replaced by the current one below
           else parts.push((await PdfExport.build({form: f.def, job: gc, state: f.st, gearbox: pdfGb(gc), photos: await photosFor(job, f.key), groups: await photoGroups(job, f.key), final: null, flatten: true})).bytes);
+          if (f.base === 'teardown') parts.push(await PdfExport.partsPdf(partsData(job, customer, [g.id], false)));   // Rev 1.7
         }
       }
       if (!fs.length) { toast('This job has no forms'); return null; }
+      if (fs.some(f => f.base === 'teardown')) parts.push(await PdfExport.partsPdf(partsRollOnly(job, customer)));   // job roll-up across all gearboxes
       const bytes = await PdfExport.combine(parts, `WO ${c.wo} - ${c.customer}`);
       return {blob: new Blob([bytes], {type: 'application/pdf'}), filename: `WO-${PdfExport.safe(c.wo)}_${PdfExport.safe(c.customer)}_Combined.pdf`, bytes};
     } catch (e) { console.error(e); modal(`<h2>PDF failed</h2><p>${esc(e.message)}</p>`, [{label: 'Close', value: 'cancel'}]); return null; }
@@ -1524,6 +1590,8 @@
     const cnt = {}; docs.forEach(d => { const k = docDir(d); cnt[k] = (cnt[k] || 0) + 1; d._zipName = `${String(cnt[k]).padStart(2, '0')}_${d.filename}`; d._zipPath = `${k}/${d._zipName}`; });
     for (const d of docs) files[d._zipPath] = [await u8(d.blob), store];
     files[`${folder}/${comb.filename}`] = [new Uint8Array(comb.bytes), store];
+    { const pd = partsData(job, customer, null, true); files[`${folder}/${partsName(c, 'csv')}`] = [fflate.strToU8(Parts.csv(pd.meta, pd.gearboxes, pd.roll)), store];   // Rev 1.7
+      files[`${folder}/${partsName(c, 'pdf')}`] = [new Uint8Array(await PdfExport.partsPdf(pd)), store]; }
     // Rev 1.6.1: photos in report order (job photos, then per form: section by section); file names start with the section, e.g. 03_Teardown-C_Oil-condition_<caption>.jpg
     const place = p => {
       if (p.scope === 'job') return null;
