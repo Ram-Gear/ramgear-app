@@ -73,7 +73,7 @@ const Camera = (() => {
     if (e.key === 'Escape') { e.preventDefault(); ov.dataset.mode === 'review' ? retake() : close(); }
     else if ((e.key === ' ' || e.key === 'Enter') && ov.dataset.mode === 'live' && e.target.tagName !== 'INPUT') { e.preventDefault(); capture(); }
   }
-  /* o: {title, onUse(blob, caption) -> Promise<thumbBlob>, onClose(savedCount), onUnavailable(error)} */
+  /* o: {title, captionList (datalist id, optional), onUse(blob, caption) -> Promise<thumbBlob>, onClose(savedCount), onUnavailable(error)} */
   async function open(o) {
     if (ov) close();
     opts = o; saved = 0;
@@ -90,6 +90,7 @@ const Camera = (() => {
         <div class="cam-review-ctl"><input class="cam-caption" placeholder="Caption (optional)" autocomplete="off"><button type="button" class="btn cam-retake">↺ Retake</button><button type="button" class="btn primary cam-use">Use photo</button></div>
       </div>`;
     $('.cam-title').textContent = o.title || 'Camera';
+    if (o.captionList) { const ci = $('.cam-caption'); ci.setAttribute('list', o.captionList); ci.placeholder = 'Caption, e.g. As received, Disassembled'; ci.maxLength = 120; }   // Rev 1.6: teardown photo suggestions
     video = $('video'); video.muted = true; video.setAttribute('playsinline', ''); video.setAttribute('webkit-playsinline', '');
     document.body.appendChild(ov);
     $('.cam-close').onclick = close; $('.cam-shutter').onclick = capture; $('.cam-retake').onclick = retake; $('.cam-use').onclick = use; $('.cam-switch').onclick = switchCam;

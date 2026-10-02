@@ -44,12 +44,13 @@ Offline-first: each tablet keeps everything in the browser's IndexedDB and works
 | `manifest.webmanifest`, `sw.js`, `icons/` | PWA install + offline cache |
 | `tools/gbx_spec.py` | Shafts, gear meshes, bearing locations and components for 1/2/3 stages (shared by the builders and `gen_forms.py`) |
 | `tools/make_assembly.py`, `tools/make_teardown.py` | Build the 6 fillable templates into `templates/` (reportlab + pypdf). The Double layout keeps the original field names |
-| `tools/gen_forms.py` | Regenerates `forms.json` (version 2: one definition per form and type, id `assembly@3`) and validates every field name against its PDF |
+| `tools/make_planetary.py` | Rev 1.6: spec (`teardown_def(k)`, `assembly_def(k)`) and generic renderer for the 8 Planetary templates (`...-planetary1..4.pdf`); one spec feeds both the PDF and `forms.json` |
+| `tools/gen_forms.py` | Regenerates `forms.json` (version 2: one definition per form and type, id `assembly@3`, `teardown@p2`) and validates every field name against its PDF |
 | `tools/make_icons.py` | Generates the "RG" icons |
 
 ## Updating the forms
-1. Rebuild the PDFs: `python tools/make_assembly.py` and `python tools/make_teardown.py` (all three types; pass `1`, `2` or `3` for one).
-2. Update `tools/gen_forms.py` if sections/fields changed, then `python tools/gen_forms.py` (must print `OK` for all 6 definitions).
+1. Rebuild the PDFs: `python tools/make_assembly.py` and `python tools/make_teardown.py` (all three helical types; pass `1`, `2` or `3` for one), and `python tools/make_planetary.py` (Planetary 1-4 stages; pass `1`…`4` for one).
+2. Update `tools/gen_forms.py` / `tools/make_planetary.py` if sections/fields changed, then `python tools/gen_forms.py` (must print `OK` for all 14 definitions).
 3. Bump `APP_BUILD` in `js/version.js` so tablets pick up the new files (see *Revision number*).
 
 ## Deploy to GitHub Pages (account `Ram-Gear`)
@@ -72,6 +73,11 @@ Forms always appear in this order: **Teardown Evaluation first, then Assembly Ve
 * Shafts: Single = input + output, Double = + intermediate, Triple = + intermediate 1 and 2. Ratios per stage, gears/pinions per stage, bearings, shims (each shim row with a required single-choice *Shim pack: Replace / Reuse*, fields `<row>_replace` / `<row>_reuse`, Rev 1.5.2) and dimensional checks per shaft, and 4-point backlash per gear mesh. Required items (completeness check at Finalize) come from the matching definition.
 * Jobs from before Rev 1.5 become one Double gearbox (marked "default for jobs before Rev 1.5"). The Double templates use the same field names as before, so no data moves.
 * Labels: "Gearbox 1 of 2 · Triple reduction · S/N …" on the job folder, the form, every PDF page (header bar) and the completion record. From Rev 1.5.1 this is the same for every job, including single-gearbox jobs: file names add `_GB<n>` (`..._Teardown-Evaluation_GB1_FINAL-rev1.pdf`), the combined PDF is grouped per gearbox with a cover page per gearbox, and the zip uses one folder per gearbox (`Gearbox 1 of 1 - Double - SN <serial>/`, with its PDFs and photos). Job photos stay in `Photos/`.
+
+## Planetary gearboxes and teardown photos (Rev 1.6)
+* Type code in `gearbox.stages` / form state `stages`: `1|2|3` = Single/Double/Triple helical, `'p1'..'p4'` = Planetary with 1-4 planetary stages (definition ids `teardown@p3`, `assembly@p3`). Planetary type and stage count are chosen, confirmed and locked together; a stage-count change is a type change (Admin approval, audited, refused once a form of that gearbox is finalized).
+* Planetary forms: one section `P<i>` per stage (tooth counts, number of planets, calculated ratio `1 + Z ring / Z sun` in a read-only `calc` field, measured ratio, backlash / float / endplay / thrust washer table, sun, planets (rows above the number of planets are not required, `req.ifCount`), ring, carrier, coupling), plus input / output / housing / lubrication components and shim records with Replace / Reuse.
+* **L. Teardown photos**: last section of every Teardown Evaluation (block type `photos`, photo scope `<form key>:L`, label "Teardown photos", caption suggestions in a datalist). Optional. The template's last page (empty photo frames for paper use) is replaced in app PDFs by the captioned photos, two per page (`PdfExport.build({sectionPhotos})`); these photos are not repeated on the appended photo pages. Zip: gearbox `Photos/` folder, `captions.tsv`.
 
 ## Workflow (Customers > Customer file > Job folder > Form)
 * Home: searchable customer list (name, contact, phone, email, work order), New customer, Backup, Restore, Blank PDFs.

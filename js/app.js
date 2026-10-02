@@ -4,7 +4,7 @@
   const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
   const view = $('#view');
-  let FORMS = null, FORM_BY_ID = {}, BASE_DEF = {}, BASES = [], KINDS = {}, REQS = {};   // defs per id 'teardown@3'; BASES: form keys in display order
+  let FORMS = null, FORM_BY_ID = {}, BASE_DEF = {}, BASES = [], KINDS = {}, REQS = {}, CALCS = {};   // defs per id 'teardown@3'; BASES: form keys in display order
   let urls = [];            // object URLs to revoke on navigation
   let pendingPhoto = null;  // {jobId, scope, label}
   let current = {customer: null, job: null, formKey: null};
@@ -657,13 +657,18 @@
   }
 
   /* ---------- gearboxes (Rev 1.5) ----------
-     A job holds one or more gearboxes: job.gearboxes = [{id:'g1', stages:1|2|3, locked, lockedAt, lockedBy, manufacturer, model, serial, removed?}].
+     A job holds one or more gearboxes: job.gearboxes = [{id:'g1', stages, locked, lockedAt, lockedBy, manufacturer, model, serial, removed?}].
+     stages is the gearbox TYPE CODE: 1 | 2 | 3 = Single / Double / Triple reduction (helical), 'p1' … 'p4' = Planetary with 1-4
+     planetary stages (Rev 1.6). Form definitions are keyed by it ('teardown@3', 'assembly@p2').
      Gearbox 1's manufacturer/model/serial stay on the job itself (job.manufacturer …) so devices on older revisions keep working.
      Form keys: 'teardown' / 'assembly' for gearbox 1, '<gearbox id>.teardown' … for the others. Added gearboxes get a unique id
      (two tablets can add one offline at the same time) and are ordered by creation time. Each form state also stores its
      gearbox id, stage count and a copy of the gearbox entry, so a gearbox dropped by a concurrent job edit is rebuilt. */
-  const RTYPE = {1: 'Single', 2: 'Double', 3: 'Triple'}, STAGE_N = [1, 2, 3];
-  const rtype = n => RTYPE[n] || 'Double';
+  const RTYPE = {1: 'Single', 2: 'Double', 3: 'Triple'}, STAGE_N = [1, 2, 3], P_N = [1, 2, 3, 4], TYPE_CODES = [1, 2, 3, 'p1', 'p2', 'p3', 'p4'];
+  const isPl = t => typeof t === 'string' && /^p[1-4]$/.test(t), pN = t => +String(t).slice(1);
+  const rtype = t => isPl(t) ? `Planetary ${pN(t)}-stage` : (RTYPE[t] || 'Double');              // short: tags, zip folder ("Planetary 2-stage", "Triple")
+  const typeLabel = t => isPl(t) ? `Planetary ${pN(t)}-stage` : `${rtype(t)} reduction`;         // "Triple reduction" / "Planetary 2-stage"
+  const stagesText = t => isPl(t) ? `${pN(t)} planetary stage${pN(t) > 1 ? 's' : ''}` : `${t} stage${t > 1 ? 's' : ''}`;
   function parseKey(k) { const m = /^([^.]+)\.(.+)$/.exec(k || ''); return m ? {gid: m[1], base: m[2]} : {gid: 'g1', base: k}; }
   const fkey = (gid, base) => gid === 'g1' ? base : `${gid}.${base}`;
   const newGid = () => 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -695,9 +700,9 @@
   function gbMeta(job, gid) {   // {index, count, label 'Gearbox 1 of 2', reduction 'Triple', stages, serial}
     const act = activeGbs(job), i = act.findIndex(g => g.id === gid), g = gbById(job, gid) || {stages: 2}, info = gbInfo(job, gid);
     return {id: gid, index: i + 1, count: act.length, label: i < 0 ? `Removed gearbox ${job.gearboxes.indexOf(g) + 1}` : `Gearbox ${i + 1} of ${act.length}`,
-            reduction: rtype(g.stages), stages: g.stages || 2, serial: info.serial, removed: !!g.removed, locked: g.locked !== false};
+            reduction: rtype(g.stages), typeLabel: typeLabel(g.stages || 2), stagesText: stagesText(g.stages || 2), planetary: isPl(g.stages), stages: g.stages || 2, serial: info.serial, removed: !!g.removed, locked: g.locked !== false};
   }
-  const gbTitle = (m, withSerial = true) => `${m.label} · ${m.reduction} reduction${withSerial && m.serial ? ` · S/N ${m.serial}` : ''}`;
+  const gbTitle = (m, withSerial = true) => `${m.label} · ${m.typeLabel}${withSerial && m.serial ? ` · S/N ${m.serial}` : ''}`;
   const gbFolder = m => [m.label, m.reduction, m.serial ? 'SN ' + PdfExport.safe(m.serial) : ''].filter(Boolean).join(' - ');   // zip subfolder, e.g. "Gearbox 1 of 2 - Triple - SN 4471-A"
   /* form definition for a form key of a job: the variant matching the gearbox's (locked) stage count */
   function fdef(job, key) {
@@ -734,9 +739,9 @@
   /* Values that auto-fill into the gearbox's forms (customer name comes from the customer file, gearbox info from the gearbox). */
   function ctx(job, cust, gid = 'g1') {
     const m = gbMeta(job, gid);
-    return {customer: custName(job, cust), wo: job.wo || '', ...gbInfo(job, gid), date: job.date || '', gearbox: m.label, gearboxId: gid, gearboxCount: m.count, reduction: m.reduction, stages: m.stages, gbTag: m.index > 0 ? `_GB${m.index}` : ''};
+    return {customer: custName(job, cust), wo: job.wo || '', ...gbInfo(job, gid), date: job.date || '', gearbox: m.label, gearboxId: gid, gearboxCount: m.count, reduction: m.reduction, typeLabel: m.typeLabel, stagesText: m.stagesText, stages: m.stages, gbTag: m.index > 0 ? `_GB${m.index}` : ''};
   }
-  const pdfGb = c => ({label: c.gearbox, count: c.gearboxCount, reduction: c.reduction, serial: c.serial});
+  const pdfGb = c => ({label: c.gearbox, count: c.gearboxCount, reduction: c.reduction, typeLabel: c.typeLabel || typeLabel(c.stages || 2), stagesText: c.stagesText || stagesText(c.stages || 2), serial: c.serial});
   function getVal(job, key, name) {
     const k = kindsOf(job, key)[name] || {}, st = job.forms[key];
     if (k.link) return (st.status === 'completed' && st.snapshot ? st.snapshot : ctx(job, current.customer, parseKey(key).gid))[k.link];
@@ -746,6 +751,7 @@
   function reqState(job, key, req) {
     const st = job.forms[key];
     if (req.onlyIf && !filled(st.values[req.onlyIf])) return 'skip';
+    if (req.ifCount && !(parseInt(st.values[req.ifCount.field], 10) >= req.ifCount.min)) return 'skip';   // e.g. planet rows above the number of planets
     if (st.na[req.id]) return 'na';
     const okAll = (req.all || []).every(n => filled(getVal(job, key, n)));
     const okAny = !req.any || req.any.some(n => filled(getVal(job, key, n)));
@@ -865,8 +871,8 @@
     });
   }
   function blankPdfs() {
-    modal(`<h2>Blank PDF forms</h2><p class="muted">Fillable PDFs, the same templates the app fills in. One set per reduction type.</p>
-      ${STAGE_N.map(n => `<h4 class="subhead">${rtype(n)} reduction (${n} stage${n > 1 ? 's' : ''})</h4><ul class="linklist">${BASES.map(b => FORM_BY_ID[`${b}@${n}`]).filter(Boolean).map(f => `<li><a class="btn" href="${esc(f.template)}" download data-blank="${esc(f.id)}">${esc(f.title)}</a> <span class="muted small">${esc(f.docTitle)}</span></li>`).join('')}</ul>`).join('')}`,
+    modal(`<h2>Blank PDF forms</h2><p class="muted">Fillable PDFs, the same templates the app fills in. One set per gearbox type.</p>
+      ${TYPE_CODES.map(n => `<h4 class="subhead">${typeLabel(n)} (${stagesText(n)})</h4><ul class="linklist">${BASES.map(b => FORM_BY_ID[`${b}@${n}`]).filter(Boolean).map(f => `<li><a class="btn" href="${esc(f.template)}" download data-blank="${esc(f.id)}">${esc(f.title)}</a> <span class="muted small">${esc(f.docTitle)}</span></li>`).join('')}</ul>`).join('')}`,
       [{label: 'Close', value: 'cancel'}], {noFocus: true});
   }
   async function editCustomer(c) {
@@ -911,7 +917,7 @@
       <div class="joblist">${jobs.length ? jobs.map(j => { const gbs = activeGbs(j); return `
         <a class="jobcard" href="${P.job(cid, j.id)}" data-jobcard="${esc(j.id)}">
           <div class="jc-main"><div class="jc-wo">WO ${esc(j.wo || '—')}</div><div class="jc-cust">${esc([j.manufacturer, j.model].filter(Boolean).join(' ') || 'Gearbox')}${j.serial ? ` <span class="muted small">S/N ${esc(j.serial)}</span>` : ''}${j.legacyCustomer ? ` <span class="muted small">(was: ${esc(j.legacyCustomer)})</span>` : ''}</div>
-          <div class="jc-types" data-jobtypes>${gbs.length > 1 ? `<span class="muted small">${gbs.length} gearboxes:</span> ` : ''}${gbs.map((g, i) => `<span class="typetag">${gbs.length > 1 ? `GB${i + 1} ` : ''}${rtype(g.stages)} reduction</span>`).join('')}</div>
+          <div class="jc-types" data-jobtypes>${gbs.length > 1 ? `<span class="muted small">${gbs.length} gearboxes:</span> ` : ''}${gbs.map((g, i) => `<span class="typetag">${gbs.length > 1 ? `GB${i + 1} ` : ''}${typeLabel(g.stages)}</span>`).join('')}</div>
           <div class="jc-forms">${formStates(j).map(f => `<span class="formtag">${gbs.length > 1 ? `GB${gbMeta(j, f.gid).index} · ` : ''}${esc(f.title)} ${badge(f.st.status)}</span>`).join('')}</div></div>
           <div class="jc-side">${badge(jobStatus(j))}<div class="muted small">${esc(j.date ? fmtDay(j.date + 'T12:00') : '')}</div></div></a>`; }).join('')
         : `<div class="empty"><p>No jobs for this customer yet.</p><p class="muted">Tap <b>New job</b> to start a teardown evaluation or assembly verification.</p></div>`}</div>`;
@@ -925,20 +931,28 @@
     };
   }
   /* Gearbox fields + reduction type (required), shared by "New job" and "Add gearbox". */
-  const typeRadios = (sel, name = 'stages') => `<fieldset class="fld rtype"><legend>Reduction type * <span class="muted small">(locked after you confirm)</span></legend><div class="choices seg">${STAGE_N.map(n =>
-    `<label class="chk pill" data-rtype="${n}"><input type="radio" name="${name}" value="${n}" ${+sel === n ? 'checked' : ''}><span class="box"></span><span class="txt"><b>${rtype(n)}</b> <span class="muted small">${n} stage${n > 1 ? 's' : ''}</span></span></label>`).join('')}</div></fieldset>`;
+  /* type picker: Single / Double / Triple / Planetary; Planetary also needs the number of planetary stages (1-4) */
+  const typeRadios = (sel, name = 'stages') => `<fieldset class="fld rtype ${isPl(sel) || sel === 'p' ? 'pl' : ''}"><legend>Gearbox type * <span class="muted small">(locked after you confirm)</span></legend><div class="choices seg">${STAGE_N.map(n =>
+    `<label class="chk pill" data-rtype="${n}"><input type="radio" name="${name}" value="${n}" ${String(sel) === String(n) ? 'checked' : ''}><span class="box"></span><span class="txt"><b>${rtype(n)}</b> <span class="muted small">${n} stage${n > 1 ? 's' : ''}</span></span></label>`).join('')}
+    <label class="chk pill" data-rtype="planetary"><input type="radio" name="${name}" value="p" data-pl="1" ${isPl(sel) || sel === 'p' ? 'checked' : ''}><span class="box"></span><span class="txt"><b>Planetary</b> <span class="muted small">1-4 stages</span></span></label></div>
+    <div class="pstages"><span class="pstages-label">Planetary stages *</span><div class="choices seg">${P_N.map(k => `<label class="chk pill" data-pstages="${k}"><input type="radio" name="${name}_p" value="${k}" ${isPl(sel) && pN(sel) === k ? 'checked' : ''}><span class="box"></span><span class="txt"><b>${k}</b></span></label>`).join('')}</div></div></fieldset>`;
+  /* type code from the picker: 1|2|3, 'p1'…'p4', 'p' (planetary without stage count) or 0 (nothing chosen) */
+  const readType = (f, name = 'stages') => { const v = (f.querySelector(`input[name=${name}]:checked`) || {}).value; if (!v) return 0; if (v !== 'p') return +v;
+    const k = (f.querySelector(`input[name=${name}_p]:checked`) || {}).value; return k ? `p${k}` : 'p'; };
+  const typeError = t => !t ? 'Select the gearbox type (Single, Double, Triple or Planetary).' : t === 'p' ? 'Select the number of planetary stages (1-4).' : '';
+  document.addEventListener('change', e => { const fs = e.target.closest && e.target.closest('fieldset.rtype'); if (fs) fs.classList.toggle('pl', !!fs.querySelector('input[data-pl]:checked')); });
   const gbFields = v => `<div class="row cols3"><label class="fld"><span>Gearbox manufacturer</span><input name="manufacturer" autocomplete="off" value="${esc(v.manufacturer || '')}"></label>
       <label class="fld"><span>Model</span><input name="model" autocomplete="off" value="${esc(v.model || '')}"></label>
       <label class="fld"><span>Serial number</span><input name="serial" autocomplete="off" value="${esc(v.serial || '')}"></label></div>
       ${typeRadios(v.stages)}
       <fieldset class="fld"><legend>Forms</legend>${BASES.map(b => `<label class="chk inline"><input type="checkbox" name="form_${b}" ${!v.forms || v.forms.includes(b) ? 'checked' : ''}><span class="box"></span><span>${esc(BASE_DEF[b].title)}</span></label>`).join('')}</fieldset>`;
   const readGb = f => ({manufacturer: f.manufacturer.value.trim(), model: f.model.value.trim(), serial: f.serial.value.trim(),
-    stages: +((f.querySelector('input[name=stages]:checked') || {}).value || 0), forms: BASES.filter(b => f['form_' + b].checked)});
+    stages: readType(f), forms: BASES.filter(b => f['form_' + b].checked)});
   /* "Finalize the selection": the reduction type is confirmed in a separate step and then locked. */
-  const confirmType = (n, what) => modal(`<h2>Confirm reduction type</h2><p class="rtype-confirm"><b>${rtype(n)} reduction</b> · ${n} stage${n > 1 ? 's' : ''}</p>
-      <p>${esc(what)} uses the ${rtype(n).toLowerCase()}-reduction forms: ${n === 1 ? 'input and output shafts, one gear mesh' : n === 2 ? 'input, intermediate and output shafts, two gear meshes' : 'input, two intermediate and output shafts, three gear meshes'}.</p>
+  const confirmType = (n, what) => modal(`<h2>Confirm gearbox type</h2><p class="rtype-confirm"><b>${typeLabel(n)}</b> · ${stagesText(n)}</p>
+      <p>${esc(what)} uses the ${isPl(n) ? `planetary forms: ${pN(n) === 1 ? 'one planetary stage' : `a section for each of the ${pN(n)} planetary stages`} (sun gear, planets, ring gear, carrier, ratio, backlash, endplay), plus input and output shafts, housing, lubrication and shims` : `${rtype(n).toLowerCase()}-reduction forms: ${n === 1 ? 'input and output shafts, one gear mesh' : n === 2 ? 'input, intermediate and output shafts, two gear meshes' : 'input, two intermediate and output shafts, three gear meshes'}`}.</p>
       <p class="muted small">After you confirm, the type is <b>locked</b> 🔒. Changing it later needs Admin approval and is only possible while none of this gearbox's forms has been finalized.</p>`,
-    [{label: 'Back', value: 'cancel'}, {label: `Confirm ${rtype(n)} & lock`, value: 'ok', cls: 'primary'}]).then(v => v === 'ok');
+    [{label: 'Back', value: 'cancel'}, {label: `Confirm ${isPl(n) ? `Planetary ${pN(n)}-stage` : rtype(n)} & lock`, value: 'ok', cls: 'primary'}]).then(v => v === 'ok');
   async function newJob(customer) {
     let vals = {wo: '', date: today(), stages: 0}, err = '';
     for (;;) {
@@ -950,7 +964,7 @@
         [{label: 'Cancel', value: 'cancel'}, {label: 'Create job', value: 'ok', cls: 'primary'}], {wide: true});
       if (v !== 'ok') return;
       const f = $('#dlgForm'); vals = {wo: f.wo.value.trim(), date: f.date.value, ...readGb(f)};
-      if (!vals.stages) { err = 'Select the reduction type (Single, Double or Triple).'; continue; }
+      if (typeError(vals.stages)) { err = typeError(vals.stages); continue; }
       if (!await confirmType(vals.stages, 'Gearbox 1')) { err = ''; continue; }
       break;
     }
@@ -960,7 +974,7 @@
                  gearboxes: [{id: 'g1', stages: vals.stages, locked: true, lockedAt: now, lockedBy: userName(), createdAt: now, createdBy: userName()}]};
     for (const b of vals.forms) job.forms[b] = newFormState(b, 'g1', vals.stages);
     await saveJob(job); await saveCustomer(customer);
-    await audit('Reduction type locked', `WO ${job.wo} – Gearbox 1 of 1: ${rtype(vals.stages)} reduction`, 'done');
+    await audit('Reduction type locked', `WO ${job.wo} – Gearbox 1 of 1: ${typeLabel(vals.stages)}`, 'done');
     location.hash = P.job(customer.id, job.id);
   }
   async function addGearbox(job, cid) {
@@ -968,12 +982,12 @@
     const n = activeGbs(job).length + 1;
     let vals = {stages: 0}, err = '';
     for (;;) {
-      const v = await modal(`<h2>Add gearbox ${n} to WO ${esc(job.wo)}</h2><p class="muted">The new gearbox gets its own forms (Teardown Evaluation and Assembly Verification) with its own reduction type.</p>
+      const v = await modal(`<h2>Add gearbox ${n} to WO ${esc(job.wo)}</h2><p class="muted">The new gearbox gets its own forms (Teardown Evaluation and Assembly Verification) with its own gearbox type.</p>
         ${gbFields(vals)}${err ? `<p class="pin-error" role="alert">${esc(err)}</p>` : ''}`,
         [{label: 'Cancel', value: 'cancel'}, {label: 'Add gearbox', value: 'ok', cls: 'primary'}], {wide: true});
       if (v !== 'ok') return;
       vals = readGb($('#dlgForm'));
-      if (!vals.stages) { err = 'Select the reduction type (Single, Double or Triple).'; continue; }
+      if (typeError(vals.stages)) { err = typeError(vals.stages); continue; }
       if (!await confirmType(vals.stages, `Gearbox ${n}`)) { err = ''; continue; }
       break;
     }
@@ -983,8 +997,8 @@
     for (const b of vals.forms) job.forms[fkey(gid, b)] = newFormState(fkey(gid, b), gid, vals.stages, entry);
     await saveJob(job);
     const m = gbMeta(job, gid);
-    await audit('Gearbox added to job', `WO ${job.wo} – ${m.label}: ${m.reduction} reduction (locked)${vals.serial ? `, S/N ${vals.serial}` : ''}`, 'done');
-    toast(`${m.label} added – ${m.reduction} reduction`); renderJob(cid, job.id);
+    await audit('Gearbox added to job', `WO ${job.wo} – ${m.label}: ${m.typeLabel} (locked)${vals.serial ? `, S/N ${vals.serial}` : ''}`, 'done');
+    toast(`${m.label} added – ${m.typeLabel}`); renderJob(cid, job.id);
   }
   /* blocks a type change / removal while a form of the gearbox is open on another tablet */
   function inUseElsewhere(job, gid) {
@@ -996,26 +1010,27 @@
     const m = gbMeta(job, gid), fs = BASES.map(b => job.forms[fkey(gid, b)]).filter(Boolean);
     const fin = fs.filter(st => st.status === 'completed' || (st.history || []).length);
     if (fin.length) {
-      await modal(`<h2>Reduction type is locked</h2><p><b>${esc(gbTitle(m))}</b></p><p>The type can't be changed because ${fin.length === 1 ? 'a form of this gearbox has' : 'forms of this gearbox have'} already been finalized (final PDFs exist). Finalized PDFs are permanent records of the ${m.reduction.toLowerCase()}-reduction forms.</p><p class="muted small">If the type was wrong, remove this gearbox (Admin) and add it again with the correct type.</p>`, [{label: 'Close', value: 'cancel'}]);
+      await modal(`<h2>Gearbox type is locked</h2><p><b>${esc(gbTitle(m))}</b></p><p>The type can't be changed because ${fin.length === 1 ? 'a form of this gearbox has' : 'forms of this gearbox have'} already been finalized (final PDFs exist). Finalized PDFs are permanent records of the ${esc(m.typeLabel.toLowerCase())} forms.</p><p class="muted small">If the type was wrong, remove this gearbox (Admin) and add it again with the correct type.</p>`, [{label: 'Close', value: 'cancel'}]);
       return;
     }
     const busy = inUseElsewhere(job, gid);
     if (busy) { await modal(`<h2>Form in use</h2><p>${esc(titleOf(busy.base))} of ${esc(m.label)} is open on <b>${esc(busy.name || 'another tablet')}</b>. Change the type when it is closed there.</p>`, [{label: 'Close', value: 'cancel'}]); return; }
-    const v = await modal(`<h2>Change reduction type</h2><p><b>${esc(gbTitle(m))}</b> 🔒</p>${typeRadios(m.stages, 'nstages')}
+    const v = await modal(`<h2>Change gearbox type</h2><p><b>${esc(gbTitle(m))}</b> 🔒</p>${typeRadios(m.stages, 'nstages')}
       <p class="muted small">The forms of this gearbox switch to the new type. Values already entered stay; fields that don't exist in the new type are no longer shown or printed. Needs Admin approval and is recorded in the audit log.</p>`,
       [{label: 'Cancel', value: 'cancel'}, {label: 'Continue', value: 'ok', cls: 'primary'}], {wide: true});
     if (v !== 'ok') return;
-    const n = +(($('#dlgForm').querySelector('input[name=nstages]:checked') || {}).value || 0);
-    if (!n || n === m.stages) { toast('Reduction type unchanged'); return; }
-    if (!await confirmType(n, m.label)) { toast('Reduction type unchanged'); return; }
-    if (!await requireAdmin('Change gearbox reduction type', `WO ${job.wo} – ${m.label}${m.serial ? ` (S/N ${m.serial})` : ''}: ${m.reduction} → ${rtype(n)}`)) return;
+    const n = readType($('#dlgForm'), 'nstages');
+    if (n === 'p') { toast('Select the number of planetary stages – type unchanged', 4000); return; }
+    if (!n || n === m.stages) { toast('Gearbox type unchanged'); return; }
+    if (!await confirmType(n, m.label)) { toast('Gearbox type unchanged'); return; }
+    if (!await requireAdmin('Change gearbox reduction type', `WO ${job.wo} – ${m.label}${m.serial ? ` (S/N ${m.serial})` : ''}: ${m.typeLabel} → ${typeLabel(n)}`)) return;
     await flushSave();
     const g = gbById(job, gid), now = Date.now();
     Object.assign(g, {stages: n, locked: true, lockedAt: now, lockedBy: userName(), typeChangedAt: now, typeChangedBy: userName(), previousStages: m.stages}); delete g.migrated;
     for (const b of BASES) { const st = job.forms[fkey(gid, b)]; if (st) st.stages = n; }
     await saveJob(job);
-    await audit('Reduction type changed', `WO ${job.wo} – ${m.label}: ${m.reduction} → ${rtype(n)} reduction (locked)`, 'done');
-    toast(`${m.label}: ${rtype(n)} reduction`); renderJob(cid, job.id);
+    await audit('Reduction type changed', `WO ${job.wo} – ${m.label}: ${m.typeLabel} → ${typeLabel(n)} (locked)`, 'done');
+    toast(`${m.label}: ${typeLabel(n)}`); renderJob(cid, job.id);
   }
   async function removeGearbox(job, gid, cid) {
     const m = gbMeta(job, gid);
@@ -1053,7 +1068,7 @@
       </section>
       ${gbs.map(g => { const m = gbMeta(job, g.id), info = gbInfo(job, g.id), gi = (k, label) => `<label class="fld"><span>${label}</span><input ${g.id === 'g1' ? `data-job="${k}"` : `data-gb="${g.id}" data-gbf="${k}"`} type="text" value="${esc(info[k])}" autocomplete="off"></label>`;
         return `<section class="card gbcard" data-gbcard="${g.id}">
-        <div class="card-head"><h2>${esc(m.label)}</h2><span class="typetag big" data-gbtype="${g.id}" title="Locked ${esc(fmtDate(g.lockedAt))}${g.lockedBy ? ' by ' + esc(g.lockedBy) : ''}">🔒 ${esc(m.reduction)} reduction <span class="muted small">${m.stages} stage${m.stages > 1 ? 's' : ''}</span></span>${g.migrated ? '<span class="muted small" title="Jobs created before Rev 1.5 are Double reduction">(default for jobs before Rev 1.5)</span>' : ''}
+        <div class="card-head"><h2>${esc(m.label)}</h2><span class="typetag big" data-gbtype="${g.id}" title="Locked ${esc(fmtDate(g.lockedAt))}${g.lockedBy ? ' by ' + esc(g.lockedBy) : ''}">🔒 ${esc(m.typeLabel)} <span class="muted small">${esc(m.stagesText)}</span></span>${g.migrated ? '<span class="muted small" title="Jobs created before Rev 1.5 are Double reduction">(default for jobs before Rev 1.5)</span>' : ''}
           <span class="right gb-actions"><button class="btn ghost" data-gbchange="${g.id}">Change type</button>${gbs.length > 1 ? `<button class="btn ghost danger-text" data-gbremove="${g.id}">Remove gearbox</button>` : ''}</span></div>
         <div class="row cols3">${gi('manufacturer', 'Gearbox manufacturer')}${gi('model', 'Model')}${gi('serial', 'Serial number')}</div>
         <div class="formlist" style="margin-top:12px">${BASES.map(b => {
@@ -1074,7 +1089,7 @@
       </section>
       <section class="card">
         <div class="card-head"><h2>Saved documents</h2><span class="muted small">Final PDFs created when a form is finalized · all revisions kept</span></div>
-        ${docs.length ? `<div class="doclist">${docs.map(d => `<div class="docrow"><div><b>${esc(d.filename)}</b><div class="muted small">${docGb(d) ? `<b>${esc(docGb(d))}</b> · ` : ''}${esc(titleOf(d.formKey))}${d.reduction ? ` (${esc(d.reduction)} reduction)` : ''} · revision ${d.revision} · ${esc(fmtDate(d.createdAt))} · signed by ${esc(d.signedBy)}${d.inspectedOn ? ` · inspected on ${esc(d.inspectedOn)}` : ''} · ${d.pages} pages · ${(d.size / 1024).toFixed(0)} KB</div></div>
+        ${docs.length ? `<div class="doclist">${docs.map(d => `<div class="docrow"><div><b>${esc(d.filename)}</b><div class="muted small">${docGb(d) ? `<b>${esc(docGb(d))}</b> · ` : ''}${esc(titleOf(d.formKey))}${d.reduction ? ` (${esc(d.typeLabel || d.reduction + ' reduction')})` : ''} · revision ${d.revision} · ${esc(fmtDate(d.createdAt))} · signed by ${esc(d.signedBy)}${d.inspectedOn ? ` · inspected on ${esc(d.inspectedOn)}` : ''} · ${d.pages} pages · ${(d.size / 1024).toFixed(0)} KB</div></div>
           <div class="fr-actions"><button class="btn" data-docview="${d.id}">View</button><button class="btn" data-docprint="${d.id}">Print</button><button class="btn primary" data-docshare="${d.id}">${SHARE}</button><button class="btn danger-outline" data-docdel="${d.id}" aria-label="Delete saved PDF">Delete</button></div></div>`).join('')}</div>`
           : '<p class="muted">No saved documents yet. Finalize a form to save its PDF here.</p>'}
       </section>
@@ -1128,8 +1143,8 @@
   }
 
   /* ---------- photos ---------- */
-  function photoPanel(scope, label, locked) {
-    return `<div class="photos" data-scope="${esc(scope)}" data-label="${esc(label)}" ${locked ? 'data-locked="1"' : ''}>
+  function photoPanel(scope, label, locked, suggest) {
+    return `<div class="photos" data-scope="${esc(scope)}" data-label="${esc(label)}" ${locked ? 'data-locked="1"' : ''} ${suggest ? `data-suggest="${esc(suggest)}"` : ''}>
       ${locked ? '' : `<div class="photo-btns"><button type="button" class="btn cam" data-cam="1" data-scope="${esc(scope)}" data-label="${esc(label)}">📷 Take photo</button><label class="btn" for="fileGallery" data-scope="${esc(scope)}" data-label="${esc(label)}">🖼 Choose from gallery</label></div>`}
       <div class="thumbs"></div></div>`;
   }
@@ -1138,7 +1153,7 @@
     for (const panel of $$('.photos')) {
       const list = photos.filter(p => p.scope === panel.dataset.scope), locked = !!panel.dataset.locked;
       $('.thumbs', panel).innerHTML = list.map(p => `<figure class="thumb" data-id="${p.id}"><img src="${objUrl(p.thumb || p.blob)}" alt="${esc(p.caption || 'photo')}" data-full="${p.id}">
-        ${locked ? `<figcaption>${esc(p.caption)}</figcaption>` : `<input class="cap" placeholder="Caption" value="${esc(p.caption)}" data-cap="${p.id}"><button class="del" data-delphoto="${p.id}" aria-label="Delete photo">✕</button>`}</figure>`).join('')
+        ${locked ? `<figcaption>${esc(p.caption)}</figcaption>` : `<input class="cap" placeholder="Caption" value="${esc(p.caption)}" data-cap="${p.id}" maxlength="120" autocomplete="off" ${panel.dataset.suggest ? `list="${esc(panel.dataset.suggest)}"` : ''}><button class="del" data-delphoto="${p.id}" aria-label="Delete photo">✕</button>`}</figure>`).join('')
         || (locked ? '<p class="muted small">No photos.</p>' : '');
       const summary = panel.closest('details') && $('.pcount', panel.closest('details')); if (summary) summary.textContent = list.length ? `(${list.length})` : '';
     }
@@ -1149,7 +1164,7 @@
       const t = e.target;
       if (t.matches('label[for="fileCamera"],label[for="fileGallery"]')) { pendingPhoto = {jobId: current.job.id, scope: t.dataset.scope, label: t.dataset.label}; return; }
       const camBtn = t.closest && t.closest('[data-cam]');
-      if (camBtn) { pendingPhoto = {jobId: current.job.id, scope: camBtn.dataset.scope, label: camBtn.dataset.label}; openCamera(pendingPhoto); return; }
+      if (camBtn) { const pn = camBtn.closest('.photos'); pendingPhoto = {jobId: current.job.id, scope: camBtn.dataset.scope, label: camBtn.dataset.label, suggest: pn && pn.dataset.suggest}; openCamera(pendingPhoto); return; }
       if (t.dataset.full) { const p = photos.find(x => x.id === t.dataset.full) || await DB.get('photos', t.dataset.full); if (p) modal(`<img class="full" src="${objUrl(p.blob)}" alt=""><p>${esc(p.caption || '')}</p><p class="muted small">${esc(p.label)} · ${p.w}×${p.h}</p>`, [{label: 'Close', value: 'cancel'}], {wide: true, noFocus: true}); return; }
       if (t.dataset.delphoto) {
         if (!await confirmBox('Delete photo?', 'This photo will be removed from the job.', 'Delete', true)) return;
@@ -1171,7 +1186,7 @@
   }
   function openCamera(target) {
     Camera.open({
-      title: `${target.label} – WO ${current.job ? current.job.wo : ''}`,
+      title: `${target.label} – WO ${current.job ? current.job.wo : ''}`, captionList: target.suggest || '',
       onUse: (blob, caption) => savePhoto(target, blob, caption),
       onClose: async n => { if (current.job && n) { current.job.updatedAt = Date.now(); await DB.put('jobs', current.job); await fillPhotoPanels(current.job); toast(`${n} photo${n > 1 ? 's' : ''} added`); } },
       onUnavailable: err => cameraFallback(target, err),
@@ -1216,7 +1231,8 @@
     const ro = f.link === 'customer' ? 'readonly title="Edit the name in the customer file"' : '';
     if (f.multiline) return `<textarea data-name="${n}" ${link} rows="${f.rows || 3}" ${dis} aria-label="${esc(f.label || '')}">${esc(val)}</textarea>`;
     const type = f.input === 'date' ? 'date' : 'text';
-    return `<input type="${type}" data-name="${n}" ${link} ${ro} value="${esc(val)}" ${dis} autocomplete="off" aria-label="${esc(f.label || opts.aria || '')}">`;
+    const calc = f.calc ? 'readonly class="calc" tabindex="-1" title="Calculated from the tooth counts"' : '';
+    return `<input type="${type}" data-name="${n}" ${link} ${ro} ${calc} value="${esc(val)}" ${dis} autocomplete="off" aria-label="${esc(f.label || opts.aria || '')}">`;
   }
   function renderBlock(job, key, b, locked) {
     const v = n => getVal(job, key, n) || '', chk = n => job.forms[key].values[n] ? 'checked' : '', dis = locked ? 'disabled' : '';
@@ -1234,7 +1250,7 @@
           ${b.notes ? `<label class="fld sub"><span>Notes</span>${input({name: b.notes, label: 'Notes'}, v(b.notes), {locked})}</label>` : ''}</div>`;
       case 'table': return `<div class="blk tablewrap"><h4 class="subhead">${esc(b.title)}</h4><table class="tbl"><thead><tr>${b.columns.map(c => `<th>${esc(c)}</th>`).join('')}<th class="na-col"></th></tr></thead><tbody>
           ${b.rows.map(r => `<tr ${reqAttr(r)}>${r.label.map((l, i) => `<td class="${i ? '' : 'rowlabel'}">${esc(l)}</td>`).join('')}${r.cells.map(c => c.kind === 'choice'
-            ? `<td class="cc"><div class="choices seg rr" data-exclusive="1" role="radiogroup" aria-label="Shim pack">${c.options.map(o => cbox(o.name, o.label, 'pill ' + o.label.toLowerCase())).join('')}</div></td>`
+            ? `<td class="cc"><div class="choices seg rr" data-exclusive="1" role="radiogroup" aria-label="${esc(c.options.map(o => o.label).join(' / '))}">${c.options.map(o => cbox(o.name, o.label, 'pill ' + o.label.toLowerCase())).join('')}</div></td>`
             : c.kind === 'check' ? `<td class="c">${cbox(c.name, '', 'solo')}</td>` : `<td>${input({name: c.name}, v(c.name), {locked, aria: c.name})}</td>`).join('')}<td class="na-col">${naBtn(r, locked)}</td></tr>`).join('')}</tbody></table></div>`;
       case 'component': return `<div class="blk comp" ${reqAttr(b)} id="comp-${esc(b.id)}">
           <div class="comp-head">${b.nameField ? `<label class="other-name"><span>Other:</span>${input({name: b.nameField, label: 'Other component name'}, v(b.nameField), {locked})}</label>` : `<b>${esc(b.name)}</b>`}
@@ -1242,6 +1258,12 @@
           <div class="comp-body"><div class="row cols${b.fields.length + 1}">${b.fields.map(f => `<label class="fld"><span>${esc(f.label)}</span>${input(f, v(f.name), {locked})}</label>`).join('')}</div>
             <label class="fld"><span>Findings</span>${input({name: b.findings, label: 'Findings', multiline: true, rows: 2}, v(b.findings), {locked})}</label>
             <details class="comp-photos"><summary>Photos <span class="pcount"></span></summary>${photoPanel(`${key}:${b.id}`, b.name, locked)}</details></div></div>`;
+      case 'photos': {   // Rev 1.6: L. Teardown photos (optional; printed in this section of the PDF)
+        const dl = `capsuggest-${b.id}`, comps = fdef(job, key).sections.flatMap(s => s.blocks).filter(x => x.type === 'component' && !x.nameField).map(x => x.name);
+        return `<div class="blk tphotos" id="blk-${esc(b.id)}"><p class="muted small">${esc(b.help || '')}</p>
+          <datalist id="${dl}">${[...(b.suggest || []), ...comps].map(o => `<option value="${esc(o)}"></option>`).join('')}</datalist>
+          ${photoPanel(`${key}:${b.scope}`, b.label, locked, dl)}</div>`;
+      }
     }
     return '';
   }
@@ -1263,7 +1285,7 @@
       (completed ? `<button class="btn warn" id="reopenBtn">Reopen</button>` : inUse ? `<button class="btn" id="lockRetryBtn">Check again</button>` : `<button class="btn accent" id="finalizeBtn">Finalize</button>`), {label: `WO ${job.wo}`, href: P.job(cid, jid)});
     view.innerHTML = `
       <div class="form-top">
-        <div class="form-meta"><h1>${esc(form.docTitle)}</h1><div class="gb-line" id="gbLine">${esc(gm.label)} · <b>${esc(gm.reduction)} reduction</b> 🔒${gm.serial ? ` · S/N ${esc(gm.serial)}` : ''}</div><div>${badge(st.status)} <span class="muted small">rev ${st.revision}</span> <span class="muted small" id="progTxt"></span></div></div>
+        <div class="form-meta"><h1>${esc(form.docTitle)}</h1><div class="gb-line" id="gbLine">${esc(gm.label)} · <b>${esc(gm.typeLabel)}</b> 🔒${gm.serial ? ` · S/N ${esc(gm.serial)}` : ''}</div><div>${badge(st.status)} <span class="muted small">rev ${st.revision}</span> <span class="muted small" id="progTxt"></span></div></div>
         ${locked ? '' : `<div class="tablet-row"><label class="fld"><span>Tablet used for inspection</span><input id="tabletUsed" type="text" maxlength="60" autocomplete="off" value="${esc(st.tabletUsed ?? TABLET)}"></label></div>`}
         ${inUse ? `<div class="lockbar inuse" id="inUseBar">🔒 <b>In use on ${esc(inUse.name)}</b>${inUse.user ? ` by <b>${esc(inUse.user)}</b>` : ''}. Read-only here so nobody overwrites the other tablet's work. It opens for editing when they leave the form (or automatically after ${esc(new Date(inUse.until).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'}))} if that tablet went offline).</div>` : ''}
         ${offlineEdit ? `<div class="infobar" id="offlineBar">Offline: your changes are saved on this tablet and sync when it is back online. The form can't be checked out while offline, so if someone edits it on another tablet at the same time, the first to sync wins and the other's changes go to the audit log.</div>` : ''}
@@ -1279,6 +1301,7 @@
         <section class="sec" id="sec-photos-all"><h3 class="sec-title">Job photos</h3><p class="muted small">Job-level photos (shared by all forms of this job) are appended to the PDF along with the section and component photos above.</p>${photoPanel('job', 'Job photo', false)}</section>
       </div>`;
     const body = $('#formBody'); window.scrollTo(0, 0);
+    if (!locked) recalc(job, key);
     refreshReqUI(job, key);
     $$('.chips a').forEach(a => a.onclick = e => { e.preventDefault(); jumpTo($('#' + a.dataset.jump)); });
     if (!locked) {
@@ -1308,7 +1331,18 @@
       if (t.dataset.link === 'customer') return;   // edited in the customer file
       setGbInfo(job, parseKey(key).gid, t.dataset.link, t.value);   // gearbox-level value shared by both forms of that gearbox
     } else st.values[name] = t.value;
+    recalc(job, key);
     scheduleSave(job); if (current.job === job) refreshReqUI(job, key);
+  }
+  /* Rev 1.6 calculated fields: planetary stage ratio = 1 + Z ring / Z sun from the tooth counts (stored, so PDFs print it) */
+  const ratioTxt = r => isFinite(r) && r > 0 ? String(Math.round(r * 1000) / 1000) : '';
+  function recalc(job, key) {
+    const st = job.forms[key]; if (!st || st.status === 'completed') return;
+    for (const c of CALCS[fdef(job, key).id] || []) {
+      const ring = parseFloat(String(st.values[c.ring] || '').replace(',', '.')), sun = parseFloat(String(st.values[c.sun] || '').replace(',', '.'));
+      const v = ring > 0 && sun > 0 ? ratioTxt(1 + ring / sun) : '';
+      if ((st.values[c.name] || '') !== v) { st.values[c.name] = v; const el = document.querySelector(`#formBody [data-name="${CSS.escape(c.name)}"]`); if (el) el.value = v; }
+    }
   }
   function toggleNA(job, key, id) {
     const st = job.forms[key]; if (st.na[id]) delete st.na[id]; else st.na[id] = true;
@@ -1318,7 +1352,7 @@
     for (const r of reqsOf(job, key)) {
       const el = document.querySelector(`[data-req="${CSS.escape(r.req.id)}"]`); if (!el) continue;
       const s = reqState(job, key, r.req);
-      el.classList.toggle('is-na', s === 'na'); el.classList.toggle('is-done', s === 'done');
+      el.classList.toggle('is-na', s === 'na'); el.classList.toggle('is-done', s === 'done'); el.classList.toggle('is-skip', s === 'skip');
       if (s !== 'missing') el.classList.remove('missing');
       const nb = $('.na-btn', el); if (nb) nb.classList.toggle('on', s === 'na');
     }
@@ -1380,10 +1414,10 @@
     try {
       const c = ctx(job, current.customer, gid);
       const naLabels = reqsOf(job, key).filter(r => st.na[r.req.id] && reqState(job, key, r.req) !== 'skip').map(r => `${r.section}: ${r.req.label}`);
-      const out = await PdfExport.build({form, job: c, state: st, gearbox: pdfGb(c), photos: await photosFor(job, key), final: {signedBy, completedAt: fmtDate(now), revision: st.revision, naLabels, inspectedOn, finalizedBy: userName(), appRev: REV_LABEL}});
+      const out = await PdfExport.build({form, job: c, state: st, gearbox: pdfGb(c), photos: await photosFor(job, key), sectionPhotos: await sectionPhotosFor(job, key), final: {signedBy, completedAt: fmtDate(now), revision: st.revision, naLabels, inspectedOn, finalizedBy: userName(), appRev: REV_LABEL}});
       const blob = new Blob([out.bytes], {type: 'application/pdf'});
       const filename = PdfExport.filename(c, form, `_FINAL-rev${st.revision}`);
-      const doc = {id: DB.uid(), jobId: job.id, customerId: job.customerId, formKey: key, gearboxId: gid, gearbox: c.gearbox, stages: c.stages, reduction: c.reduction, revision: st.revision, filename, createdAt: now.getTime(), signedBy, inspectedOn, finalizedBy: userName(), appRev: REV_LABEL, pages: out.pages, size: blob.size, blob};
+      const doc = {id: DB.uid(), jobId: job.id, customerId: job.customerId, formKey: key, gearboxId: gid, gearbox: c.gearbox, stages: c.stages, reduction: c.reduction, typeLabel: c.typeLabel, revision: st.revision, filename, createdAt: now.getTime(), signedBy, inspectedOn, finalizedBy: userName(), appRev: REV_LABEL, pages: out.pages, size: blob.size, blob};
       await DB.put('docs', doc);
       Object.assign(st, {status: 'completed', completedAt: now.getTime(), signedBy, inspectedOn, finalizedBy: userName(), tabletUsed: inspectedOn, snapshot: c, gearboxId: gid, stages: c.stages});
       st.history.push({revision: st.revision, completedAt: now.getTime(), signedBy, inspectedOn, finalizedBy: userName(), docId: doc.id});
@@ -1409,10 +1443,15 @@
     for (const s of form.sections) { order.push(`${key}:${s.id}`); for (const b of s.blocks) if (b.type === 'component') order.push(`${key}:${b.id}`); }
     return order;
   }
+  const photoBlockScopes = (job, key) => fdef(job, key).sections.flatMap(s => s.blocks).filter(b => b.type === 'photos').map(b => `${key}:${b.scope}`);
   async function photosFor(job, key) {
-    const all = (await DB.byJob('photos', job.id)).sort((a, b) => a.createdAt - b.createdAt), out = [];
-    for (const sc of photoOrder(job, key)) for (const p of all.filter(x => x.scope === sc)) out.push({blob: p.blob, w: p.w, h: p.h, caption: p.caption, label: sc === 'job' ? 'Job photo' : p.label});
+    const all = (await DB.byJob('photos', job.id)).sort((a, b) => a.createdAt - b.createdAt), out = [], own = photoBlockScopes(job, key);
+    for (const sc of photoOrder(job, key)) if (!own.includes(sc)) for (const p of all.filter(x => x.scope === sc)) out.push({blob: p.blob, w: p.w, h: p.h, caption: p.caption, label: sc === 'job' ? 'Job photo' : p.label});
     return out;
+  }
+  async function sectionPhotosFor(job, key) {   // Rev 1.6: L. Teardown photos
+    const own = photoBlockScopes(job, key); if (!own.length) return [];
+    return (await DB.byJob('photos', job.id)).filter(p => own.includes(p.scope)).sort((a, b) => a.createdAt - b.createdAt).map(p => ({blob: p.blob, w: p.w, h: p.h, caption: p.caption}));
   }
   async function exportForm(job, key) {
     await flushSave();
@@ -1424,7 +1463,7 @@
     toast('Building PDF…', 8000);
     try {
       const c = ctx(job, current.customer, parseKey(key).gid);
-      const out = await PdfExport.build({form, job: c, state: st, gearbox: pdfGb(c), photos: await photosFor(job, key), final: null});
+      const out = await PdfExport.build({form, job: c, state: st, gearbox: pdfGb(c), photos: await photosFor(job, key), sectionPhotos: await sectionPhotosFor(job, key), final: null});
       await fileReady(new Blob([out.bytes], {type: 'application/pdf'}), PdfExport.filename(c, form), 'Draft PDF ready (fields editable)');
     } catch (e) { console.error(e); modal(`<h2>PDF failed</h2><p>${esc(e.message)}</p>`, [{label: 'Close', value: 'cancel'}]); }
   }
@@ -1435,13 +1474,13 @@
       // grouped per gearbox (Teardown Evaluation before Assembly Verification); every group starts with a gearbox cover page (Rev 1.5.1: also for 1 gearbox)
       for (const g of gbs) {
         const mine = fs.filter(f => f.gid === g.id), gc = ctx(job, customer, g.id), m = gbMeta(job, g.id);
-        parts.push({divider: {title: `${m.label}  -  ${m.reduction} reduction`, sub: `Work order ${c.wo || '-'}   |   Customer: ${c.customer || '-'}`,
-          lines: [`Reduction type: ${m.reduction} reduction (${m.stages} stage${m.stages > 1 ? 's' : ''})`, `Manufacturer: ${gc.manufacturer || '-'}`, `Model: ${gc.model || '-'}`, `Serial number: ${gc.serial || '-'}`, '',
+        parts.push({divider: {title: `${m.label}  -  ${m.typeLabel}`, sub: `Work order ${c.wo || '-'}   |   Customer: ${c.customer || '-'}`,
+          lines: [`${m.planetary ? 'Gearbox type' : 'Reduction type'}: ${m.typeLabel} (${m.stagesText})`, `Manufacturer: ${gc.manufacturer || '-'}`, `Model: ${gc.model || '-'}`, `Serial number: ${gc.serial || '-'}`, '',
                   ...(mine.length ? mine.map(f => `${f.title}: ${f.st.status === 'completed' ? `Completed (final rev ${f.st.revision})` : `Draft (rev ${f.st.revision}, not finalized)`}`) : ['No forms for this gearbox'])]}});
         for (const f of mine) {
           const fin = docs.filter(d => d.formKey === f.key).sort((a, b) => b.revision - a.revision || b.createdAt - a.createdAt)[0];
           if (f.st.status === 'completed' && fin) parts.push(new Uint8Array(await fin.blob.arrayBuffer()));
-          else parts.push((await PdfExport.build({form: f.def, job: gc, state: f.st, gearbox: pdfGb(gc), photos: await photosFor(job, f.key), final: null, flatten: true})).bytes);
+          else parts.push((await PdfExport.build({form: f.def, job: gc, state: f.st, gearbox: pdfGb(gc), photos: await photosFor(job, f.key), sectionPhotos: await sectionPhotosFor(job, f.key), final: null, flatten: true})).bytes);
         }
       }
       if (!fs.length) { toast('This job has no forms'); return null; }
@@ -1476,7 +1515,7 @@
     }
     const summary = [`Ram-Gear Manufacturing Incorporated – job folder`, `Customer: ${c.customer}`, `Work order: ${c.wo}`, `Date: ${c.date}`, `Gearboxes: ${gbs.length}`, `Created on tablet: ${job.tabletId || '-'}`, `Created by: ${job.createdBy || '-'}`,
       customer.contact || customer.phone || customer.email ? `Contact: ${[customer.contact, Phone.format(customer.phone), customer.email].filter(Boolean).join(' / ')}` : '', '',
-      ...gbs.flatMap(g => { const m = gbMeta(job, g.id), gi = gbInfo(job, g.id); return [`${m.label}: ${m.reduction} reduction (${m.stages} stage${m.stages > 1 ? 's' : ''}, locked)  – folder "${gbFolder(m)}"`,
+      ...gbs.flatMap(g => { const m = gbMeta(job, g.id), gi = gbInfo(job, g.id); return [`${m.label}: ${m.typeLabel} (${m.stagesText}, locked)  – folder "${gbFolder(m)}"`,
         `  Gearbox: ${[gi.manufacturer, gi.model].filter(Boolean).join(' ') || '-'}  S/N ${gi.serial || '-'}`,
         ...formStates(job).filter(f => f.gid === g.id).map(f => { const st = f.st; return `  ${f.title}: ${st.status === 'completed' ? `Completed rev ${st.revision} ${fmtDate(st.completedAt)} by ${st.signedBy}, finalized by ${st.finalizedBy || '-'}, Inspected on: ${st.inspectedOn || '-'}` : `Draft (rev ${st.revision}), Tablet used for inspection: ${st.tabletUsed ?? TABLET}`}`; }), '']; }),
       'Saved documents:', ...(docs.length ? docs.map(d => `  ${d._zipPath.slice(folder.length + 1)}  (rev ${d.revision}, ${fmtDate(d.createdAt)}, signed by ${d.signedBy}${d.inspectedOn ? `, inspected on ${d.inspectedOn}` : ''})`) : ['  none']),
@@ -1582,9 +1621,10 @@
       for (const s of f.sections) for (const b of s.blocks) {
         if (b.req) REQS[f.id].push({req: b.req, section: s.title});
         if (b.type === 'table') for (const r of b.rows) if (r.req) REQS[f.id].push({req: r.req, section: s.title});
+        for (const x of b.type === 'row' ? b.fields : [b]) if (x.calc && x.calc.planetRatio) (CALCS[f.id] = CALCS[f.id] || []).push({name: x.name, ring: x.calc.planetRatio[0], sun: x.calc.planetRatio[1]});
       }
     }
-    window.RG = {FORMS, REQS, normalizeJob, gbMeta, DB, Admin, Auth, Camera, Cloud, toast, whoami: () => USER && {username: USER.username, role: USER.role, name: USER.displayName}};  // for debugging/tests
+    window.RG = {FORMS, REQS, CALCS, normalizeJob, gbMeta, DB, Admin, Auth, Camera, Cloud, toast, whoami: () => USER && {username: USER.username, role: USER.role, name: USER.displayName}};  // for debugging/tests
     /* Start-up decision. Any storage error shows an error screen – it is never treated as "no admin yet".
        Setup runs only when the device has no users, no legacy admin PIN, no customers and no jobs. */
     let h, migrated = null;

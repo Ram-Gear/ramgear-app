@@ -310,6 +310,9 @@ def build(total):
     c.setFillColor(GREY); c.setFont("Helvetica", 9); c.drawString(M+220, y0-15, "Date:")
     d.tf("k_customer_approval_date", M+250, y0-FH, 150, tip="Customer approval date")
     d.y -= FH + 10
+    # L (Rev 1.6): teardown photos, always on its own last page (the app replaces this page with the captioned photos)
+    d.newpage(); d.section(G.teardown_photos_section()["title"])
+    G.draw_photo_page(c, M, W, d.y, BOT + 10, NAVY, GRID, GREY)
     c.save()
     return buf.getvalue(), d.page
 

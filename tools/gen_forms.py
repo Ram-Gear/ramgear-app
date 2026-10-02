@@ -192,6 +192,7 @@ def teardown():
     ]})
     # k_customer_approval is a single checkbox without suffix
     S[-1]["blocks"][4]["options"][0]["name"] = "k_customer_approval"
+    S.append(G.teardown_photos_section())   # Rev 1.6: L. Teardown photos (all gearbox types)
     return {"key": "teardown", "title": "Teardown Evaluation", "fileTitle": "Teardown-Evaluation",
             "header": "Ram Gear Gearbox Evaluation", "docTitle": G.titles(N)["teardown"],
             "template": f"templates/{G.template('teardown', N)}.pdf", "signedByField": "k_inspected_name", "sections": S}
@@ -241,6 +242,14 @@ if __name__ == "__main__":
         N = n
         for f in (teardown(), assembly()):
             f["stages"] = n; f["id"] = f"{f['key']}@{n}"; f["reduction"] = G.TYPES[n]
+            ok &= validate(f, os.path.join(APP, f["template"]))
+            out.append(f)
+    # Rev 1.6: planetary gearboxes, 1-4 planetary stages; type code 'p<k>' (id 'teardown@p2'); spec + templates in tools/make_planetary.py
+    import make_planetary as PL
+    N = 1; hs = {s["id"]: s for s in teardown()["sections"]}
+    for k in (1, 2, 3, 4):
+        for f in (PL.teardown_def(k, hs), PL.assembly_def(k)):
+            f["stages"] = f"p{k}"; f["id"] = f"{f['key']}@p{k}"; f["reduction"] = f"Planetary {k}-stage"; f["kind"] = "planetary"; f["pstages"] = k
             ok &= validate(f, os.path.join(APP, f["template"]))
             out.append(f)
     json.dump({"version": 2, "forms": out}, open(os.path.join(APP, "forms.json"), "w"), indent=1, ensure_ascii=False)

@@ -170,30 +170,33 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
 <section class="card" id="gearboxes">
   <h2><span class="num">6</span>Jobs, gearboxes &amp; reduction type</h2>
   <p>A job can hold <b>one or more gearboxes</b>. Each gearbox has its own <b>reduction type</b> (Single, Double or Triple), its own manufacturer, model and serial number, and its own <b>Teardown Evaluation</b> and <b>Assembly Verification</b>. The forms follow the type: ratios for each stage, the shafts (Single: input and output; Double: plus an intermediate shaft; Triple: plus two intermediate shafts), gears and pinions per stage, bearings and shims per shaft, and backlash for each gear mesh.</p>
+  <p><b>Planetary</b> gearboxes (Rev 1.6) are a fourth type. When you pick <b>Planetary</b>, also pick the number of <b>planetary stages</b> (1 to 4); both are confirmed and locked together. The planetary forms have a section per stage: tooth counts and number of planets, the stage ratio (calculated as 1 + Z ring / Z sun from the tooth counts, plus the measured ratio), sun-planet and planet-ring backlash, sun float, carrier endplay and thrust washer thickness, and the sun gear, each planet (pin fit, needle rollers, thrust washers), ring gear, planet carrier and carrier bearing, and the coupling to the next stage. Input and output shafts, bearings, seals, housing, lubrication and the shim records (with <b>Replace / Reuse</b>) follow. In the planet table, fill in one row per planet: rows above the number of planets you entered are not required. Teardown parts keep <b>Reuse / Repair / Replace</b>, and the failure-mode and root-cause sections are the same as for the other types.</p>
   <h3>Start a job</h3>
   <ol class="steps">
     <li>Open the customer and tap <b>+ New job</b>.</li>
     <li>Type the work order number. Fill in manufacturer, model and serial number of gearbox 1 if you have them.</li>
-    <li>Under <b>Reduction type</b>, tap <b>Single</b>, <b>Double</b> or <b>Triple</b>. The app won't create the job without it.</li>
+    <li>Under <b>Gearbox type</b>, tap <b>Single</b>, <b>Double</b>, <b>Triple</b> (reduction type) or <b>Planetary</b>. For Planetary, also tap the number of planetary stages (1–4). The app won't create the job without it.</li>
     <li>Tap <b>Create job</b>.</li>
     <li>Check the type in the confirmation and tap <b>Confirm … &amp; lock</b>. Tap <b>Back</b> to pick another one. The type is now locked 🔒.</li>
   </ol>
   <h3>Add another gearbox to the job</h3>
   <ol class="steps">
     <li>Open the job folder and tap <b>+ Add gearbox</b> (below the gearbox cards).</li>
-    <li>Fill in the gearbox details, pick its reduction type and tap <b>Add gearbox</b>.</li>
+    <li>Fill in the gearbox details, pick its type (and the planetary stages, for Planetary) and tap <b>Add gearbox</b>.</li>
     <li>Confirm the type. The new card shows <b>Gearbox 2 of 2</b> with its own forms. Teardown Evaluation is listed before Assembly Verification.</li>
   </ol>
   <p class="small">You can add gearboxes until every form of the job is finalized. Labels like <b>Gearbox 1 of 2</b> (with type and serial number) appear on the forms, on every page of the PDFs, in file names (<code>_GB1</code>, <code>_GB2</code>) and in the zip, which has one folder per gearbox. The combined PDF is grouped per gearbox, each group starting with a cover page. Jobs created before Rev 1.5 count as one <b>Double</b>-reduction gearbox; nothing in them changed.</p>
   <h3>Change the type or remove a gearbox (Admin)</h3>
   <ol class="steps">
     <li>In the gearbox card, tap <b>Change type</b> or <b>Remove gearbox</b>.</li>
-    <li>For a type change, pick the new type and confirm it. This works only while none of that gearbox's forms has been finalized. After that, the final PDFs are the record, so remove the gearbox and add it again if the type was wrong.</li>
+    <li>For a type change, pick the new type (for Planetary also the number of stages; changing only the number of planetary stages is a type change too) and confirm it. This works only while none of that gearbox's forms has been finalized. After that, the final PDFs are the record, so remove the gearbox and add it again if the type was wrong.</li>
     <li>Approve with the Admin password/PIN. The change is written to the audit log and synced to all tablets.</li>
   </ol>
   <p class="small">A removed gearbox disappears from the job, the counts and the exports. Its saved final PDFs are kept, listed as “Removed gearbox”.</p>
   <h3 id="shims">Shim records: Replace or Reuse</h3>
   <p>Every row of the shim records (<b>As-found shim record</b> in the Teardown Evaluation, <b>Bearing shim record</b> in the Assembly Verification) has a <b>Shim pack: Replace / Reuse</b> choice. Tap one; tapping the other switches it. It is required to finalize, like the other values in the row. If the row does not apply, tap <b>N/A</b> for the whole row. The choice is printed in the shim table of the final and combined PDFs. Forms started before Rev 1.5.2 show it blank until you pick one.</p>
+  <h3 id="tphotos">Teardown photos</h3>
+  <p>The last section of every Teardown Evaluation (all gearbox types) is <b>L. Teardown photos</b>. Tap <b>📷 Take photo</b> (in-app camera, several shots in a row) or <b>🖼 Choose from gallery</b> (several pictures at once). Give each photo a short caption: type it, or pick a suggestion such as <i>As received</i>, <i>Disassembled</i> or a component name. The section is optional; it is not needed to finalize. The photos print with their captions in section L of the final PDF (two per page) and so also in the combined PDF; in the job zip they are in that gearbox's <code>Photos/</code> folder. Photos and captions sync to the other tablets. Section, component and job photos are still printed on the photo pages at the end, as before.</p>
 </section>
 
 <section class="card" id="backup">

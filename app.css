@@ -134,6 +134,9 @@ tr.missing td{background:#fdecea}
 .tbl td.cc{padding:4px 6px}.tbl td.cc .choices.rr{display:flex;flex-wrap:nowrap;gap:8px;justify-content:center}.tbl td.cc .chk.pill{min-height:var(--tap);white-space:nowrap}
 .tbl .na-col{width:64px;background:transparent!important;border:0;text-align:center}
 .tbl tr.is-na td:not(.na-col){opacity:.5}
+.tbl tr.is-skip td:not(.na-col){opacity:.45}.tbl tr.is-skip .na-btn{visibility:hidden}
+input.calc{background:var(--light);font-weight:700;cursor:default}
+.rtype .pstages{display:none;margin-top:10px;align-items:center;gap:12px;flex-wrap:wrap}.rtype.pl .pstages{display:flex}.pstages-label{font-size:14px;font-weight:600}
 /* components */
 .comp{border:1px solid var(--light);border-radius:var(--radius);margin:10px 0;padding:0;overflow:hidden}
 .comp-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 12px;background:var(--light);border-left:5px solid var(--navy)}
@@ -326,3 +329,7 @@ body.locked .appbar,body.locked main,body.locked #toast{display:none}
 .rtype legend{font-weight:600}
 .rtype-confirm{font-size:20px;color:var(--navy)}
 .addgb{padding-top:14px;padding-bottom:14px}
+
+/* Rev 1.6: L. Teardown photos */
+.tphotos .photos{margin-top:8px}
+.tphotos .thumbs{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}

@@ -85,12 +85,15 @@ const PdfExport = (() => {
     page.drawText(clean(text), {x: M + 10, y: y - 14, size: 12, font: bold, color: NAVY});
   }
 
-  /* opts: {form, job, state, photos:[{blob,w,h,caption,label}], final: null | {signedBy, completedAt, revision, naLabels:[]},
-           gearbox: {label:'Gearbox 1 of 2', count, reduction:'Triple', serial}} */
+  /* opts: {form, job, state, photos:[{blob,w,h,caption,label}], sectionPhotos:[{blob,w,h,caption}] (L. Teardown photos), final: null | {signedBy, completedAt, revision, naLabels:[]},
+           gearbox: {label:'Gearbox 1 of 2', count, reduction:'Triple', typeLabel:'Triple reduction' | 'Planetary 2-stage', stagesText, serial}} */
   async function build(opts) {
     const {form, job, state, photos, final} = opts;
     const doc = await PDFDocument.load(await template(form.template));
     const font = await doc.embedFont(StandardFonts.Helvetica), bold = await doc.embedFont(StandardFonts.HelveticaBold);
+    // Rev 1.6: "L. Teardown photos" is the template's last page (empty frames for paper use); it is replaced by the captioned photos.
+    const pSec = form.sections.find(s => s.blocks.some(b => b.type === 'photos')), tplPages = doc.getPageCount();
+    if (pSec) doc.removePage(tplPages - 1);
     const af = doc.getForm(), kinds = fieldKinds(form), vals = state.values || {};
     for (const [name, k] of Object.entries(kinds)) {
       let v = k.link ? job[k.link] : vals[name];
@@ -111,8 +114,29 @@ const PdfExport = (() => {
     let fonts = dr.lookup(PDFName.of('Font')); if (!fonts) { fonts = ctx.obj({}); dr.set(PDFName.of('Font'), fonts); }
     fonts.set(PDFName.of(font.name), font.ref);
     const zadb = await doc.embedFont(StandardFonts.ZapfDingbats); fonts.set(PDFName.of('ZaDb'), zadb.ref);
-    const gb = opts.gearbox || null, gbText = gb ? `${gb.label}  |  ${gb.reduction} reduction${gb.serial ? '  |  S/N ' + gb.serial : ''}` : '';
+    const gb = opts.gearbox || null, gbText = gb ? `${gb.label}  |  ${gb.typeLabel || gb.reduction + ' reduction'}${gb.serial ? '  |  S/N ' + gb.serial : ''}` : '';
     const woLine = `Work order ${job.wo || '-'}   |   Customer: ${job.customer || '-'}   |   ${form.title}${gb ? '   |   ' + gb.label : ''}`;
+    if (pSec) {
+      const list = opts.sectionPhotos || [], per = 2, n = Math.max(1, Math.ceil(list.length / per)), formId = `Form: ${form.template.split('/').pop().replace('.pdf', '')}`;
+      for (let pi = 0; pi < n; pi++) {
+        const pg = doc.addPage([W, H]); header(pg, font, bold, form.header || BRAND, null);
+        sectionBar(pg, bold, H - 70, pi ? `${pSec.title} (continued)` : pSec.title);
+        const top0 = H - 104, slotH = (top0 - 62) / per;
+        if (!list.length) pg.drawText('No teardown photos were added.', {x: M + 6, y: top0 - 14, size: 11, font, color: GREY});
+        for (let j = 0; j < per && pi * per + j < list.length; j++) {
+          const idx = pi * per + j, ph = list[idx], top = top0 - j * slotH;
+          const img = await doc.embedJpg(new Uint8Array(await ph.blob.arrayBuffer()));
+          const capLines = wrap(`Photo ${idx + 1}: ${ph.caption || '(no caption)'}`, bold, 10.5, W - 2 * M).slice(0, 2);
+          const boxH = slotH - 16 - capLines.length * 13 - 6, boxW = W - 2 * M;
+          const k = Math.min(boxW / img.width, boxH / img.height), iw = img.width * k, ih = img.height * k, x = M + (boxW - iw) / 2;
+          pg.drawImage(img, {x, y: top - ih, width: iw, height: ih});
+          pg.drawRectangle({x, y: top - ih, width: iw, height: ih, borderColor: GRID, borderWidth: 0.5});
+          let cy = top - ih - 14;
+          for (const ln of capLines) { pg.drawText(ln, {x, y: cy, size: 10.5, font: bold, color: NAVY}); cy -= 13; }
+        }
+        footer(pg, font, formId, `${pSec.title}  |  page ${pi + 1} of ${n}`);
+      }
+    }
     const baseCount = doc.getPageCount();
     if (gb) for (const pg of doc.getPages()) {   // identify the gearbox on every template page: right-aligned in the navy header bar, under the title line
       const t = clean(gbText), sz = 8.5, tw = bold.widthOfTextAtSize(t, sz);
@@ -124,7 +148,7 @@ const PdfExport = (() => {
       header(pg, font, bold, BRAND, woLine);
       let y = H - 92; sectionBar(pg, bold, y, 'Completion record'); y -= 38;
       const rows = [['Form', `${form.title} - ${form.docTitle}`], ['Status', 'Completed'], ['Revision', String(final.revision)],
-                    ...(gb ? [['Gearbox', gb.label + (gb.serial ? `  (S/N ${gb.serial})` : '')], ['Reduction', `${gb.reduction} reduction (${form.stages || '-'} stage${form.stages === 1 ? '' : 's'})`]] : []),
+                    ...(gb ? [['Gearbox', gb.label + (gb.serial ? `  (S/N ${gb.serial})` : '')], [form.kind === 'planetary' ? 'Type' : 'Reduction', gb.typeLabel ? `${gb.typeLabel} (${gb.stagesText})` : `${gb.reduction} reduction (${form.stages || '-'} stage${form.stages === 1 ? '' : 's'})`]] : []),
                     ['Completed', final.completedAt], ['Signed by', final.signedBy], ['Finalized by', final.finalizedBy || '-'], ['Inspected on', final.inspectedOn || '-'], ['Customer', job.customer || ''], ['Work order', job.wo || ''], ['App revision', final.appRev || '-']];
       for (const [a, b] of rows) {
         pg.drawText(a, {x: M + 6, y, size: 11, font: bold, color: NAVY});

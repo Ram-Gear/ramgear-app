@@ -2,6 +2,27 @@
 
 The revision number lives in `js/version.js` (see README › *Revision number*).
 
+## Rev 1.6 – 2026-10-02 (build 2026-10-02.2) – Planetary gearboxes and teardown photos
+
+- New gearbox type **Planetary**, next to Single / Double / Triple reduction. Choosing Planetary also asks for the number of **planetary stages (1–4)**. Type and stage count are confirmed and locked together, per gearbox, like the other types. Changing either needs the Admin password/PIN, is written to the audit log ("Planetary 2-stage → Planetary 4-stage") and is refused once a form of that gearbox has been finalized.
+- Planetary **Teardown Evaluation** and **Assembly Verification** with one section per planetary stage:
+  - Tooth counts (sun, ring, planet) and number of planets.
+  - Stage ratio calculated from the tooth counts (1 + Z ring / Z sun, read-only), plus the measured ratio.
+  - Sun-planet and planet-ring backlash, sun float / axial play, carrier endplay and thrust washer thickness (measured / spec / OK).
+  - Sun gear (teeth, wear, pitting, spline), each planet (condition, pin / shaft wear and fit, bearings / needle rollers, thrust washers), ring gear (internal teeth, housing fit, dowels / bolts), planet carrier (cracks, pin bores, carrier bearing, spline / output coupling) and the coupling between stages.
+  - Planet rows above the number of planets entered are not required.
+  - Input shaft and seal, output shaft, bearings and seals, housing, lubrication and the shim records (with Replace / Reuse).
+  - Teardown keeps Reuse / Repair / Replace and the failure-mode / root-cause sections; failure modes add a Planetary line.
+- PDFs: titles such as "Planetary Gearbox - 3-Stage Teardown and Repair Analysis". The header bar shows "Gearbox 1 of 2 | Planetary 3-stage", and the completion record shows "Type: Planetary 3-stage (3 planetary stages)". The combined PDF cover pages, the zip folders (`Gearbox 1 of 1 - Planetary 2-stage - SN …/`), the job summary and the Blank PDFs list (8 new templates) all follow.
+- **Teardown photos** (all gearbox types): new last section **L. Teardown photos** in every Teardown Evaluation.
+  - Uses the in-app camera or the gallery, and takes any number of photos.
+  - Each photo has a caption, with suggestions (As received, Disassembled, component names…).
+  - Optional; it is not needed to finalize.
+  - The photos print with their captions in section L of the final and draft PDFs, two per page, and therefore in the combined PDF too. In the zip they go in that gearbox's `Photos/` folder.
+  - Synced like other photos. Section, component and job photos are unchanged.
+- Help page: Planetary type and teardown photos.
+- Note: tablets still on an older revision show Planetary gearboxes and section-L photos correctly only after they update. This happens automatically on the next online launch.
+
 ## Rev 1.5.3 – 2026-10-02 (build 2026-10-02.1) – customer dialog and phone numbers
 
 - New customer / Edit customer (same dialog): the single-line fields (name, contact, phone, email, address) now all have the same height on tablet, laptop and phone, with labels aligned above them; widths stay natural (contact and phone side by side, one column on a phone). Phone and email used to be smaller because they missed the app's field style. Address starts one line high and grows as you type; notes stays a larger multi-line box.
