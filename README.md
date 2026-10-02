@@ -32,6 +32,7 @@ Offline-first: each tablet keeps everything in the browser's IndexedDB and works
 | `js/admin.js` | PBKDF2 key derivation (Web Crypto) and the admin-approval lockout (5 tries / 30 s) |
 | `img/` | Login background (shop photo) and the Ram-Gear logo from ram-gear.com |
 | `CHANGELOG.md` | What changed in each revision |
+| `js/phone.js` | US phone format `XXX-XXX-XXXX` (live typing/paste/caret, display of stored numbers without changing them) |
 | `js/db.js` | IndexedDB v4 (`customers`, `jobs`, `photos`, `docs`, `settings`, `audit`, `users`); migrates v1 jobs into an "Unassigned" customer |
 | `js/camera.js` | In-app full-screen camera (getUserMedia): shutter, switch camera, review/retake/use + caption, multi-shot |
 | `js/photos.js` | Client-side compression (max 1600 px, JPEG 0.8) + thumbnails |
@@ -74,6 +75,7 @@ Forms always appear in this order: **Teardown Evaluation first, then Assembly Ve
 
 ## Workflow (Customers > Customer file > Job folder > Form)
 * Home: searchable customer list (name, contact, phone, email, work order), New customer, Backup, Restore, Blank PDFs.
+* Customer dialog (New / Edit): all single-line fields the same height (natural widths); phone typed as `XXX-XXX-XXXX` (`js/phone.js`).
 * Customer file: contact details (Edit / Delete, where Delete removes all their jobs, photos and PDFs after a warning), the customer's jobs with Draft/Completed badges, and New job.
 * Job folder: work order, date, one card per gearbox (type 🔒, manufacturer/model/serial auto-filled into that gearbox's forms, Change type / Remove, its forms), + Add gearbox, Move to customer, forms with progress, job photos, saved final PDFs (all revisions), and Export job folder (zip of all final PDFs + photos + summary + combined PDF, or just the combined PDF).
 * Breadcrumbs in the header plus a labelled back button.

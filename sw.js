@@ -4,7 +4,7 @@ importScripts('js/version.js');
 const VERSION = `rg-rev${self.APP_REV}-${self.APP_BUILD}`;
 const ASSETS = [
   './', 'index.html', 'help.html', 'app.css', 'forms.json', 'manifest.webmanifest',
-  'js/version.js', 'js/config.js', 'js/cloud.js', 'vendor/supabase.min.js', 'js/db.js', 'js/admin.js', 'js/auth.js', 'js/photos.js', 'js/camera.js', 'js/pdf.js', 'js/app.js', 'vendor/pdf-lib.min.js', 'vendor/fflate.min.js',
+  'js/version.js', 'js/config.js', 'js/cloud.js', 'vendor/supabase.min.js', 'js/db.js', 'js/admin.js', 'js/auth.js', 'js/photos.js', 'js/phone.js', 'js/camera.js', 'js/pdf.js', 'js/app.js', 'vendor/pdf-lib.min.js', 'vendor/fflate.min.js',
   ...['single', 'double', 'triple'].flatMap(t => [`templates/gearbox-teardown-analysis-${t}.pdf`, `templates/gearbox-assembly-checklist-${t}.pdf`]),
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-64.png',
   'img/login-bg.jpg', 'img/ramgear-logo.jpg'

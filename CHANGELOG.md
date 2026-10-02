@@ -2,6 +2,13 @@
 
 The revision number lives in `js/version.js` (see README › *Revision number*).
 
+## Rev 1.5.3 – 2026-10-02 (build 2026-10-02.1) – customer dialog and phone numbers
+
+- New customer / Edit customer (same dialog): the single-line fields (name, contact, phone, email, address) now all have the same height on tablet, laptop and phone, with labels aligned above them; widths stay natural (contact and phone side by side, one column on a phone). Phone and email used to be smaller because they missed the app's field style. Address starts one line high and grows as you type; notes stays a larger multi-line box.
+- Phone numbers are formatted as US numbers while typing: `XXX-XXX-XXXX`, digits only, max 10. Paste works (`+1 (555) 123-4567` becomes `555-123-4567`), Backspace/Delete next to a dash removes the digit beyond it, and the cursor stays where you were typing. The field opens the phone keypad (`inputmode=tel`). Customer phone is the only phone field in the app (forms and PDFs have none).
+- Existing numbers are shown formatted in the customer list, customer file, Edit dialog and the job zip summary; the stored value is not changed unless you edit the number. Numbers that are not plain 10-digit US numbers (e.g. with an extension) are shown exactly as stored. The call link uses `tel:+1XXXXXXXXXX`.
+- Fix: the customer search box now actually hides customers that don't match (cards stayed visible before); searching by phone digits works with or without dashes.
+
 ## Rev 1.5.2 – 2026-10-01 (build 2026-10-01.3) – shim Replace / Reuse
 
 - Every shim record row now has a **Shim pack: Replace / Reuse** choice, for all reduction types (Single, Double, Triple):

@@ -849,8 +849,8 @@
       <div class="joblist" id="custList">${customers.length ? customers.map(c => {
         const js = byC[c.id] || [], nd = js.filter(j => jobStatus(j) === 'draft').length, nc = js.length - nd;
         const last = js.reduce((m, j) => Math.max(m, j.updatedAt || 0), c.updatedAt || 0);
-        return `<a class="jobcard custcard ${c.id === 'unassigned' ? 'unassigned' : ''}" href="${P.cust(c.id)}" data-search="${esc([c.name, c.contact, c.phone, c.email, ...js.map(j => j.wo)].join(' ').toLowerCase())}">
-          <div class="jc-main"><div class="jc-wo">${esc(c.name)}</div><div class="jc-cust muted">${esc([c.contact, c.phone].filter(Boolean).join(' · ') || ' ')}</div>
+        return `<a class="jobcard custcard ${c.id === 'unassigned' ? 'unassigned' : ''}" href="${P.cust(c.id)}" data-search="${esc([c.name, c.contact, c.phone, Phone.format(c.phone), Phone.digits(c.phone), c.email, ...js.map(j => j.wo)].join(' ').toLowerCase())}">
+          <div class="jc-main"><div class="jc-wo">${esc(c.name)}</div><div class="jc-cust muted">${esc([c.contact, Phone.format(c.phone)].filter(Boolean).join(' · ') || ' ')}</div>
           <div class="jc-forms">${nd ? `<span class="formtag">${nd} ${badge('draft')}</span>` : ''}${nc ? `<span class="formtag">${nc} ${badge('completed')}</span>` : ''}</div></div>
           <div class="jc-side"><div class="jobcount">${js.length} job${js.length === 1 ? '' : 's'}</div><div class="muted small">Updated ${esc(fmtDay(last))}</div></div></a>`;
       }).join('') : `<div class="empty"><p>No customers yet.</p><p class="muted">Tap <b>New customer</b>, then add jobs to the customer's file.</p></div>`}</div>
@@ -872,15 +872,22 @@
   async function editCustomer(c) {
     const isNew = !c; c = c || {id: DB.uid(), name: '', contact: '', phone: '', email: '', address: '', notes: '', createdAt: Date.now()};
     const v = await modal(`<h2>${isNew ? 'New customer' : 'Edit customer'}</h2>
-      <label class="fld"><span>Customer name *</span><input name="name" required autocomplete="off" value="${esc(c.name)}"></label>
-      <div class="grid2"><label class="fld"><span>Contact name</span><input name="contact" autocomplete="off" value="${esc(c.contact)}"></label>
-      <label class="fld"><span>Phone</span><input name="phone" type="tel" inputmode="tel" autocomplete="off" value="${esc(c.phone)}"></label></div>
+      <div class="custform">
+      <label class="fld"><span>Customer name *</span><input name="name" type="text" required autocomplete="off" value="${esc(c.name)}"></label>
+      <div class="grid2"><label class="fld"><span>Contact name</span><input name="contact" type="text" autocomplete="off" value="${esc(c.contact)}"></label>
+      <label class="fld"><span>Phone</span><input name="phone" type="tel" inputmode="tel" autocomplete="off" value="${esc(Phone.format(c.phone))}"></label></div>
       <label class="fld"><span>Email</span><input name="email" type="email" inputmode="email" autocomplete="off" value="${esc(c.email)}"></label>
-      <label class="fld"><span>Address</span><textarea name="address" rows="2">${esc(c.address)}</textarea></label>
-      <label class="fld"><span>Notes</span><textarea name="notes" rows="3">${esc(c.notes)}</textarea></label>`,
-      [{label: 'Cancel', value: 'cancel'}, {label: isNew ? 'Create customer' : 'Save', value: 'ok', cls: 'primary'}]);
+      <label class="fld"><span>Address</span><textarea name="address" rows="1" class="autogrow">${esc(c.address)}</textarea></label>
+      <label class="fld"><span>Notes</span><textarea name="notes" rows="3">${esc(c.notes)}</textarea></label></div>`,
+      [{label: 'Cancel', value: 'cancel'}, {label: isNew ? 'Create customer' : 'Save', value: 'ok', cls: 'primary'}],
+      {onOpen: f => {
+        Phone.attach(f.phone);
+        for (const t of $$('textarea.autogrow', f)) { const fit = () => { t.style.height = ''; if (t.scrollHeight > t.clientHeight) t.style.height = t.scrollHeight + 2 + 'px'; }; t.addEventListener('input', fit); fit(); }
+      }});
     if (v !== 'ok') return null;
-    const f = $('#dlgForm'); for (const k of ['name', 'contact', 'phone', 'email', 'address', 'notes']) c[k] = f[k].value.trim();
+    const f = $('#dlgForm'), shown = Phone.format(c.phone);
+    for (const k of ['name', 'contact', 'email', 'address', 'notes']) c[k] = f[k].value.trim();
+    const ph = f.phone.value.trim(); if (ph !== shown) c.phone = ph;   // untouched: keep exactly what was stored (e.g. a number with an extension)
     await saveCustomer(c);
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     toast(isNew ? 'Customer created' : 'Customer saved');
@@ -897,7 +904,7 @@
     view.innerHTML = `
       <section class="card custfile">
         <div class="card-head"><h1>${esc(customer.name)}</h1><span class="muted small right">Customer file · ${jobs.length} job${jobs.length === 1 ? '' : 's'}</span></div>
-        <div class="details">${detail('Contact', customer.contact)}${detail('Phone', customer.phone, customer.phone && 'tel:' + customer.phone)}${detail('Email', customer.email, customer.email && 'mailto:' + customer.email)}${detail('Address', customer.address)}${detail('Notes', customer.notes)}
+        <div class="details">${detail('Contact', customer.contact)}${detail('Phone', Phone.format(customer.phone), customer.phone && Phone.href(customer.phone))}${detail('Email', customer.email, customer.email && 'mailto:' + customer.email)}${detail('Address', customer.address)}${detail('Notes', customer.notes)}
           ${[customer.contact, customer.phone, customer.email, customer.address, customer.notes].some(Boolean) ? '' : '<p class="muted">No contact details yet. Tap <b>Edit</b> to add them.</p>'}</div>
       </section>
       <section class="home-head"><div><h2>Jobs</h2></div><button class="btn primary big" id="newJobBtn">+ New job</button></section>
@@ -1468,7 +1475,7 @@
       capLines.push(`${rel}\t${p.scope === 'job' ? 'Job photo' : `${gbMeta(job, gid).label} / ${titleOf(p.scope.split(':')[0])} / ${p.label}`}\t${p.caption || ''}`);
     }
     const summary = [`Ram-Gear Manufacturing Incorporated – job folder`, `Customer: ${c.customer}`, `Work order: ${c.wo}`, `Date: ${c.date}`, `Gearboxes: ${gbs.length}`, `Created on tablet: ${job.tabletId || '-'}`, `Created by: ${job.createdBy || '-'}`,
-      customer.contact || customer.phone || customer.email ? `Contact: ${[customer.contact, customer.phone, customer.email].filter(Boolean).join(' / ')}` : '', '',
+      customer.contact || customer.phone || customer.email ? `Contact: ${[customer.contact, Phone.format(customer.phone), customer.email].filter(Boolean).join(' / ')}` : '', '',
       ...gbs.flatMap(g => { const m = gbMeta(job, g.id), gi = gbInfo(job, g.id); return [`${m.label}: ${m.reduction} reduction (${m.stages} stage${m.stages > 1 ? 's' : ''}, locked)  – folder "${gbFolder(m)}"`,
         `  Gearbox: ${[gi.manufacturer, gi.model].filter(Boolean).join(' ') || '-'}  S/N ${gi.serial || '-'}`,
         ...formStates(job).filter(f => f.gid === g.id).map(f => { const st = f.st; return `  ${f.title}: ${st.status === 'completed' ? `Completed rev ${st.revision} ${fmtDate(st.completedAt)} by ${st.signedBy}, finalized by ${st.finalizedBy || '-'}, Inspected on: ${st.inspectedOn || '-'}` : `Draft (rev ${st.revision}), Tablet used for inspection: ${st.tabletUsed ?? TABLET}`}`; }), '']; }),
