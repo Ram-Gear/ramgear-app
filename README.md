@@ -83,6 +83,9 @@ Forms always appear in this order: **Teardown Evaluation first, then Assembly Ve
 * The template builders write `tools/layout/<template>.json` (page range of each section); `gen_forms.py` copies it into `forms.json` (`section.pages = [start, end]`, `form.templatePages`).
 * `photoPlan(job, key)` in `js/app.js` maps photo scopes to sections: `<key>:<section id>`, `<key>:<component id>` (printed with its section), `<key>:L` (teardown), `<key>:more` (assembly "Additional photos"); unknown scopes go to L / Additional photos. `PdfExport.build({groups})` inserts a 3-per-row grid after page `section.pages[1]`; job photos go at the end.
 
+## Oil photos in the oil group (Rev 1.7.1)
+* Gallery is a button (`data-gallery`) that arms `pendingPhoto` / stamps `#fileGallery` before opening the picker; pointerdown on `.photos` does the same. `photoPlace(plan)` keeps aliases (`oil`, `lube`, section title) and label fallback on one shared `photoPlan` so PDF grouping and the app panels stay in sync.
+
 ## Parts Summary (Rev 1.7)
 * `tools/gen_forms.py` adds `parts` metadata to teardown components (`loc`, `cat`, `type`, `qty` or `perPlanet` + `countField`), app-only fields `<id>_qty` / `<id>_btype` (`appOnly`, not on the templates, skipped by the PDF filler), `shims: true` on Replace / Reuse tables and `parts` on planet tables; `forms.json` has `bearingTypes`.
 * `js/parts.js` (`Parts.gearbox`, `Parts.rollup`, `Parts.csv`) computes the lists; `PdfExport.partsPages / partsPdf` draws the pages. Final teardown: `build({parts})` appends them (`doc.partsPages`); the combined PDF drops that copy and inserts a fresh one, roll-up last. Route `#/c/<cid>/j/<jid>/parts`.

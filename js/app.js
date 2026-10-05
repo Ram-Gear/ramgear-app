@@ -1153,16 +1153,28 @@
   /* ---------- photos ---------- */
   function photoPanel(scope, label, locked, suggest, catchAll) {
     return `<div class="photos" data-scope="${esc(scope)}" data-label="${esc(label)}" ${locked ? 'data-locked="1"' : ''} ${suggest ? `data-suggest="${esc(suggest)}"` : ''} ${catchAll ? `data-catchall="${esc(catchAll)}"` : ''}>
-      ${locked ? '' : `<div class="photo-btns"><button type="button" class="btn cam" data-cam="1" data-scope="${esc(scope)}" data-label="${esc(label)}">📷 Take photo</button><label class="btn" for="fileGallery" data-scope="${esc(scope)}" data-label="${esc(label)}">🖼 Choose from gallery</label></div>`}
+      ${locked ? '' : `<div class="photo-btns"><button type="button" class="btn cam" data-cam="1" data-scope="${esc(scope)}" data-label="${esc(label)}">📷 Take photo</button><button type="button" class="btn" data-gallery="1" data-scope="${esc(scope)}" data-label="${esc(label)}">🖼 Choose from gallery</button></div>`}
       <div class="thumbs"></div></div>`;
   }
   async function fillPhotoPanels(job) {
     const photos = (await DB.byJob('photos', job.id)).sort((a, b) => a.createdAt - b.createdAt);
     const plan = current.formKey && fdef(job, current.formKey) ? photoPlan(job, current.formKey) : null;
     for (const panel of $$('.photos')) {
-      // a form's catch-all panel (teardown L / assembly "Additional photos") also shows photos whose section is unknown (Rev 1.6.1)
-      const catchAll = panel.dataset.catchall && plan, own = p => p.scope === panel.dataset.scope || (catchAll && p.scope.startsWith(panel.dataset.catchall + ':') && !plan.known[p.scope]);
-      const list = photos.filter(own), locked = !!panel.dataset.locked;
+      // a form's catch-all panel (teardown L / assembly "Additional photos") also shows photos whose section is unknown (Rev 1.6.1).
+      // Rev 1.7.1: place by photoPlace (aliases + label) so a mis-scoped oil photo still shows under Oil condition.
+      const list = photos.filter(p => {
+        const want = panel.dataset.scope;
+        if (want === 'job' || !plan || !current.formKey) return p.scope === want;
+        // only this form's photos (not another gearbox/form of the same job)
+        if (!p.scope.startsWith(current.formKey + ':')) return false;
+        const pl = photoPlace(job, current.formKey, p.scope, p.label);
+        if (pl.comp) return want === `${current.formKey}:${pl.comp}`;
+        if (pl.group) {
+          const sid = pl.group.secId;
+          return want === `${current.formKey}:${sid}` || want === `${current.formKey}:${sid === 'more' ? 'more' : sid}`;
+        }
+        return false;
+      }), locked = !!panel.dataset.locked;
       $('.thumbs', panel).innerHTML = list.map(p => `<figure class="thumb" data-id="${p.id}"><img src="${objUrl(p.thumb || p.blob)}" alt="${esc(p.caption || 'photo')}" data-full="${p.id}">
         ${locked ? `<figcaption>${esc(p.caption)}</figcaption>` : `<input class="cap" placeholder="Caption" value="${esc(p.caption)}" data-cap="${p.id}" maxlength="120" autocomplete="off" ${panel.dataset.suggest ? `list="${esc(panel.dataset.suggest)}"` : ''}><button class="del" data-delphoto="${p.id}" aria-label="Delete photo">✕</button>`}</figure>`).join('')
         || (locked ? '<p class="muted small">No photos.</p>' : '');
@@ -1170,13 +1182,25 @@
       if (det && list.length && !det.dataset.seen) { det.open = true; det.dataset.seen = '1'; }   // Rev 1.6.1: a section's own photos are shown right there
     }
     view.onclick = viewClick(photos);
+    // Rev 1.7.1: arm scope on pointerdown (capture) before the file picker opens — fixes tablet gallery picks that skipped the click handler
+    view.onpointerdown = e => { const pn = e.target.closest && e.target.closest('.photos'); if (pn && pn.dataset.scope) armPhotoTarget(pn); };
+  }
+  function armPhotoTarget(el) {   // Rev 1.7.1: set pendingPhoto from the panel / button so gallery picks keep the right section (not a stale scope)
+    if (!el || !current.job) return null;
+    const pn = el.closest ? el.closest('.photos') : null, scope = el.dataset.scope || (pn && pn.dataset.scope), label = el.dataset.label || (pn && pn.dataset.label);
+    if (!scope) return null;
+    pendingPhoto = {jobId: current.job.id, scope, label: label || '', suggest: pn && pn.dataset.suggest};
+    const inp = $('#fileGallery'); if (inp) { inp.dataset.pendingScope = scope; inp.dataset.pendingLabel = label || ''; inp.dataset.pendingJob = current.job.id; }
+    return pendingPhoto;
   }
   function viewClick(photos) {
     return async e => {
       const t = e.target;
-      if (t.matches('label[for="fileCamera"],label[for="fileGallery"]')) { pendingPhoto = {jobId: current.job.id, scope: t.dataset.scope, label: t.dataset.label}; return; }
+      const galBtn = t.closest && t.closest('[data-gallery]');
+      if (galBtn) { armPhotoTarget(galBtn); $('#fileGallery').click(); return; }
+      if (t.matches('label[for="fileCamera"],label[for="fileGallery"]')) { armPhotoTarget(t); return; }   // legacy labels if any remain
       const camBtn = t.closest && t.closest('[data-cam]');
-      if (camBtn) { const pn = camBtn.closest('.photos'); pendingPhoto = {jobId: current.job.id, scope: camBtn.dataset.scope, label: camBtn.dataset.label, suggest: pn && pn.dataset.suggest}; openCamera(pendingPhoto); return; }
+      if (camBtn) { openCamera(armPhotoTarget(camBtn)); return; }
       if (t.dataset.full) { const p = photos.find(x => x.id === t.dataset.full) || await DB.get('photos', t.dataset.full); if (p) modal(`<img class="full" src="${objUrl(p.blob)}" alt=""><p>${esc(p.caption || '')}</p><p class="muted small">${esc(p.label)} · ${p.w}×${p.h}</p>`, [{label: 'Close', value: 'cancel'}], {wide: true, noFocus: true}); return; }
       if (t.dataset.delphoto) {
         if (!await confirmBox('Delete photo?', 'This photo will be removed from the job.', 'Delete', true)) return;
@@ -1219,9 +1243,16 @@
       }});
   }
   async function onFiles(input) {
-    const files = Array.from(input.files || []); input.value = '';
-    if (!files.length || !pendingPhoto) return;
-    const target = pendingPhoto; toast(`Processing ${files.length} photo${files.length > 1 ? 's' : ''}…`, 5000);
+    const files = Array.from(input.files || []);
+    // Rev 1.7.1: prefer scope stamped on the file input; camera fallback passes a plain {files} object (no dataset)
+    const ds = (input && input.dataset) || {};
+    const scope = ds.pendingScope || (pendingPhoto && pendingPhoto.scope);
+    const label = ds.pendingLabel || (pendingPhoto && pendingPhoto.label) || '';
+    const jobId = ds.pendingJob || (pendingPhoto && pendingPhoto.jobId);
+    if (input && 'value' in input) input.value = '';
+    if (input && input.dataset) { delete input.dataset.pendingScope; delete input.dataset.pendingLabel; delete input.dataset.pendingJob; }
+    if (!files.length || !scope || !jobId) return;
+    const target = {jobId, scope, label}; toast(`Processing ${files.length} photo${files.length > 1 ? 's' : ''}…`, 5000);
     let n = 0;
     for (const f of files) {
       try {
@@ -1514,11 +1545,20 @@
   function photoPlan(job, key) {
     const form = fdef(job, key), groups = [], known = {};
     let catchAll = null;
+    const alias = (sc, k) => { if (!known[sc]) known[sc] = k; };
     for (const s of form.sections) {
       const g = {secId: s.id, title: s.title, after: s.pages ? s.pages[1] : null, photos: []};
-      known[`${key}:${s.id}`] = {g, sub: ''};
+      const slot = {g, sub: ''}; known[`${key}:${s.id}`] = slot;
+      // Rev 1.7.1: accept mistaken scopes (title, short name, oil/lube) so photos still land in the right section group
+      alias(`${key}:${s.title}`, slot);
+      const short = s.title.replace(/^[A-Z0-9]+\.\s*/, '').replace(/^\d+\.\s*/, '');
+      if (short && short !== s.title) alias(`${key}:${short}`, slot);
+      if (/oil/i.test(s.title) || /lubric/i.test(s.title)) { alias(`${key}:oil`, slot); alias(`${key}:lube`, slot); alias(`${key}:lubrication`, slot); }
       for (const b of s.blocks) {
-        if (b.type === 'component') known[`${key}:${b.id}`] = {g, sub: b.name, comp: b.id};
+        if (b.type === 'component') {
+          const ck = {g, sub: b.name, comp: b.id}; known[`${key}:${b.id}`] = ck;
+          alias(`${key}:${b.name}`, ck);
+        }
         if (b.type === 'photos') { known[`${key}:${b.scope}`] = {g, sub: ''}; catchAll = g; g.empty = 'No teardown photos were added.'; }
       }
       groups.push(g);
@@ -1526,13 +1566,23 @@
     if (!catchAll) { catchAll = {secId: 'more', title: MORE_TITLE, after: form.templatePages || null, photos: []}; known[`${key}:more`] = {g: catchAll, sub: ''}; groups.push(catchAll); }
     return {groups, known, catchAll};
   }
-  function photoPlace(job, key, scope, label) {   // -> {group, sub}
-    const pl = photoPlan(job, key), k = pl.known[scope];
+  function photoPlace(job, key, scope, label, pl) {   // -> {group, sub, comp?}; pass pl from photoGroups so pushes hit the same group objects
+    pl = pl || photoPlan(job, key);
+    let k = pl.known[scope];
+    // Rev 1.7.1: if scope is unknown (or only the catch-all), place by label matching a section / component name
+    if ((!k || k.g === pl.catchAll) && label) {
+      const byLabel = pl.known[`${key}:${label}`] || Object.values(pl.known).find(x => x.g.title === label || x.sub === label);
+      if (byLabel && byLabel.g !== pl.catchAll) k = byLabel;
+    }
     return k ? {group: k.g, sub: k.sub, comp: k.comp} : {group: pl.catchAll, sub: label || ''};
   }
   async function photoGroups(job, key) {
-    const pl = photoPlan(job, key), all = (await DB.byJob('photos', job.id)).filter(p => p.scope.startsWith(key + ':')).sort((a, b) => a.createdAt - b.createdAt);
-    for (const p of all) { const k = pl.known[p.scope], g = k ? k.g : pl.catchAll; g.photos.push({blob: p.blob, w: p.w, h: p.h, caption: p.caption, sub: k ? k.sub : (p.label || '')}); }
+    const pl = photoPlan(job, key);
+    const mine = (await DB.byJob('photos', job.id)).filter(p => p.scope.startsWith(key + ':')).sort((a, b) => a.createdAt - b.createdAt);
+    for (const p of mine) {
+      const place = photoPlace(job, key, p.scope, p.label, pl);
+      place.group.photos.push({blob: p.blob, w: p.w, h: p.h, caption: p.caption, sub: place.comp ? place.sub : (place.sub || '')});
+    }
     return pl.groups.filter(g => g.photos.length || g.empty).map(g => ({title: g.title, after: g.after, photos: g.photos, empty: g.empty}));
   }
   async function photosFor(job) {   // job photos (shared by all forms), printed at the end
@@ -1596,9 +1646,9 @@
     const place = p => {
       if (p.scope === 'job') return null;
       const key = p.scope.slice(0, p.scope.lastIndexOf(':'));
-      try { const f = fdef(job, key); if (!f) return null; const pl = photoPlan(job, key), k = pl.known[p.scope], g = k ? k.g : pl.catchAll;
+      try { const f = fdef(job, key); if (!f) return null; const pl = photoPlan(job, key), placed = photoPlace(job, key, p.scope, p.label), g = placed.group;
         const tok = (/^([A-Z0-9]+)\./.exec(g.title) || [])[1];
-        return {key, f, g, idx: pl.groups.indexOf(g), sub: k ? k.sub : (p.label || ''), prefix: `${f.fileTitle.split('-')[0]}-${tok || g.title}`, name: tok ? g.title.replace(/^[A-Z0-9]+\.\s*/, '') : ''};
+        return {key, f, g, idx: pl.groups.indexOf(g), sub: placed.comp ? placed.sub : (placed.sub || ''), prefix: `${f.fileTitle.split('-')[0]}-${tok || g.title}`, name: tok ? g.title.replace(/^[A-Z0-9]+\.\s*/, '') : ''};
       } catch (e) { return null; }
     };
     const photos = (await DB.byJob('photos', job.id)).map(p => ({p, pl: place(p)})).sort((a, b) => {

@@ -2,6 +2,15 @@
 
 The revision number lives in `js/version.js` (see README › *Revision number*).
 
+## Rev 1.7.1 – 2026-10-05 (build 2026-10-05.1) – oil photos in the oil group
+
+- Fix: section photos (especially **C. Oil condition**) could print under the wrong group (often L. Teardown photos) when the gallery picker used a stale photo target on tablets.
+  - Gallery is now a button that arms the section scope before opening the file picker; the scope is also stamped on the file input and set on pointerdown on the photo panel.
+  - PDF / app grouping accepts scope aliases (`oil`, `lube`, `Oil condition`, full section title, component name) and will place by label when the stored scope is unknown or only the catch-all.
+- Same fix covers bearings, seals, shafts (component scopes) and assembly **Lubrication and run-in** (`lube` / `oil` aliases).
+- Existing photos already saved under the correct scope are unchanged. Photos saved under a wrong scope but with the oil section's label (or an `oil` / `Oil condition` alias scope) now show and print under Oil condition. Photos that landed in L with an L label still need to be deleted and re-added under **Section photos** for C. Oil condition; then re-finalize (or download a new draft) so the printed report updates.
+- Regression test: `e2e_oilphotos.py` (Chromium + Firefox, mock only).
+
 ## Rev 1.7 – 2026-10-02 (build 2026-10-02.4) – Parts Summary
 
 - New **Parts Summary** per gearbox (all types, including Planetary), built automatically from the Teardown Evaluation and the shim Replace / Reuse choices of both forms:
