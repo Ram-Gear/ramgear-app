@@ -2,6 +2,13 @@
 
 The revision number lives in `js/version.js` (see README › *Revision number*).
 
+## Rev 1.7.2 – 2026-10-05 (build 2026-10-05.2) – job photos load; no empty photo pages
+
+- **Job photos** in the Teardown / Assembly PDF: each image is embedded before any page is created (JPEG → PNG → canvas re-encode to JPEG). Unreadable blobs fall back to the thumbnail when needed. Pages are only added for photos that actually loaded — no more blank pages reserved for missing images.
+- **Empty photo pages removed:** L. Teardown photos / Additional photos no longer print a placeholder page when there are no photos ("No teardown photos were added." is gone). Section photo groups with zero photos are skipped.
+- Section photo groups that share an insertion point still pack onto the same page when they fit.
+- Oil / section placement from Rev 1.7.1 unchanged. Re-finalize (or export a new draft) to refresh existing final PDFs.
+
 ## Rev 1.7.1 – 2026-10-05 (build 2026-10-05.1) – oil photos in the oil group
 
 - Fix: section photos (especially **C. Oil condition**) could print under the wrong group (often L. Teardown photos) when the gallery picker used a stale photo target on tablets.

@@ -88,24 +88,60 @@ const PdfExport = (() => {
   /* Rev 1.6.1: photo grid pages inserted after page `after` (1-based): per group a "Photos - <section>" bar, 3 photos per row
      (~2.3 in wide, aspect preserved) with the caption under each, and a note that full-size photos are in the app / job export. */
   const NOTE = 'Full-size photos available in the Ram-Gear app / job export.';
+  async function embedPhoto(doc, blob) {
+    // Rev 1.7.2: job / section photos must actually render. Try JPEG, PNG, then canvas re-encode to JPEG
+    // (cloud downloads and some device cameras are not pdf-lib-friendly). Never throw — caller skips failures.
+    if (!blob) return null;
+    const toBytes = async b => new Uint8Array(await (b.arrayBuffer ? b.arrayBuffer() : new Response(b).arrayBuffer()));
+    try {
+      const bytes = await toBytes(blob);
+      try { return await doc.embedJpg(bytes); } catch (_) {}
+      try { return await doc.embedPng(bytes); } catch (_) {}
+    } catch (_) {}
+    try {
+      const bmp = await createImageBitmap(blob);
+      const c = document.createElement('canvas'); c.width = bmp.width || 1; c.height = bmp.height || 1;
+      c.getContext('2d').drawImage(bmp, 0, 0); if (bmp.close) bmp.close();
+      const jpeg = await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('toBlob')), 'image/jpeg', 0.92));
+      return await doc.embedJpg(await toBytes(jpeg));
+    } catch (e) { console.warn('photo embed failed', e); return null; }
+  }
   async function photoGrid(doc, groups, after, o) {
+    // Rev 1.7.2: embed first, then paginate only photos that loaded — no blank pages reserved for missing images.
+    // Pack multiple section groups onto one page when they share an insertion point and fit.
+    const prepared = [];
+    for (const g of groups || []) {
+      const photos = [];
+      for (const ph of g.photos || []) {
+        const img = await embedPhoto(doc, ph.blob || ph.thumb);
+        if (img) photos.push({caption: ph.caption, sub: ph.sub, img});
+        else console.warn('Skipping unreadable photo in PDF:', ph.caption || ph.sub || '(no caption)');
+      }
+      if (photos.length) prepared.push({title: g.title, photos});
+    }
+    if (!prepared.length) return 0;
     const COLS = 3, GAP = 16, CW = (W - 2 * M - GAP * (COLS - 1)) / COLS, BOXH = 132, CAP = 3, ROWH = BOXH + 8 + CAP * 10.5 + 8, TOP = H - 66, BOT = 64;
-    let pg = null, y = 0, idx = after, title = '';
-    const newPage = () => { pg = doc.insertPage(idx++, [W, H]); header(pg, o.font, o.bold, o.header, null); o.stamp(pg); y = TOP; footer(pg, o.font, o.formId, `Photos - ${title}`); };
+    let pg = null, y = 0, idx = Math.min(Math.max(after | 0, 0), doc.getPageCount()), title = '', n0 = doc.getPageCount();
+    const foot = () => { if (pg) footer(pg, o.font, o.formId, `Photos - ${title}`); };
+    const newPage = () => {
+      foot();
+      if (idx >= doc.getPageCount()) { pg = doc.addPage([W, H]); idx = doc.getPageCount(); }
+      else pg = doc.insertPage(idx++, [W, H]);
+      header(pg, o.font, o.bold, o.header, null); o.stamp(pg); y = TOP;
+    };
     const bar = t => { sectionBar(pg, o.bold, y, t); y -= 30; };
-    for (const g of groups) {
-      title = g.title; const list = g.photos || [];
-      if (!pg || y - 30 - (list.length ? ROWH : 24) - 18 < BOT) newPage(); else y -= 8;
+    const need = h => { if (!pg || y - h < BOT) { newPage(); return true; } return false; };
+    for (const g of prepared) {
+      title = g.title; const list = g.photos;
+      if (need(30 + ROWH + 18)) { /* new page */ } else y -= 8;
       bar(`Photos - ${g.title}`);
-      if (!list.length) { pg.drawText(clean(g.empty || 'No photos.'), {x: M + 6, y: y - 12, size: 10.5, font: o.font, color: GREY}); y -= 26; continue; }
       for (let i = 0; i < list.length; i += COLS) {
-        if (y - ROWH - 18 < BOT) { newPage(); bar(`Photos - ${g.title} (continued)`); }
+        if (y - ROWH - 18 < BOT) { title = g.title; need(ROWH + 30 + 18); bar(`Photos - ${g.title} (continued)`); }
         for (let j = 0; j < COLS && i + j < list.length; j++) {
-          const ph = list[i + j], x0 = M + j * (CW + GAP);
-          const img = await doc.embedJpg(new Uint8Array(await ph.blob.arrayBuffer()));
-          const k = Math.min(CW / img.width, BOXH / img.height), iw = img.width * k, ih = img.height * k, x = x0;   // left-aligned with its caption
-          pg.drawImage(img, {x, y: y - ih, width: iw, height: ih});
-          pg.drawRectangle({x, y: y - ih, width: iw, height: ih, borderColor: GRID, borderWidth: 0.5});
+          const ph = list[i + j], x0 = M + j * (CW + GAP), img = ph.img;
+          const k = Math.min(CW / img.width, BOXH / img.height), iw = img.width * k, ih = img.height * k;
+          pg.drawImage(img, {x: x0, y: y - ih, width: iw, height: ih});
+          pg.drawRectangle({x: x0, y: y - ih, width: iw, height: ih, borderColor: GRID, borderWidth: 0.5});
           let cy = y - BOXH - 12;
           const lines = wrap(`Photo ${i + j + 1}: ${ph.caption || '(no caption)'}`, o.bold, 8.5, CW).slice(0, ph.sub ? CAP - 1 : CAP);
           for (const ln of lines) { pg.drawText(ln, {x: x0, y: cy, size: 8.5, font: o.bold, color: NAVY}); cy -= 10.5; }
@@ -115,6 +151,8 @@ const PdfExport = (() => {
       }
       pg.drawText(NOTE, {x: M, y: y - 4, size: 8, font: o.ital, color: GREY}); y -= 18;
     }
+    foot();
+    return doc.getPageCount() - n0;
   }
 
 
@@ -242,7 +280,8 @@ const PdfExport = (() => {
       footer(pg, font, `Form: ${form.template.split('/').pop().replace('.pdf', '')}`, 'Completion record');
     }
     // Job photos (shared by all forms of the job): same grid, at the end
-    if (photos.length) await photoGrid(doc, [{title: 'Job photos', photos}], doc.getPageCount(), {font, bold, ital, header: BRAND, formId, stamp});
+    const jobPhotos = (photos || []).filter(p => p && (p.blob || p.thumb));
+    if (jobPhotos.length) await photoGrid(doc, [{title: 'Job photos', photos: jobPhotos}], doc.getPageCount(), {font, bold, ital, header: BRAND, formId, stamp});
     const partsN = opts.parts ? await partsPages(doc, opts.parts) : 0;   // Rev 1.7: Parts Summary at the end of the final Teardown PDF
     doc.setTitle(`${form.title}${gb ? ' - ' + gb.label : ''} - WO ${job.wo || ''} - ${job.customer || ''}`);
     doc.setProducer('Ram-Gear Manufacturing Incorporated app (pdf-lib)'); doc.setModificationDate(new Date());

@@ -1559,7 +1559,7 @@
           const ck = {g, sub: b.name, comp: b.id}; known[`${key}:${b.id}`] = ck;
           alias(`${key}:${b.name}`, ck);
         }
-        if (b.type === 'photos') { known[`${key}:${b.scope}`] = {g, sub: ''}; catchAll = g; g.empty = 'No teardown photos were added.'; }
+        if (b.type === 'photos') { known[`${key}:${b.scope}`] = {g, sub: ''}; catchAll = g; }
       }
       groups.push(g);
     }
@@ -1581,12 +1581,17 @@
     const mine = (await DB.byJob('photos', job.id)).filter(p => p.scope.startsWith(key + ':')).sort((a, b) => a.createdAt - b.createdAt);
     for (const p of mine) {
       const place = photoPlace(job, key, p.scope, p.label, pl);
-      place.group.photos.push({blob: p.blob, w: p.w, h: p.h, caption: p.caption, sub: place.comp ? place.sub : (place.sub || '')});
+      const g = place.group || pl.catchAll;   // never drop a photo: unknown → L / Additional photos
+      g.photos.push({blob: p.blob || p.thumb, w: p.w, h: p.h, caption: p.caption, sub: place.comp ? place.sub : (place.sub || '')});
     }
-    return pl.groups.filter(g => g.photos.length || g.empty).map(g => ({title: g.title, after: g.after, photos: g.photos, empty: g.empty}));
+    // Rev 1.7.2: only sections that actually have photos (no blank "No teardown photos were added." pages)
+    return pl.groups.filter(g => g.photos.length).map(g => ({title: g.title, after: g.after, photos: g.photos}));
   }
-  async function photosFor(job) {   // job photos (shared by all forms), printed at the end
-    return (await DB.byJob('photos', job.id)).filter(p => p.scope === 'job').sort((a, b) => a.createdAt - b.createdAt).map(p => ({blob: p.blob, w: p.w, h: p.h, caption: p.caption}));
+  async function photosFor(job) {   // job photos (shared by all forms), printed at the end of every form PDF (Rev 1.7.2: require a readable blob/thumb)
+    return (await DB.byJob('photos', job.id))
+      .filter(p => p.scope === 'job' && (p.blob || p.thumb))
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map(p => ({blob: p.blob || p.thumb, w: p.w, h: p.h, caption: p.caption}));
   }
   async function exportForm(job, key) {
     await flushSave();
