@@ -84,15 +84,14 @@ const DB = (() => {
     if (DATA.has(store) || store === 'audit') window.dispatchEvent(new CustomEvent('rg-local-change', {detail: {store}}));   // cloud sync picks it up
     return DATA.has(store) ? updateMeta(() => ({lastChangeAt: Date.now()})) : null;
   };
-  const api = {
+  /* Rev 1.9: write guard. The app installs a check (setGuard) that refuses changes to job data (customers, jobs, photos,
+     saved PDFs) for a Viewer, whatever screen or code path asks. Cloud sync applies changes pulled from the server through
+     DB.sys, which is not guarded (a Viewer's device must still receive everyone else's work). */
+  let guard = null;
+  const check = store => { const why = DATA.has(store) && guard ? guard(store) : ''; if (why) { const e = new Error(why); e.code = 'RG_READONLY'; throw e; } };
+  const raw = {
     async put(store, obj) { const r = await tx(store, 'readwrite', s => p(s.put(obj))); await touch(store); return r; },
-    getMeta: async () => ({...META_DEFAULT, ...(await api.get('settings', 'backup') || {})}),
-    updateMeta,
-    get: (store, id) => tx(store, 'readonly', s => p(s.get(id))),
     async del(store, id) { const r = await tx(store, 'readwrite', s => p(s.delete(id))); await touch(store); return r; },
-    all: (store) => tx(store, 'readonly', s => p(s.getAll())),
-    byJob: (store, jobId) => tx(store, 'readonly', s => p(s.index('jobId').getAll(jobId))),
-    byCustomer: (customerId) => tx('jobs', 'readonly', s => p(s.index('customerId').getAll(customerId))),
     async deleteJob(jobId) {
       const db = await open();
       return new Promise((res, rej) => {
@@ -105,7 +104,21 @@ const DB = (() => {
         t.oncomplete = () => touch('jobs').then(res, rej); t.onerror = () => rej(t.error);
       });
     },
+  };
+  const api = {
+    setGuard: fn => { guard = fn; },
+    sys: raw,
+    async put(store, obj) { check(store); return raw.put(store, obj); },
+    getMeta: async () => ({...META_DEFAULT, ...(await api.get('settings', 'backup') || {})}),
+    updateMeta,
+    get: (store, id) => tx(store, 'readonly', s => p(s.get(id))),
+    async del(store, id) { check(store); return raw.del(store, id); },
+    all: (store) => tx(store, 'readonly', s => p(s.getAll())),
+    byJob: (store, jobId) => tx(store, 'readonly', s => p(s.index('jobId').getAll(jobId))),
+    byCustomer: (customerId) => tx('jobs', 'readonly', s => p(s.index('customerId').getAll(customerId))),
+    async deleteJob(jobId) { check('jobs'); return raw.deleteJob(jobId); },
     async deleteCustomer(customerId) {
+      check('customers');
       for (const j of await api.byCustomer(customerId)) await api.deleteJob(j.id);
       await api.del('customers', customerId);
     },

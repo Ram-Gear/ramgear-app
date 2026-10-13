@@ -72,7 +72,7 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
     <li><a href="#first">Set up the first tablet (Admin)</a></li>
     <li><a href="#more">Add more tablets or a Windows PC</a></li>
     <li><a href="#firefox">Firefox settings</a></li>
-    <li><a href="#daily">Daily use &amp; sync status</a></li>
+    <li><a href="#daily">Daily use &amp; sync status</a> · <a href="#roles">User roles</a></li>
     <li><a href="#gearboxes">Jobs, gearboxes &amp; reduction type</a></li>
     <li><a href="#backup">Backups &amp; restore</a></li>
     <li><a href="#cleared">If browser data is cleared</a></li>
@@ -165,6 +165,22 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
     <tr><td>☁ Sign in again</td><td>The cloud sign-in expired.</td><td>Log out and sign in again while online.</td></tr>
     <tr><td>In use on Shop Tablet 2</td><td>That form is open on another device, so it is read-only here and updates live.</td><td>Wait until they leave the form. A lock on a device that went offline expires after 30 minutes.</td></tr>
   </table>
+  <h3 id="roles">User roles (Rev 1.9)</h3>
+  <p>Each user has two roles, set by an Admin under <b>Admin &amp; settings › Users › Edit</b>:</p>
+  <table>
+    <tr><th>QC role (this app)</th><th>Can do</th></tr>
+    <tr><td>Admin</td><td>Everything, plus manage users, approve deletions, reopen completed forms and restore backups.</td></tr>
+    <tr><td>Technician</td><td>Create and edit customers, jobs, forms and photos, and finalize forms.</td></tr>
+    <tr><td>Viewer – view only, no changes</td><td>Sign in, browse customers and jobs, view photos and customer cards, open or download PDFs and zips, and make a local backup. A Viewer cannot create, edit, delete, finalize, reopen, restore a backup or manage users. Forms open read-only with a "View only" bar.</td></tr>
+  </table>
+  <table>
+    <tr><th>Card file role (Cardfile app)</th><th>Can do</th></tr>
+    <tr><td>Admin</td><td>View, add and edit cards, and delete cards.</td></tr>
+    <tr><td>Editor (default)</td><td>View, add and edit cards. Cannot delete.</td></tr>
+    <tr><td>Viewer</td><td>View cards only.</td></tr>
+    <tr><td>None</td><td>No access to the card file. <b>View card</b> in this app then shows the copy made on the tablet.</td></tr>
+  </table>
+  <p>Customer cards are still created and updated automatically when anyone saves a customer, whatever their card file role.</p>
 </section>
 
 <section class="card" id="gearboxes">

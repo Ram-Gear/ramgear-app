@@ -2,6 +2,14 @@
 
 The revision number lives in `js/version.js` (see README › *Revision number*).
 
+## Rev 1.9 – 2026-10-13 (build 2026-10-13.2) – Viewer role; separate card file role
+
+- New QC role **Viewer – view only, no changes**: sign in, browse, view photos and View card, open/download PDFs and zips, make a local backup. No create/edit/delete, finalize, reopen, restore or user management. Edit controls are hidden, forms open read-only, and every local write path is guarded (`RG_READONLY`). A Viewer's tablet never pushes data changes (only the audit log and the tablet heartbeat), so sync cannot loop on refused writes.
+- **Roles per app:** `members.role` stays the QC role (admin / technician / viewer); new `members.card_role` (none / viewer / editor / admin, default editor) for the Cardfile app. The Users edit dialog shows a *QC role* and a *Card file role* selector.
+- Database: migration `supabase/migrations/003_roles.sql` (rollback `003_roles_down.sql`). New helpers `can_edit()`, `card_role()`, `card_can_view()`, `card_can_edit()`, `card_can_delete()`. QC data tables and storage need `can_edit()` to insert/update/delete (read stays any member); `checkout_form` refuses viewers. customer_cards: view needs card role ≠ none, add/edit needs editor+, soft delete (deleted_at) or delete needs card admin. Cards are still created by the customer trigger for every user.
+- `rg-admin` Edge Function accepts and stores role `viewer` and `card_role`.
+- Tests (mock + local Postgres only): `e2e_viewer.py`, `sql/test_roles.mjs`.
+
 ## Rev 1.8 – 2026-10-13 (build 2026-10-13.1) – customer cards (View card, Find in card file)
 
 - **Customer cards** shared with the Cardfile app: database table `customer_cards` (migration `supabase/migrations/002_customer_cards.sql`, applied to the live project 2026-10-13; rollback `002_customer_cards_down.sql`). A trigger on `customers` keeps one card per customer (title = name, max 39 characters; plain-text body: Contact, Phone XXX-XXX-XXXX, Email, Address, Notes) from every tablet and from offline sync. Deleting a customer keeps the card and unlinks it. The card sync is fail-safe: it can never block a customer save.

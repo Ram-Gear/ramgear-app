@@ -179,8 +179,27 @@
   /* ---------- users, session, admin approval (local, per device) ---------- */
   let USER = null;            // signed-in user record
   let lastActive = Date.now(), lastPersist = 0;
-  const ROLE_LABEL = {admin: 'Admin', technician: 'Technician'};
+  const ROLE_LABEL = {admin: 'Admin', technician: 'Technician', viewer: 'Viewer'};
+  const CARD_ROLE_LABEL = {none: 'No access', viewer: 'Viewer', editor: 'Editor', admin: 'Admin'};
   const isAdmin = () => !!USER && USER.role === 'admin';
+  /* Rev 1.9: Viewer = view only. Every change to job data is refused in code (DB write guard + checks in the edit functions),
+     edit controls are removed and fields are read-only (applyViewOnly). */
+  const canEdit = () => !!USER && USER.role !== 'viewer';
+  const VIEW_ONLY_MSG = 'View only: your account (Viewer) can look at everything but cannot make changes.';
+  const viewOnly = () => { if (canEdit()) return false; toast(VIEW_ONLY_MSG, 3500); return true; };
+  DB.setGuard(() => canEdit() ? '' : VIEW_ONLY_MSG);
+  window.addEventListener('unhandledrejection', e => { if (e.reason && e.reason.code === 'RG_READONLY') { e.preventDefault(); toast(VIEW_ONLY_MSG, 3500); } });
+  const VIEW_ONLY_HIDE = '#newCustBtn,#editCustBtn,#delCustBtn,#newJobBtn,#delJobBtn,#addGbBtn,[data-gbchange],[data-gbremove],[data-addform],[data-docdel],#finalizeBtn,#reopenBtn,#lockRetryBtn,#restoreBtn,.photo-btns,[data-delphoto]';
+  function applyViewOnly(root) {
+    if (!root || canEdit() || !USER) return;
+    for (const e of root.querySelectorAll(VIEW_ONLY_HIDE)) { e.hidden = true; e.style.display = 'none'; e.disabled = true; e.inert = true; }   // hidden, not removed: render code may still wire handlers
+    for (const e of root.querySelectorAll('input,select,textarea')) {
+      if (e.type === 'search' || e.id === 'custSearch' || e.dataset.viewok !== undefined) continue;
+      if (e.tagName === 'SELECT' || e.type === 'checkbox' || e.type === 'radio' || e.type === 'file') { if (!e.disabled) e.disabled = true; }
+      else if (!e.readOnly) e.readOnly = true;
+    }
+    for (const e of root.querySelectorAll('[data-na]')) e.setAttribute('aria-disabled', 'true');
+  }
   const userName = () => USER ? USER.displayName : '';
   async function audit(action, item, result = 'approved', adminName) {
     await DB.put('audit', {id: DB.uid(), at: Date.now(), action, item: item || '', admin: adminName || userName(), user: userName(), result, tablet: TABLET});
@@ -256,7 +275,7 @@
   function renderUserBox() {
     const box = $('#userBox'); if (!box) return;
     renderCloudChip(Cloud.status());
-    box.innerHTML = USER ? `<span class="user-chip" title="Signed in on ${esc(TABLET)}"><span aria-hidden="true">👤</span> <b id="userName">${esc(USER.displayName)}</b> <span class="role-tag">${ROLE_LABEL[USER.role]}</span></span><button class="btn ghost" id="logoutBtn">Log out</button>` : '';
+    box.innerHTML = USER ? `<span class="user-chip" title="Signed in on ${esc(TABLET)}"><span aria-hidden="true">👤</span> <b id="userName">${esc(USER.displayName)}</b> <span class="role-tag r-${USER.role}" id="roleTag">${ROLE_LABEL[USER.role]}</span></span><button class="btn ghost" id="logoutBtn">Log out</button>` : '';
     if (USER) $('#logoutBtn').onclick = logout;
   }
   function showLogin(message, username, recovery) {
@@ -526,18 +545,20 @@
   /* ---------- Users (Admin screen) ---------- */
   const activeAdmins = users => users.filter(u => u.role === 'admin' && !u.disabled);
   async function userDialog(u) {
-    const isNew = !u; let err = '', vals = u ? {dname: u.displayName, uname: u.username, role: u.role} : {dname: '', uname: '', role: 'technician'};
+    const isNew = !u; let err = '', vals = u ? {dname: u.displayName, uname: u.username, role: u.role, cardRole: u.cardRole || 'editor'} : {dname: '', uname: '', role: 'technician', cardRole: 'editor'};
+    const opt = (v, cur, label) => `<option value="${v}" ${cur === v ? 'selected' : ''}>${label}</option>`;
     for (;;) {
       const v = await modal(`<h2>${isNew ? 'New user' : `Edit ${esc(u.displayName)}`}</h2>
         <div class="grid2"><label class="fld"><span>Full name</span><input name="dname" required autocomplete="off" value="${esc(vals.dname)}"></label>
         <label class="fld"><span>Username</span><input name="uname" required autocomplete="off" autocapitalize="none" spellcheck="false" value="${esc(vals.uname)}" ${isNew ? '' : 'readonly'}></label></div>
-        <label class="fld"><span>Role</span><select name="role"><option value="technician" ${vals.role === 'technician' ? 'selected' : ''}>Technician – create, edit and finalize</option><option value="admin" ${vals.role === 'admin' ? 'selected' : ''}>Admin – also manages users and approves admin actions</option></select></label>
+        <div class="grid2"><label class="fld"><span>QC role</span><select name="role">${opt('technician', vals.role, 'Technician – create, edit and finalize')}${opt('admin', vals.role, 'Admin – also manages users and approves admin actions')}${opt('viewer', vals.role, 'Viewer – view only, no changes')}</select></label>
+        <label class="fld"><span>Card file role <span class="muted small">(Cardfile app)</span></span><select name="cardRole">${opt('editor', vals.cardRole, 'Editor – add and edit cards')}${opt('admin', vals.cardRole, 'Admin – also delete cards')}${opt('viewer', vals.cardRole, 'Viewer – look up cards only')}${opt('none', vals.cardRole, 'No access')}</select></label></div>
         ${isNew ? `<div class="grid2">${secretInput('pin1', 'Password or PIN', 'new-password')}${secretInput('pin2', 'Enter it again', 'new-password')}</div><p class="muted small">${Auth.secretRule}</p>` : ''}
         ${err ? `<p class="pin-error" role="alert">${esc(err)}</p>` : ''}`,
         [{label: 'Cancel', value: 'cancel'}, {label: isNew ? 'Create user' : 'Save', value: 'ok', cls: 'primary'}], {wide: true});
       if (v !== 'ok') return null;
       const f = $('#dlgForm'), users = await Auth.all();
-      vals = {dname: f.dname.value.trim(), uname: Auth.norm(f.uname.value), role: f.role.value};
+      vals = {dname: f.dname.value.trim(), uname: Auth.norm(f.uname.value), role: f.role.value, cardRole: f.cardRole.value};
       if (!vals.dname || !vals.uname) { err = 'Enter a full name and a username.'; continue; }
       if (isNew && users.some(x => x.username === vals.uname)) { err = `The username "${vals.uname}" is already taken on this device.`; continue; }
       if (!isNew && u.role === 'admin' && vals.role !== 'admin' && activeAdmins(users).filter(x => x.id !== u.id).length === 0) { err = 'This is the only active Admin. Make another user an Admin first.'; continue; }
@@ -562,17 +583,17 @@
     const users = await Auth.all(), u = users.find(x => x.id === id);
     if (action === 'new') {
       const r = await userDialog(null); if (!r) return;
-      const nu = await Auth.create({username: r.uname, displayName: r.dname, role: r.role, secret: r.secret, createdBy: USER.displayName});
+      const nu = await Auth.create({username: r.uname, displayName: r.dname, role: r.role, cardRole: r.cardRole, secret: r.secret, createdBy: USER.displayName});
       if (!await cloudUser(nu, r.secret)) { await DB.del('users', nu.id); return renderSettings(); }
-      await audit('User created', `${nu.displayName} (${nu.username}, ${ROLE_LABEL[nu.role]})`, 'done'); toast(`User ${nu.username} created`);
+      await audit('User created', `${nu.displayName} (${nu.username}, QC ${ROLE_LABEL[nu.role]}, card file ${CARD_ROLE_LABEL[nu.cardRole]})`, 'done'); toast(`User ${nu.username} created`);
     } else if (action === 'edit') {
       const r = await userDialog(u); if (!r) return;
-      const changes = [r.dname !== u.displayName ? `name ${u.displayName} → ${r.dname}` : '', r.role !== u.role ? `role ${ROLE_LABEL[u.role]} → ${ROLE_LABEL[r.role]}` : ''].filter(Boolean).join(', ');
+      const changes = [r.dname !== u.displayName ? `name ${u.displayName} → ${r.dname}` : '', r.role !== u.role ? `QC role ${ROLE_LABEL[u.role]} → ${ROLE_LABEL[r.role]}` : '', r.cardRole !== (u.cardRole || 'editor') ? `card file role ${CARD_ROLE_LABEL[u.cardRole || 'editor']} → ${CARD_ROLE_LABEL[r.cardRole]}` : ''].filter(Boolean).join(', ');
       const before = {...u};
-      Object.assign(u, {displayName: r.dname, role: r.role, updatedAt: Date.now()});
+      Object.assign(u, {displayName: r.dname, role: r.role, cardRole: r.cardRole, updatedAt: Date.now()});
       if (!await cloudUser(u)) { await DB.put('users', before); return renderSettings(); }
       await DB.put('users', u);
-      if (u.id === USER.id) { USER = u; renderUserBox(); }
+      if (u.id === USER.id) { USER = u; renderUserBox(); route(); }
       await audit('User edited', `${u.username}${changes ? ': ' + changes : ' (no change)'}`, 'done'); toast('User saved');
     } else if (action === 'reset') {
       const s = await newSecretDialog(`Reset password / PIN – ${u.displayName}`, `Set a new password or PIN for <b>${esc(u.username)}</b> and tell them in person.`); if (!s) return;
@@ -615,13 +636,13 @@
       ${await cloudCard()}
       <section class="card" id="usersCard">
         <div class="card-head"><h2>Users</h2><span class="muted small">${users.length} account${users.length === 1 ? '' : 's'} ${Cloud.enabled() ? 'for all tablets (cloud)' : 'on this device'} · no self sign-up</span><button class="btn primary right" id="newUserBtn">+ New user</button></div>
-        <div class="tablewrap"><table class="tbl users"><thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead><tbody>
-          ${users.map(u => `<tr data-user="${esc(u.username)}" class="${u.disabled ? 'off' : ''}"><td><b>${esc(u.displayName)}</b>${u.id === USER.id ? ' <span class="muted small">(you)</span>' : ''}</td><td>${esc(u.username)}</td><td>${ROLE_LABEL[u.role]}</td>
+        <div class="tablewrap"><table class="tbl users"><thead><tr><th>Name</th><th>Username</th><th>QC role</th><th>Card file</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead><tbody>
+          ${users.map(u => `<tr data-user="${esc(u.username)}" class="${u.disabled ? 'off' : ''}"><td><b>${esc(u.displayName)}</b>${u.id === USER.id ? ' <span class="muted small">(you)</span>' : ''}</td><td>${esc(u.username)}</td><td><span class="role-tag r-${u.role}">${ROLE_LABEL[u.role]}</span></td><td>${CARD_ROLE_LABEL[u.cardRole || 'editor']}</td>
             <td>${u.disabled ? '<span class="badge off">Disabled</span>' : '<span class="badge done">Active</span>'}</td><td>${esc(u.lastLoginAt ? fmtDate(u.lastLoginAt) : 'Never')}</td>
             <td><div class="uactions"><button class="btn" data-uact="edit" data-uid="${u.id}">Edit</button><button class="btn" data-uact="reset" data-uid="${u.id}">Reset password</button>
               ${u.disabled ? `<button class="btn" data-uact="enable" data-uid="${u.id}">Enable</button>` : `<button class="btn danger-outline" data-uact="disable" data-uid="${u.id}" ${u.id === USER.id ? 'disabled' : ''}>Disable</button>`}</div></td></tr>`).join('')}
         </tbody></table></div>
-        <p class="muted small">Technicians can create, edit and finalize. Admins can also manage users and approve admin-only actions. Only salted hashes of passwords/PINs are stored, and they are included in backups.</p>
+        <p class="muted small">Technicians can create, edit and finalize. Admins can also manage users and approve admin-only actions. Viewers can look at everything, export PDFs and zips and make a backup, but cannot change anything. The card file role is the permission in the Cardfile app (editors add and edit cards; only card-file admins delete). Only salted hashes of passwords/PINs are stored, and they are included in backups.</p>
         <label class="fld bk-interval"><span>Auto-lock after inactivity</span>
           <select id="idleMin">${[5, 10, 15, 30, 60].map(m => `<option value="${m}" ${m === idle ? 'selected' : ''}>${m} minutes</option>`).join('')}</select></label>
       </section>
@@ -766,13 +787,13 @@
     }
     return {done, total, missing};
   }
-  async function saveJob(job) { job.updatedAt = Date.now(); await DB.put('jobs', job); }
+  async function saveJob(job) { if (!canEdit()) throw Object.assign(new Error(VIEW_ONLY_MSG), {code: 'RG_READONLY'}); job.updatedAt = Date.now(); await DB.put('jobs', job); }
   async function saveCustomer(c) { c.updatedAt = Date.now(); await DB.put('customers', c); }
   // The debounced save keeps the job it was scheduled for: a late 'change' event (blur while leaving a form) may arrive
   // after navigation has already replaced current.job.
   let saveJobRef = null;
   function scheduleSave(job = current.job) {
-    if (!job) return;
+    if (!job || !canEdit()) return;
     const ind = $('#saveInd'); if (ind) ind.textContent = 'Saving…';
     clearTimeout(saveTimer); saveJobRef = job;
     saveTimer = setTimeout(async () => {
@@ -827,9 +848,12 @@
       else if (h[0] === 'settings') await renderSettings();
       else await renderHome();
     } catch (e) { console.error(e); view.innerHTML = `<div class="card"><h2>Something went wrong</h2><p>${esc(e.message)}</p><a class="btn" href="#/">${HOME_LABEL}</a></div>`; }
+    applyViewOnly(view); applyViewOnly($('#appbarActions'));
     view.focus({preventScroll: true});
   }
   window.addEventListener('hashchange', route);
+  new MutationObserver(() => { applyViewOnly(view); applyViewOnly($('#appbarActions')); }).observe(view, {childList: true, subtree: true});
+  new MutationObserver(() => applyViewOnly($('#appbarActions'))).observe($('#appbarActions'), {childList: true, subtree: true});
   async function load(cid, jid) {
     const customer = await DB.get('customers', cid); if (!customer) { location.hash = P.home(); return {}; }
     if (!jid) return {customer};
@@ -865,7 +889,7 @@
       <p class="muted small center" id="storageInfo"></p>`;
     $('#newCustBtn').onclick = async () => { const c = await editCustomer(null); if (c) location.hash = P.cust(c.id); };
     refreshBackupInfo(); showBackupBanner(); showStorageBanner();
-    $('#blankBtn').onclick = blankPdfs; $('#backupBtn').onclick = backup; $('#restoreBtn').onclick = () => $('#fileRestore').click();
+    $('#blankBtn').onclick = blankPdfs; $('#backupBtn').onclick = backup; $('#restoreBtn').onclick = () => { if (!viewOnly()) $('#fileRestore').click(); };
     const s = $('#custSearch'); s.oninput = () => { const q = s.value.toLowerCase().trim(); $$('.custcard').forEach(c => c.hidden = !c.dataset.search.includes(q)); };
     if (navigator.storage && navigator.storage.estimate) navigator.storage.estimate().then(async e => {
       const persisted = navigator.storage.persisted ? await navigator.storage.persisted() : false;
@@ -878,6 +902,7 @@
       [{label: 'Close', value: 'cancel'}], {noFocus: true});
   }
   async function editCustomer(c) {
+    if (viewOnly()) return null;
     const isNew = !c; c = c || {id: DB.uid(), name: '', contact: '', phone: '', email: '', address: '', notes: '', createdAt: Date.now()};
     let picked = null;   // Rev 1.8: card chosen with "Find in card file" (linked on save, or by the DB trigger at the next sync)
     const v = await modal(`<h2>${isNew ? 'New customer' : 'Edit customer'}</h2>
@@ -1022,6 +1047,7 @@
       <p class="muted small">After you confirm, the type is <b>locked</b> 🔒. Changing it later needs Admin approval and is only possible while none of this gearbox's forms has been finalized.</p>`,
     [{label: 'Back', value: 'cancel'}, {label: `Confirm ${isPl(n) ? `Planetary ${pN(n)}-stage` : rtype(n)} & lock`, value: 'ok', cls: 'primary'}]).then(v => v === 'ok');
   async function newJob(customer) {
+    if (viewOnly()) return;
     let vals = {wo: '', date: today(), stages: 0}, err = '';
     for (;;) {
       const v = await modal(`<h2>New job for ${esc(customer.name)}</h2>
@@ -1046,6 +1072,7 @@
     location.hash = P.job(customer.id, job.id);
   }
   async function addGearbox(job, cid) {
+    if (viewOnly()) return;
     if (jobStatus(job) === 'completed') { toast('All forms of this job are finalized – reopen a form first to add a gearbox', 4000); return; }
     const n = activeGbs(job).length + 1;
     let vals = {stages: 0}, err = '';
@@ -1075,6 +1102,7 @@
     return null;
   }
   async function changeType(job, gid, cid) {
+    if (viewOnly()) return;
     const m = gbMeta(job, gid), fs = BASES.map(b => job.forms[fkey(gid, b)]).filter(Boolean);
     const fin = fs.filter(st => st.status === 'completed' || (st.history || []).length);
     if (fin.length) {
@@ -1101,6 +1129,7 @@
     toast(`${m.label}: ${typeLabel(n)}`); renderJob(cid, job.id);
   }
   async function removeGearbox(job, gid, cid) {
+    if (viewOnly()) return;
     const m = gbMeta(job, gid);
     if (m.count < 2) { toast('A job needs at least one gearbox'); return; }
     const busy = inUseElsewhere(job, gid);
@@ -1158,7 +1187,7 @@
       </section>
       <section class="card">
         <div class="card-head"><h2>Job photos</h2><span class="muted small">Included on the photo pages of every form export</span></div>
-        ${photoPanel('job', 'Job photo', false)}
+        ${photoPanel('job', 'Job photo', !canEdit())}
       </section>
       <section class="card">
         <div class="card-head"><h2>Saved documents</h2><span class="muted small">Final PDFs created when a form is finalized · all revisions kept</span></div>
@@ -1282,6 +1311,7 @@
     }
   });
   async function savePhoto(target, file, caption) {
+    if (viewOnly()) return;
     const c = await Photos.compress(file);
     await DB.put('photos', {id: DB.uid(), jobId: target.jobId, scope: target.scope, label: target.label, caption: caption || '', blob: c.blob, thumb: c.thumb, w: c.w, h: c.h, createdAt: Date.now(), source: file.name ? 'file' : 'camera'});
     return c.thumb;
@@ -1309,6 +1339,7 @@
       }});
   }
   async function onFiles(input) {
+    if (viewOnly()) return;
     const files = Array.from(input.files || []);
     // Rev 1.7.1: prefer scope stamped on the file input; camera fallback passes a plain {files} object (no dataset)
     const ds = (input && input.dataset) || {};
@@ -1383,19 +1414,21 @@
     const form = fdef(job, key), gm = gbMeta(job, gid);
     current = {customer, job, formKey: key};
     let st = job.forms[key], inUse = null, offlineEdit = false;
-    if (st.status !== 'completed' && Cloud.enabled()) {
+    const viewer = !canEdit();
+    if (st.status !== 'completed' && Cloud.enabled() && !viewer) {
       const lk = REMOTE_RERENDER && Cloud.isHeld(jid, key) ? {ok: true} : await Cloud.checkout(jid, key);
       if (!lk.ok) inUse = lk.by; else offlineEdit = !!lk.offline;
       const fresh = await DB.get('jobs', jid); if (fresh && fresh.forms[key]) { job.forms[key] = fresh.forms[key]; st = fresh.forms[key]; }   // newest copy after the pre-checkout sync
     }
-    const completed = st.status === 'completed', locked = completed || !!inUse;
+    const completed = st.status === 'completed', locked = completed || !!inUse || viewer;
     bar([crumbHome, {label: customer.name, href: P.cust(cid)}, {label: `WO ${job.wo}`, href: P.job(cid, jid)}, {label: gm.count > 1 ? `${form.title} – Gearbox ${gm.index}` : form.title}],
       `<span class="save-ind" id="saveInd"></span><button class="btn ghost" id="exportBtn">${completed ? SHARE_FINAL : 'Export PDF'}</button>` +
-      (completed ? `<button class="btn warn" id="reopenBtn">Reopen</button>` : inUse ? `<button class="btn" id="lockRetryBtn">Check again</button>` : `<button class="btn accent" id="finalizeBtn">Finalize</button>`), {label: `WO ${job.wo}`, href: P.job(cid, jid)});
+      (viewer ? '' : completed ? `<button class="btn warn" id="reopenBtn">Reopen</button>` : inUse ? `<button class="btn" id="lockRetryBtn">Check again</button>` : `<button class="btn accent" id="finalizeBtn">Finalize</button>`), {label: `WO ${job.wo}`, href: P.job(cid, jid)});
     view.innerHTML = `
       <div class="form-top">
         <div class="form-meta"><h1>${esc(form.docTitle)}</h1><div class="gb-line" id="gbLine">${esc(gm.label)} · <b>${esc(gm.typeLabel)}</b> 🔒${gm.serial ? ` · S/N ${esc(gm.serial)}` : ''}</div><div>${badge(st.status)} <span class="muted small">rev ${st.revision}</span> <span class="muted small" id="progTxt"></span></div></div>
         ${locked ? '' : `<div class="tablet-row"><label class="fld"><span>Tablet used for inspection</span><input id="tabletUsed" type="text" maxlength="60" autocomplete="off" value="${esc(st.tabletUsed ?? TABLET)}"></label></div>`}
+        ${viewer ? `<div class="infobar" id="viewOnlyBar">👁 View only – your account (Viewer) can read this form, see its photos and export the PDF, but cannot change it.</div>` : ''}
         ${inUse ? `<div class="lockbar inuse" id="inUseBar">🔒 <b>In use on ${esc(inUse.name)}</b>${inUse.user ? ` by <b>${esc(inUse.user)}</b>` : ''}. Read-only here so nobody overwrites the other tablet's work. It opens for editing when they leave the form (or automatically after ${esc(new Date(inUse.until).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'}))} if that tablet went offline).</div>` : ''}
         ${offlineEdit ? `<div class="infobar" id="offlineBar">Offline: your changes are saved on this tablet and sync when it is back online. The form can't be checked out while offline, so if someone edits it on another tablet at the same time, the first to sync wins and the other's changes go to the audit log.</div>` : ''}
         ${completed ? `<div class="lockbar">🔒 Completed ${esc(fmtDate(st.completedAt))}, signed by <b>${esc(st.signedBy)}</b>${st.finalizedBy ? `, finalized by <b>${esc(st.finalizedBy)}</b>` : ''}${st.inspectedOn ? ` · Inspected on: <b>${esc(st.inspectedOn)}</b>` : ''}. This form is read-only. The final PDF is saved in the job's documents. Tap <b>Reopen</b> to start revision ${st.revision + 1}.</div>` : ''}
@@ -1409,7 +1442,7 @@
           ${s.photos ? `<details class="sec-photos"><summary>Section photos <span class="pcount"></span></summary>${photoPanel(`${key}:${s.id}`, s.title, locked)}</details>` : ''}
         </section>`).join('')}
         ${hasPhotoBlock(form) ? '' : `<section class="sec" id="sec-more"><h3 class="sec-title">${MORE_TITLE}</h3><p class="muted small">General photos for this form. They print after the last section of the PDF. Photos taken in a section print right after that section.</p>${photoPanel(`${key}:more`, MORE_TITLE, locked, '', key)}</section>`}
-        <section class="sec" id="sec-photos-all"><h3 class="sec-title">Job photos</h3><p class="muted small">Job-level photos (shared by all forms of this job) print at the end of every form's PDF. Section and component photos print right after their own section.</p>${photoPanel('job', 'Job photo', false)}</section>
+        <section class="sec" id="sec-photos-all"><h3 class="sec-title">Job photos</h3><p class="muted small">Job-level photos (shared by all forms of this job) print at the end of every form's PDF. Section and component photos print right after their own section.</p>${photoPanel('job', 'Job photo', viewer)}</section>
       </div>`;
     const body = $('#formBody'); window.scrollTo(0, 0);
     if (!locked) recalc(job, key);
@@ -1424,6 +1457,7 @@
         e.preventDefault(); toggleNA(job, key, na);
       });
       $('#finalizeBtn').onclick = () => finalize(job, key);
+    } else if (viewer) { /* view only: no actions */
     } else if (completed) {
       $('#reopenBtn').onclick = () => reopen(job, key);
     } else $('#lockRetryBtn').onclick = () => renderForm(cid, jid, key);
@@ -1482,6 +1516,7 @@
 
   /* ---------- finalize / reopen ---------- */
   async function finalize(job, key) {
+    if (viewOnly()) return;
     await flushSave();
     const form = fdef(job, key), st = job.forms[key], gid = parseKey(key).gid;
     for (;;) {
@@ -1540,6 +1575,7 @@
     } catch (e) { console.error(e); modal(`<h2>PDF failed</h2><p>${esc(e.message)}</p>`, [{label: 'Close', value: 'cancel'}]); }
   }
   async function reopen(job, key) {
+    if (viewOnly()) return;
     const st = job.forms[key];
     const ok = await confirmBox('Reopen form?', `This unlocks the form for editing as <b>revision ${st.revision + 1}</b>. The saved final PDF for revision ${st.revision} is kept unchanged in the job documents. You will need to finalize again to produce a new final PDF.`, `Reopen as rev ${st.revision + 1}`, true);
     if (!ok) return;
@@ -1786,6 +1822,7 @@
     if (v === 'share') shareOrDownload(blob, name); else if (v === 'dl') download(blob, name); else if (v === 'saveas') saveAs(blob, name);
   }
   $('#fileRestore').addEventListener('change', async e => {
+    if (viewOnly()) { e.target.value = ''; return; }
     const f = e.target.files[0]; e.target.value = ''; if (!f) return;
     try {
       const data = JSON.parse(await f.text());

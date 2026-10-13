@@ -60,7 +60,7 @@ const Cloud = (() => {
     const {data} = await client().from('members').select('*').eq('auth_user_id', s.user.id).maybeSingle();
     return data;
   }
-  const remoteUser = u => ({id: u.id, username: u.username, displayName: u.displayName, role: u.role, disabled: !!u.disabled,
+  const remoteUser = u => ({id: u.id, username: u.username, displayName: u.displayName, role: u.role, cardRole: u.cardRole || 'editor', disabled: !!u.disabled,
     secret: u.hash ? {algo: u.algo, iterations: u.iterations, salt: u.salt, hash: u.hash} : null});
 
   /* ---------- push ---------- */
@@ -72,8 +72,14 @@ const Cloud = (() => {
       for (const x of chunk) { if (x.del) delete st.h[x.k]; else st.h[x.k] = x.h; }
     }
   }
+  /* Rev 1.9: a Viewer (QC role) never pushes data: the server would refuse it (RLS can_edit()) and the errors would repeat on
+     every sync. Unsynced changes made on this device by an editor stay pending and go up when an editor signs in again.
+     The sign-in log (audit) and the tablet heartbeat are still sent; members may write those. */
+  let myRole = '';
+  const readOnly = () => myRole === 'viewer' || ((hooks.user() || {}).role === 'viewer');
   async function push(st) {
     const dev = deviceId(), tab = hooks.tablet(), H = st.h, conflicts = [];
+    if (readOnly()) { await pushLog(st, dev, tab); return conflicts; }
     // customers + jobs (+ tombstones for records deleted on this tablet)
     const customers = await DB.all('customers'), jobs = await DB.all('jobs');
     for (const [table, list, key, extra] of [['customers', customers, 'customers', () => ({})], ['jobs', jobs, 'jobs', j => ({customer_id: j.customerId || 'unassigned'})]]) {
@@ -98,7 +104,7 @@ const Cloud = (() => {
       const {data: remote} = await client().from('forms').select('*').eq('job_id', j.id).eq('form_key', fk).maybeSingle();
       const why = /RG_LOCKED/.test(error.message) ? `it is in use on ${remote && (remote.lock_tablet_name || remote.lock_tablet)}` : 'it was finalized on another tablet';
       await hooks.audit('Sync conflict – changes from this tablet not applied', `WO ${j.wo} ${fk}: ${why}. Local values: ${JSON.stringify(fs.values || {}).slice(0, 1500)}`, 'conflict');
-      if (remote) { const fresh = await DB.get('jobs', j.id); if (fresh) { fresh.forms[fk] = remote.data; await DB.put('jobs', fresh); hooks.onRemote('form', j.id, fk, remote.data); } H[k] = hash(plain(remote.data)); }
+      if (remote) { const fresh = await DB.get('jobs', j.id); if (fresh) { fresh.forms[fk] = remote.data; await DB.sys.put('jobs', fresh); hooks.onRemote('form', j.id, fk, remote.data); } H[k] = hash(plain(remote.data)); }
       conflicts.push({job: j, key: fk, why});
     }
     await saveState(st);
@@ -130,6 +136,11 @@ const Cloud = (() => {
       }
       await saveState(st);
     }
+    await pushLog(st, dev, tab);
+    return conflicts;
+  }
+  async function pushLog(st, dev, tab) {
+    const H = st.h;
     // audit log (append-only)
     const aud = (await DB.all('audit')).filter(a => !H['audit:' + a.id]);
     for (let i = 0; i < aud.length; i += 200) {
@@ -140,7 +151,6 @@ const Cloud = (() => {
     }
     await saveState(st);
     await client().from('tablets').upsert({id: dev, name: tab, last_seen_at: new Date().toISOString(), last_user: (hooks.user() || {}).displayName || '', app_rev: self.APP_REV_LABEL || ''});
-    return conflicts;
   }
 
   /* ---------- pull ---------- */
@@ -160,9 +170,9 @@ const Cloud = (() => {
       const cur = local.find(u => u.id === m.id);
       for (const dup of local.filter(u => u.username === m.username && u.id !== m.id)) await DB.del('users', dup.id);   // same person, cloud id wins
       const u = {...(cur || {createdAt: Date.parse(m.created_at) || Date.now(), lastLoginAt: 0}), id: m.id, username: m.username, displayName: m.display_name,
-        role: m.role, disabled: m.disabled, createdBy: m.created_by || (cur && cur.createdBy) || '', cloud: !!m.auth_user_id,
+        role: m.role, cardRole: m.card_role || 'editor', disabled: m.disabled, createdBy: m.created_by || (cur && cur.createdBy) || '', cloud: !!m.auth_user_id,
         ...(m.secret && m.secret.hash ? {algo: m.secret.algo, iterations: m.secret.iterations, salt: m.secret.salt, hash: m.secret.hash} : {})};
-      const sig = x => stable([x.username, x.displayName, x.role, !!x.disabled, x.hash, x.salt, x.iterations, !!x.cloud]);
+      const sig = x => stable([x.username, x.displayName, x.role, x.cardRole || 'editor', !!x.disabled, x.hash, x.salt, x.iterations, !!x.cloud]);
       if (!cur || sig(cur) !== sig(u)) { u.updatedAt = Date.now(); await DB.put('users', u); hooks.onRemote('user', m.id, null, u); }
     }
   }
@@ -171,17 +181,17 @@ const Cloud = (() => {
     await pullMembers(st);
     for (const r of await rowsSince('customers', st)) {
       const k = `customers:${r.id}`, local = await DB.get('customers', r.id);
-      if (r.deleted) { if (local && H[k] !== undefined && hash(plain(local)) === H[k]) { await DB.del('customers', r.id); changed.push(['customer', r.id]); } delete H[k]; continue; }   // local edits / never-synced records are kept (and pushed again)
+      if (r.deleted) { if (local && H[k] !== undefined && hash(plain(local)) === H[k]) { await DB.sys.del('customers', r.id); changed.push(['customer', r.id]); } delete H[k]; continue; }   // local edits / never-synced records are kept (and pushed again)
       const h = hash(r.data); if (H[k] === h) continue;
       if (local && H[k] !== undefined && hash(plain(local)) !== H[k]) continue;   // changed here too: this tablet's version is pushed next
-      await DB.put('customers', r.data); H[k] = h; changed.push(['customer', r.id]); hooks.onRemote('customer', r.id, null, r.data);
+      await DB.sys.put('customers', r.data); H[k] = h; changed.push(['customer', r.id]); hooks.onRemote('customer', r.id, null, r.data);
     }
     for (const r of await rowsSince('jobs', st)) {
       const k = `jobs:${r.id}`, local = await DB.get('jobs', r.id);
-      if (r.deleted) { if (local && H[k] !== undefined && hash(plain(jobCore(local))) === H[k]) { await DB.deleteJob(r.id); changed.push(['job', r.id]); hooks.onRemote('jobdeleted', r.id); } delete H[k]; continue; }
+      if (r.deleted) { if (local && H[k] !== undefined && hash(plain(jobCore(local))) === H[k]) { await DB.sys.deleteJob(r.id); changed.push(['job', r.id]); hooks.onRemote('jobdeleted', r.id); } delete H[k]; continue; }
       const h = hash(r.data); if (H[k] === h) continue;
       if (local && H[k] !== undefined && hash(plain(jobCore(local))) !== H[k]) continue;
-      await DB.put('jobs', {...r.data, forms: (local && local.forms) || {}}); H[k] = h; changed.push(['job', r.id]); hooks.onRemote('job', r.id, null, r.data);
+      await DB.sys.put('jobs', {...r.data, forms: (local && local.forms) || {}}); H[k] = h; changed.push(['job', r.id]); hooks.onRemote('job', r.id, null, r.data);
     }
     for (const r of await rowsSince('forms', st)) {
       LOCKS[`${r.job_id}:${r.form_key}`] = r.lock_tablet && Date.parse(r.lock_until) > Date.now() ? {tablet: r.lock_tablet, name: r.lock_tablet_name, user: r.lock_user, until: Date.parse(r.lock_until)} : null;
@@ -189,12 +199,12 @@ const Cloud = (() => {
       const job = await DB.get('jobs', r.job_id); if (!job) continue;
       const lf = job.forms && job.forms[r.form_key];
       if (lf && H[k] !== undefined && hash(plain(lf)) !== H[k]) continue;
-      job.forms = job.forms || {}; job.forms[r.form_key] = r.data; await DB.put('jobs', job); H[k] = h; changed.push(['form', r.job_id, r.form_key]);
+      job.forms = job.forms || {}; job.forms[r.form_key] = r.data; await DB.sys.put('jobs', job); H[k] = h; changed.push(['form', r.job_id, r.form_key]);
       hooks.onRemote('form', r.job_id, r.form_key, r.data);
     }
     for (const r of await rowsSince('files', st)) {
       const store = (r.meta && r.meta._store) || (r.kind === 'pdf' ? 'docs' : 'photos'), k = `files:${r.id}`;
-      if (r.deleted) { if (H[k] !== undefined && await DB.get(store, r.id)) { await DB.del(store, r.id); changed.push(['file', r.job_id]); hooks.onRemote('file', r.job_id); } delete H[k]; delete H['blob:' + r.id]; continue; }
+      if (r.deleted) { if (H[k] !== undefined && await DB.get(store, r.id)) { await DB.sys.del(store, r.id); changed.push(['file', r.job_id]); hooks.onRemote('file', r.job_id); } delete H[k]; delete H['blob:' + r.id]; continue; }
       const {_store, _blobs = [], ...meta} = r.meta || {}, h = hash({meta, bf: _blobs});
       if (H[k] === h) continue;
       const local = await DB.get(store, r.id), rec = {...meta};
@@ -204,7 +214,7 @@ const Cloud = (() => {
         if (error) throw new Error(`download: ${error.message}`);
         rec[f] = data;
       }
-      await DB.put(store, rec); H[k] = h; H['blob:' + r.id] = 1; changed.push(['file', r.job_id]); hooks.onRemote('file', r.job_id);
+      await DB.sys.put(store, rec); H[k] = h; H['blob:' + r.id] = 1; changed.push(['file', r.job_id]); hooks.onRemote('file', r.job_id);
     }
     for (const r of await rowsSince('audit', st)) { if (!H['audit:' + r.id]) { if (!await DB.get('audit', r.id)) await DB.put('audit', r.data); H['audit:' + r.id] = 1; } }
     const {data: tabs} = await client().from('tablets').select('*').order('last_seen_at', {ascending: false}); TABLETS = tabs || [];
@@ -235,7 +245,7 @@ const Cloud = (() => {
       let mine = null, err = null;
       try { mine = await me(); } catch (e) { err = e; }
       if (err) throw err;
-      if (mine && !mine.disabled) return;
+      if (mine && !mine.disabled) { myRole = mine.role || ''; return; }
       if (mine && mine.disabled) { problem = 'disabled'; throw new Error(MSG.disabled); }
     }
     let boot = true; try { boot = await bootstrapped(); } catch (e) { if (!signedIn) return; throw e; }
@@ -283,6 +293,7 @@ const Cloud = (() => {
 
   /* ---------- check-out lock ---------- */
   async function checkout(jobId, key) {
+    if (readOnly()) return {ok: false, readOnly: true};
     if (!enabled() || !navigator.onLine || !await session()) return {ok: true, offline: true};
     try {
       await Promise.race([sync('checkout'), new Promise(r => setTimeout(r, 6000))]);   // make sure the form row exists
@@ -355,5 +366,5 @@ const Cloud = (() => {
   async function init(h) { hooks = {...hooks, ...h}; await loadCfg(); if (enabled()) start(); countPending(); return cfg; }
   return {configured, init, status, onStatus: f => { listeners.add(f); f(status()); }, sync, soon, signIn, signOut, session, me, connect, disconnect,
     bootstrapped, bootstrap, importUsers, upsertUser, setOwnPassword, checkout, release, releaseAll, lockOf: (j, k) => LOCKS[`${j}:${k}`] || null,
-    isHeld: (j, k) => held.has(`${j}:${k}`), deviceId, tablets: () => TABLETS, enabled, countPending, resetState, emailFor, hash, card, searchCards, linkCard, _state: getState};
+    isHeld: (j, k) => held.has(`${j}:${k}`), deviceId, tablets: () => TABLETS, enabled, countPending, resetState, emailFor, hash, card, searchCards, linkCard, readOnly, _state: getState};
 })();
