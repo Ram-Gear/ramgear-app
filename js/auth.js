@@ -21,9 +21,10 @@ const Auth = (() => {
   }
   const all = () => DB.all('users');
   const byUsername = async name => (await all()).find(u => u.username === norm(name)) || null;
-  async function create({username, displayName, role, cardRole, secret, createdBy}) {
+  async function create({username, displayName, role, cardRole, cgRole, secret, createdBy}) {
     const u = {id: DB.uid(), username: norm(username), displayName: displayName.trim(), role: ['admin', 'viewer'].includes(role) ? role : 'technician',
       cardRole: ['none', 'viewer', 'editor', 'admin'].includes(cardRole) ? cardRole : (role === 'admin' ? 'admin' : 'editor'),
+      cgRole: ['none', 'viewer', 'admin'].includes(cgRole) ? cgRole : (role === 'admin' ? 'admin' : 'viewer'),
       disabled: false, createdAt: Date.now(), updatedAt: Date.now(), createdBy: createdBy || '', lastLoginAt: 0, ...(await hashSecret(secret))};
     await DB.put('users', u); return u;
   }

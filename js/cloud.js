@@ -60,7 +60,7 @@ const Cloud = (() => {
     const {data} = await client().from('members').select('*').eq('auth_user_id', s.user.id).maybeSingle();
     return data;
   }
-  const remoteUser = u => ({id: u.id, username: u.username, displayName: u.displayName, role: u.role, cardRole: u.cardRole || 'editor', disabled: !!u.disabled,
+  const remoteUser = u => ({id: u.id, username: u.username, displayName: u.displayName, role: u.role, cardRole: u.cardRole || 'editor', cgRole: u.cgRole, disabled: !!u.disabled,
     secret: u.hash ? {algo: u.algo, iterations: u.iterations, salt: u.salt, hash: u.hash} : null});
 
   /* ---------- push ---------- */
@@ -170,9 +170,9 @@ const Cloud = (() => {
       const cur = local.find(u => u.id === m.id);
       for (const dup of local.filter(u => u.username === m.username && u.id !== m.id)) await DB.del('users', dup.id);   // same person, cloud id wins
       const u = {...(cur || {createdAt: Date.parse(m.created_at) || Date.now(), lastLoginAt: 0}), id: m.id, username: m.username, displayName: m.display_name,
-        role: m.role, cardRole: m.card_role || 'editor', disabled: m.disabled, createdBy: m.created_by || (cur && cur.createdBy) || '', cloud: !!m.auth_user_id,
+        role: m.role, cardRole: m.card_role || 'editor', cgRole: m.changegear_role || 'viewer', disabled: m.disabled, createdBy: m.created_by || (cur && cur.createdBy) || '', cloud: !!m.auth_user_id,
         ...(m.secret && m.secret.hash ? {algo: m.secret.algo, iterations: m.secret.iterations, salt: m.secret.salt, hash: m.secret.hash} : {})};
-      const sig = x => stable([x.username, x.displayName, x.role, x.cardRole || 'editor', !!x.disabled, x.hash, x.salt, x.iterations, !!x.cloud]);
+      const sig = x => stable([x.username, x.displayName, x.role, x.cardRole || 'editor', x.cgRole || 'viewer', !!x.disabled, x.hash, x.salt, x.iterations, !!x.cloud]);
       if (!cur || sig(cur) !== sig(u)) { u.updatedAt = Date.now(); await DB.put('users', u); hooks.onRemote('user', m.id, null, u); }
     }
   }

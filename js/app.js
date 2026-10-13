@@ -181,6 +181,14 @@
   let lastActive = Date.now(), lastPersist = 0;
   const ROLE_LABEL = {admin: 'Admin', technician: 'Technician', viewer: 'Viewer'};
   const CARD_ROLE_LABEL = {none: 'No access', viewer: 'Viewer', editor: 'Editor', admin: 'Admin'};
+  const CG_ROLE_LABEL = {none: 'No access', viewer: 'Viewer', admin: 'Admin'};
+  // New user: a QC Admin defaults to Change Gear Admin (until the selector is changed by hand)
+  document.addEventListener('change', e => {
+    const f = e.target.closest && e.target.closest('#dlgForm'), cg = f && f.querySelector('select[name=cgRole][data-auto]');
+    if (!cg) return;
+    if (e.target === cg) { delete cg.dataset.auto; return; }
+    if (e.target.name === 'role') cg.value = e.target.value === 'admin' ? 'admin' : 'viewer';
+  });
   const isAdmin = () => !!USER && USER.role === 'admin';
   /* Rev 1.9: Viewer = view only. Every change to job data is refused in code (DB write guard + checks in the edit functions),
      edit controls are removed and fields are read-only (applyViewOnly). */
@@ -545,7 +553,7 @@
   /* ---------- Users (Admin screen) ---------- */
   const activeAdmins = users => users.filter(u => u.role === 'admin' && !u.disabled);
   async function userDialog(u) {
-    const isNew = !u; let err = '', vals = u ? {dname: u.displayName, uname: u.username, role: u.role, cardRole: u.cardRole || 'editor'} : {dname: '', uname: '', role: 'technician', cardRole: 'editor'};
+    const isNew = !u; let err = '', vals = u ? {dname: u.displayName, uname: u.username, role: u.role, cardRole: u.cardRole || 'editor', cgRole: u.cgRole || 'viewer'} : {dname: '', uname: '', role: 'technician', cardRole: 'editor', cgRole: 'viewer'};
     const opt = (v, cur, label) => `<option value="${v}" ${cur === v ? 'selected' : ''}>${label}</option>`;
     for (;;) {
       const v = await modal(`<h2>${isNew ? 'New user' : `Edit ${esc(u.displayName)}`}</h2>
@@ -553,12 +561,13 @@
         <label class="fld"><span>Username</span><input name="uname" required autocomplete="off" autocapitalize="none" spellcheck="false" value="${esc(vals.uname)}" ${isNew ? '' : 'readonly'}></label></div>
         <div class="grid2"><label class="fld"><span>QC role</span><select name="role">${opt('technician', vals.role, 'Technician – create, edit and finalize')}${opt('admin', vals.role, 'Admin – also manages users and approves admin actions')}${opt('viewer', vals.role, 'Viewer – view only, no changes')}</select></label>
         <label class="fld"><span>Card file role <span class="muted small">(Cardfile app)</span></span><select name="cardRole">${opt('editor', vals.cardRole, 'Editor – add and edit cards')}${opt('admin', vals.cardRole, 'Admin – also delete cards')}${opt('viewer', vals.cardRole, 'Viewer – look up cards only')}${opt('none', vals.cardRole, 'No access')}</select></label></div>
+        <div class="grid2"><label class="fld"><span>Change Gear role <span class="muted small">(Change Gear app)</span></span><select name="cgRole" ${isNew ? 'data-auto="1"' : ''}>${opt('viewer', vals.cgRole, 'Viewer – use machines and presets')}${opt('admin', vals.cgRole, 'Admin – also edit and delete machines, gear sets and presets')}${opt('none', vals.cgRole, 'No access')}</select></label></div>
         ${isNew ? `<div class="grid2">${secretInput('pin1', 'Password or PIN', 'new-password')}${secretInput('pin2', 'Enter it again', 'new-password')}</div><p class="muted small">${Auth.secretRule}</p>` : ''}
         ${err ? `<p class="pin-error" role="alert">${esc(err)}</p>` : ''}`,
         [{label: 'Cancel', value: 'cancel'}, {label: isNew ? 'Create user' : 'Save', value: 'ok', cls: 'primary'}], {wide: true});
       if (v !== 'ok') return null;
       const f = $('#dlgForm'), users = await Auth.all();
-      vals = {dname: f.dname.value.trim(), uname: Auth.norm(f.uname.value), role: f.role.value, cardRole: f.cardRole.value};
+      vals = {dname: f.dname.value.trim(), uname: Auth.norm(f.uname.value), role: f.role.value, cardRole: f.cardRole.value, cgRole: f.cgRole.value};
       if (!vals.dname || !vals.uname) { err = 'Enter a full name and a username.'; continue; }
       if (isNew && users.some(x => x.username === vals.uname)) { err = `The username "${vals.uname}" is already taken on this device.`; continue; }
       if (!isNew && u.role === 'admin' && vals.role !== 'admin' && activeAdmins(users).filter(x => x.id !== u.id).length === 0) { err = 'This is the only active Admin. Make another user an Admin first.'; continue; }
@@ -583,14 +592,14 @@
     const users = await Auth.all(), u = users.find(x => x.id === id);
     if (action === 'new') {
       const r = await userDialog(null); if (!r) return;
-      const nu = await Auth.create({username: r.uname, displayName: r.dname, role: r.role, cardRole: r.cardRole, secret: r.secret, createdBy: USER.displayName});
+      const nu = await Auth.create({username: r.uname, displayName: r.dname, role: r.role, cardRole: r.cardRole, cgRole: r.cgRole, secret: r.secret, createdBy: USER.displayName});
       if (!await cloudUser(nu, r.secret)) { await DB.del('users', nu.id); return renderSettings(); }
-      await audit('User created', `${nu.displayName} (${nu.username}, QC ${ROLE_LABEL[nu.role]}, card file ${CARD_ROLE_LABEL[nu.cardRole]})`, 'done'); toast(`User ${nu.username} created`);
+      await audit('User created', `${nu.displayName} (${nu.username}, QC ${ROLE_LABEL[nu.role]}, card file ${CARD_ROLE_LABEL[nu.cardRole]}, Change Gear ${CG_ROLE_LABEL[nu.cgRole]})`, 'done'); toast(`User ${nu.username} created`);
     } else if (action === 'edit') {
       const r = await userDialog(u); if (!r) return;
-      const changes = [r.dname !== u.displayName ? `name ${u.displayName} → ${r.dname}` : '', r.role !== u.role ? `QC role ${ROLE_LABEL[u.role]} → ${ROLE_LABEL[r.role]}` : '', r.cardRole !== (u.cardRole || 'editor') ? `card file role ${CARD_ROLE_LABEL[u.cardRole || 'editor']} → ${CARD_ROLE_LABEL[r.cardRole]}` : ''].filter(Boolean).join(', ');
+      const changes = [r.dname !== u.displayName ? `name ${u.displayName} → ${r.dname}` : '', r.role !== u.role ? `QC role ${ROLE_LABEL[u.role]} → ${ROLE_LABEL[r.role]}` : '', r.cardRole !== (u.cardRole || 'editor') ? `card file role ${CARD_ROLE_LABEL[u.cardRole || 'editor']} → ${CARD_ROLE_LABEL[r.cardRole]}` : '', r.cgRole !== (u.cgRole || 'viewer') ? `Change Gear role ${CG_ROLE_LABEL[u.cgRole || 'viewer']} → ${CG_ROLE_LABEL[r.cgRole]}` : ''].filter(Boolean).join(', ');
       const before = {...u};
-      Object.assign(u, {displayName: r.dname, role: r.role, cardRole: r.cardRole, updatedAt: Date.now()});
+      Object.assign(u, {displayName: r.dname, role: r.role, cardRole: r.cardRole, cgRole: r.cgRole, updatedAt: Date.now()});
       if (!await cloudUser(u)) { await DB.put('users', before); return renderSettings(); }
       await DB.put('users', u);
       if (u.id === USER.id) { USER = u; renderUserBox(); route(); }
@@ -636,8 +645,8 @@
       ${await cloudCard()}
       <section class="card" id="usersCard">
         <div class="card-head"><h2>Users</h2><span class="muted small">${users.length} account${users.length === 1 ? '' : 's'} ${Cloud.enabled() ? 'for all tablets (cloud)' : 'on this device'} · no self sign-up</span><button class="btn primary right" id="newUserBtn">+ New user</button></div>
-        <div class="tablewrap"><table class="tbl users"><thead><tr><th>Name</th><th>Username</th><th>QC role</th><th>Card file</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead><tbody>
-          ${users.map(u => `<tr data-user="${esc(u.username)}" class="${u.disabled ? 'off' : ''}"><td><b>${esc(u.displayName)}</b>${u.id === USER.id ? ' <span class="muted small">(you)</span>' : ''}</td><td>${esc(u.username)}</td><td><span class="role-tag r-${u.role}">${ROLE_LABEL[u.role]}</span></td><td>${CARD_ROLE_LABEL[u.cardRole || 'editor']}</td>
+        <div class="tablewrap"><table class="tbl users"><thead><tr><th>Name</th><th>Username</th><th>QC role</th><th>Card file</th><th>Change Gear</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead><tbody>
+          ${users.map(u => `<tr data-user="${esc(u.username)}" class="${u.disabled ? 'off' : ''}"><td><b>${esc(u.displayName)}</b>${u.id === USER.id ? ' <span class="muted small">(you)</span>' : ''}</td><td>${esc(u.username)}</td><td><span class="role-tag r-${u.role}">${ROLE_LABEL[u.role]}</span></td><td>${CARD_ROLE_LABEL[u.cardRole || 'editor']}</td><td>${CG_ROLE_LABEL[u.cgRole || 'viewer']}</td>
             <td>${u.disabled ? '<span class="badge off">Disabled</span>' : '<span class="badge done">Active</span>'}</td><td>${esc(u.lastLoginAt ? fmtDate(u.lastLoginAt) : 'Never')}</td>
             <td><div class="uactions"><button class="btn" data-uact="edit" data-uid="${u.id}">Edit</button><button class="btn" data-uact="reset" data-uid="${u.id}">Reset password</button>
               ${u.disabled ? `<button class="btn" data-uact="enable" data-uid="${u.id}">Enable</button>` : `<button class="btn danger-outline" data-uact="disable" data-uid="${u.id}" ${u.id === USER.id ? 'disabled' : ''}>Disable</button>`}</div></td></tr>`).join('')}

@@ -2,6 +2,13 @@
 
 The revision number lives in `js/version.js` (see README › *Revision number*).
 
+## Rev 1.10 – 2026-10-13 (build 2026-10-13.3) – Change Gear role and tables
+
+- New per-member **Change Gear role** (`members.changegear_role`: none / viewer / admin, default viewer). Admin › Users shows a *Change Gear role* selector and a Change Gear column; a new user created as QC Admin defaults to Change Gear Admin.
+- Database: migration `supabase/migrations/004_changegear.sql` (rollback `004_changegear_down.sql`, which drops the Change Gear tables). Tables `cg_machines`, `cg_gear_sets`, `cg_presets`; helpers `cg_role()`, `cg_can_view()`, `cg_can_edit()`, `cg_can_delete()`. Read needs viewer or admin; add/edit/delete needs admin. QC Admin members were set to Change Gear admin.
+- `rg-admin` accepts and stores `changegear_role`.
+- Tests (mock + local Postgres only): `sql/test_cg.mjs`, `e2e_viewer.py` (role selectors).
+
 ## Rev 1.9 – 2026-10-13 (build 2026-10-13.2) – Viewer role; separate card file role
 
 - New QC role **Viewer – view only, no changes**: sign in, browse, view photos and View card, open/download PDFs and zips, make a local backup. No create/edit/delete, finalize, reopen, restore or user management. Edit controls are hidden, forms open read-only, and every local write path is guarded (`RG_READONLY`). A Viewer's tablet never pushes data changes (only the audit log and the tablet heartbeat), so sync cannot loop on refused writes.

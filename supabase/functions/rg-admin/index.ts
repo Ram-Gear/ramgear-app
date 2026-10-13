@@ -31,12 +31,13 @@ async function verifySecret(rec: any, secret: string) {
 const cleanSecret = (s: any) => s && s.hash && s.salt ? { algo: String(s.algo || "PBKDF2-SHA-256"), iterations: Number(s.iterations), salt: String(s.salt), hash: String(s.hash) } : null;
 // Rev 1.9: QC role admin / technician / viewer (view only); card_role = the Cardfile app permission (none / viewer / editor / admin).
 // card_role is only written when the client sends a valid value, so older app versions never reset it.
-const ROLES = ["admin", "technician", "viewer"], CARD_ROLES = ["none", "viewer", "editor", "admin"];
+const ROLES = ["admin", "technician", "viewer"], CARD_ROLES = ["none", "viewer", "editor", "admin"], CG_ROLES = ["none", "viewer", "admin"];   // Rev 1.10: changegear_role (Change Gear app)
 function cleanUser(u: any) {
   const username = norm(u?.username), display_name = String(u?.displayName ?? "").trim();
   if (!u?.id || !username || !display_name) throw new Fail("user needs id, username and displayName");
   const row: any = { id: String(u.id), username, display_name, role: ROLES.includes(u.role) ? u.role : "technician", disabled: !!u.disabled };
   if (CARD_ROLES.includes(u?.cardRole)) row.card_role = u.cardRole;
+  if (CG_ROLES.includes(u?.cgRole)) row.changegear_role = u.cgRole;
   return row;
 }
 async function memberCount() {
@@ -54,7 +55,7 @@ async function callerMember(req: Request) {
 }
 async function setAuthAccount(member: any, password?: string) {
   // create or update the Supabase Auth account that belongs to a member
-  const attrs: any = { app_metadata: { rg_member: member.id, role: member.role, card_role: member.card_role ?? "editor" }, ban_duration: member.disabled ? "876000h" : "none" };
+  const attrs: any = { app_metadata: { rg_member: member.id, role: member.role, card_role: member.card_role ?? "editor", changegear_role: member.changegear_role ?? "viewer" }, ban_duration: member.disabled ? "876000h" : "none" };
   if (password) attrs.password = cloudPw(password);
   if (member.auth_user_id) {
     const { error } = await admin.auth.admin.updateUserById(member.auth_user_id, { ...attrs, email: emailFor(member.username), email_confirm: true });
@@ -75,7 +76,7 @@ async function upsertMember(row: any, password?: string) {
   if (error) throw new Fail(error.message, 500);
   return data;
 }
-const pub = (m: any) => ({ id: m.id, username: m.username, displayName: m.display_name, role: m.role, cardRole: m.card_role, disabled: m.disabled, cloud: !!m.auth_user_id });
+const pub = (m: any) => ({ id: m.id, username: m.username, displayName: m.display_name, role: m.role, cardRole: m.card_role, cgRole: m.changegear_role, disabled: m.disabled, cloud: !!m.auth_user_id });
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -91,7 +92,7 @@ Deno.serve(async (req) => {
       const u = cleanUser(body.user); if (u.role !== "admin") throw new Fail("the first account must be an Admin");
       if (!validSecret(body.password)) throw new Fail("invalid password/PIN");
       const secret = cleanSecret(body.user.secret); if (!secret || !(await verifySecret(secret, body.password))) throw new Fail("password does not match the account");
-      const m = await upsertMember({ card_role: "admin", ...u, disabled: false, secret, created_by: "cloud bootstrap" }, body.password);
+      const m = await upsertMember({ card_role: "admin", changegear_role: "admin", ...u, disabled: false, secret, created_by: "cloud bootstrap" }, body.password);
       return out({ ok: true, member: pub(m) });
     }
 
