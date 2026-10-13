@@ -339,3 +339,16 @@ body.locked .appbar,body.locked main,body.locked #toast{display:none}
 .tbl.parts td{vertical-align:top}
 .partsstatus{font-size:15px}
 .fld.apponly input{background:#fffdf3}
+
+/* Rev 1.8: customer card */
+pre.card-body { white-space: pre-wrap; font-family: inherit; font-size: 1rem; line-height: 1.45; background: var(--bg2, #f3f6fa); border: 1px solid var(--line, #d8dee6); border-radius: 8px; padding: 12px 14px; margin: 8px 0; }
+h2.card-title { word-break: break-word; }
+.cardfind { border: 1px dashed var(--line, #d8dee6); border-radius: 10px; padding: 8px 12px 4px; margin-bottom: 10px; background: var(--bg2, #f3f6fa); }
+.cardfind, .cardhits { min-width: 0; max-width: 100%; }
+.cardhits { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 8px; max-height: 42vh; overflow: auto; }
+.cardhit { display: block; width: 100%; min-width: 0; box-sizing: border-box; overflow: hidden; text-align: left; border: 1px solid var(--line, #d8dee6); background: #fff; border-radius: 8px; padding: 8px 10px; font: inherit; cursor: pointer; min-height: 44px; }
+.cardhit:hover:not(:disabled) { border-color: var(--accent, #2a6f86); }
+.cardhit .s { display: block; width: 0; min-width: 100%; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cardhit.linked { opacity: .55; cursor: not-allowed; background: #f4f4f4; }
+.cardhit .tag { font-style: italic; }
+.cardpicked { margin: 4px 0 8px; padding: 8px 10px; border-radius: 8px; background: #e8f4ea; border: 1px solid #b9dcc0; }

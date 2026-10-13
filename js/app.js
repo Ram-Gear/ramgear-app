@@ -879,7 +879,11 @@
   }
   async function editCustomer(c) {
     const isNew = !c; c = c || {id: DB.uid(), name: '', contact: '', phone: '', email: '', address: '', notes: '', createdAt: Date.now()};
+    let picked = null;   // Rev 1.8: card chosen with "Find in card file" (linked on save, or by the DB trigger at the next sync)
     const v = await modal(`<h2>${isNew ? 'New customer' : 'Edit customer'}</h2>
+      ${isNew ? `<div class="cardfind" id="cardFind"><label class="fld"><span>Find in card file <span class="muted small">(optional: fills in the details below)</span></span>
+        <input id="cardQ" type="search" autocomplete="off" enterkeyhint="search" placeholder="Company, contact, phone or e-mail"></label>
+        <div id="cardHits" class="cardhits" aria-live="polite"></div><div id="cardPicked" class="cardpicked" hidden></div></div>` : ''}
       <div class="custform">
       <label class="fld"><span>Customer name *</span><input name="name" type="text" required autocomplete="off" value="${esc(c.name)}"></label>
       <div class="grid2"><label class="fld"><span>Contact name</span><input name="contact" type="text" autocomplete="off" value="${esc(c.contact)}"></label>
@@ -891,22 +895,83 @@
       {onOpen: f => {
         Phone.attach(f.phone);
         for (const t of $$('textarea.autogrow', f)) { const fit = () => { t.style.height = ''; if (t.scrollHeight > t.clientHeight) t.style.height = t.scrollHeight + 2 + 'px'; }; t.addEventListener('input', fit); fit(); }
+        if (isNew) cardFinder(f, card => { picked = card; });
       }});
     if (v !== 'ok') return null;
     const f = $('#dlgForm'), shown = Phone.format(c.phone);
     for (const k of ['name', 'contact', 'email', 'address', 'notes']) c[k] = f[k].value.trim();
     const ph = f.phone.value.trim(); if (ph !== shown) c.phone = ph;   // untouched: keep exactly what was stored (e.g. a number with an extension)
+    if (picked) c.cardId = picked.id;   // synced with the customer: the DB trigger links this card if it is still free
     await saveCustomer(c);
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
-    toast(isNew ? 'Customer created' : 'Customer saved');
+    if (!picked) { toast(isNew ? 'Customer created' : 'Customer saved'); return c; }
+    const r = await Cloud.linkCard(picked.id, c.id);
+    if (r.linked) toast('Customer created and linked to the card');
+    else if (r.pending) toast('Customer created. The card will be linked at the next sync.');
+    else {
+      const other = r.takenBy && await DB.get('customers', r.takenBy);
+      await modal(`<h2>Card already linked</h2><p id="cardTaken">${r.deleted && !r.takenBy ? `The card <b>${esc(picked.title)}</b> was removed from the card file in the meantime.`
+        : `The card <b>${esc(picked.title)}</b> is already linked to <b>${esc(other ? other.name : 'another customer')}</b>.`} <b>${esc(c.name)}</b> was saved and gets its own card; no duplicate was linked.</p>`, [{label: 'OK', value: 'ok', cls: 'primary'}]);
+    }
     return c;
+  }
+  /* Rev 1.8: "Find in card file" (New customer). Searches as you type (2+ characters, debounced), online + signed in only.
+     Unlinked cards first; cards already linked to a customer are shown greyed out and cannot be picked. Picking fills the
+     form from the card (CustomerCard.parse); everything stays editable. */
+  function cardFinder(f, onPick) {
+    const q = $('#cardQ', f), hits = $('#cardHits', f), box = $('#cardPicked', f); let timer = 0, seq = 0, rows = [];
+    const snippet = (b, term) => {
+      const flat = String(b || '').replace(/\n+/g, ' · '), i = flat.toLowerCase().indexOf(term.toLowerCase());
+      const from = i > 40 ? i - 30 : 0, s = flat.slice(from, from + 90); return (from ? '…' : '') + s + (flat.length > from + 90 ? '…' : '');
+    };
+    const msg = t => { hits.innerHTML = `<p class="muted small" id="cardMsg">${esc(t)}</p>`; rows = []; };
+    async function run() {
+      const term = q.value.trim(), my = ++seq;
+      if (term.length < 2) { hits.innerHTML = ''; rows = []; return; }
+      if (!navigator.onLine) return msg('Card lookup needs internet');
+      hits.innerHTML = '<p class="muted small">Searching…</p>';
+      const r = await Cloud.searchCards(term); if (my !== seq) return;   // a newer search is on its way
+      if (r.offline) return msg(navigator.onLine ? 'Card lookup needs the company cloud (sign in under Settings › Cloud)' : 'Card lookup needs internet');
+      if (r.error) return msg('Card lookup failed: ' + r.error);
+      if (!r.rows.length) return msg('No cards found');
+      rows = r.rows;
+      const names = {}; for (const k of rows) if (k.customer_id && !(k.customer_id in names)) { const o = await DB.get('customers', k.customer_id); names[k.customer_id] = o ? o.name : k.title; }
+      if (my !== seq) return;
+      hits.innerHTML = rows.map((k, i) => `<button type="button" class="cardhit ${k.customer_id ? 'linked' : ''}" data-hit="${i}" ${k.customer_id ? 'disabled aria-disabled="true"' : ''}>
+        <b class="t">${esc(k.title)}</b>${k.customer_id ? ` <span class="small tag">linked to ${esc(names[k.customer_id])}</span>` : ''}<span class="s small muted">${esc(snippet(k.body, term))}</span></button>`).join('');
+    }
+    function pick(k) {
+      const d = CustomerCard.parse(k.title, k.body);
+      for (const [n, v] of [['name', d.name], ['contact', d.contact], ['phone', d.phone], ['email', d.email], ['address', d.address], ['notes', d.notes]]) { f[n].value = v; f[n].dispatchEvent(new Event('input', {bubbles: true})); }
+      onPick({id: k.id, title: k.title});
+      box.hidden = false; box.innerHTML = `Card picked: <b>${esc(k.title)}</b>. Check the details below; the card is linked when you save. <button type="button" class="btn ghost small" id="cardUnpick">Don't link</button>`;
+      $('#cardUnpick', box).onclick = () => { onPick(null); box.hidden = true; box.innerHTML = ''; };
+      hits.innerHTML = ''; rows = []; q.value = '';
+    }
+    q.addEventListener('input', () => { clearTimeout(timer); const t = q.value.trim(); if (t.length < 2) { seq++; hits.innerHTML = ''; rows = []; return; } timer = setTimeout(run, 300); });
+    q.addEventListener('keydown', ev => { if (ev.key !== 'Enter') return; ev.preventDefault(); ev.stopPropagation(); const k = rows.find(x => !x.customer_id); if (k) pick(k); });   // Enter never submits the form from here
+    hits.addEventListener('click', ev => { const b = ev.target.closest('.cardhit'); if (b && !b.disabled) pick(rows[+b.dataset.hit]); });
+  }
+
+  /* Rev 1.8: customer card (shared with the Cardfile app). Online: the card the database keeps (customer_cards, kept in sync by a
+     trigger on customers). Offline / not synced yet: generated here with the same formatter (js/card.js). */
+  async function viewCard(c) {
+    const local = CustomerCard.format(c), cloud = await Cloud.card(c.id), k = cloud || local;
+    const stale = cloud && (cloud.title !== local.title || cloud.body !== local.body);
+    const lost = cloud && c.cardId && cloud.id !== c.cardId;   // the card picked from the card file was taken by another customer
+    const src = cloud ? `From the company cloud${cloud.source === 'cardfile' ? ' (card from the card file)' : ''} · updated ${esc(fmtDate(Date.parse(cloud.updated_at)))}${stale ? '<br>This tablet has newer changes; the card updates after the next sync.' : ''}${lost ? '<br>The card picked from the card file was already linked to another customer, so this customer has its own card.' : ''}`
+      : 'Generated on this tablet (offline, cloud sync off, or not synced yet).';
+    await modal(`<h2 class="card-title" id="cardTitle">${esc(k.title)}</h2>
+      <pre class="card-body" id="cardBody">${esc(k.body) || '<span class="muted">No contact details.</span>'}</pre>
+      ${cloud && cloud.notes ? `<h4 class="subhead">Notes (Cardfile)</h4><pre class="card-body" id="cardNotes">${esc(cloud.notes)}</pre>` : ''}
+      <p class="muted small" id="cardSource" data-source="${cloud ? 'cloud' : 'local'}">${src}</p>`, [{label: 'Close', value: 'cancel'}], {noFocus: true});
   }
 
   /* ---------- customer file ---------- */
   async function renderCustomer(cid) {
     const {customer} = await load(cid); if (!customer) return;
     current = {customer, job: null, formKey: null};
-    bar([crumbHome, {label: customer.name}], `<button class="btn ghost" id="editCustBtn">Edit</button><button class="btn ghost" id="delCustBtn">Delete customer</button>`, {label: HOME_LABEL, href: P.home()});
+    bar([crumbHome, {label: customer.name}], `<button class="btn ghost" id="viewCardBtn">View card</button><button class="btn ghost" id="editCustBtn">Edit</button><button class="btn ghost" id="delCustBtn">Delete customer</button>`, {label: HOME_LABEL, href: P.home()});
     const jobs = (await DB.byCustomer(cid)).sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.updatedAt - a.updatedAt);
     const detail = (l, v, href) => v ? `<div><div class="muted small">${l}</div><div>${href ? `<a href="${esc(href)}">${esc(v)}</a>` : esc(v).replace(/\n/g, '<br>')}</div></div>` : '';
     view.innerHTML = `
@@ -925,6 +990,7 @@
         : `<div class="empty"><p>No jobs for this customer yet.</p><p class="muted">Tap <b>New job</b> to start a teardown evaluation or assembly verification.</p></div>`}</div>`;
     $('#newJobBtn').onclick = () => newJob(customer);
     $('#editCustBtn').onclick = async () => { if (await editCustomer(customer)) renderCustomer(cid); };
+    $('#viewCardBtn').onclick = () => viewCard(customer);
     $('#delCustBtn').onclick = async () => {
       let np = 0, nd = 0; for (const j of jobs) { np += (await DB.byJob('photos', j.id)).length; nd += (await DB.byJob('docs', j.id)).length; }
       if (!await confirmBox('Delete customer?', `This permanently deletes <b>${esc(customer.name)}</b> and <b>all of their jobs (${jobs.length}), photos (${np}) and saved PDFs (${nd})</b> from this device. This cannot be undone. Consider a backup first.`, 'Delete customer and all jobs', true)) return;

@@ -2,6 +2,13 @@
 
 The revision number lives in `js/version.js` (see README › *Revision number*).
 
+## Rev 1.8 – 2026-10-13 (build 2026-10-13.1) – customer cards (View card, Find in card file)
+
+- **Customer cards** shared with the Cardfile app: database table `customer_cards` (migration `supabase/migrations/002_customer_cards.sql`, applied to the live project 2026-10-13; rollback `002_customer_cards_down.sql`). A trigger on `customers` keeps one card per customer (title = name, max 39 characters; plain-text body: Contact, Phone XXX-XXX-XXXX, Email, Address, Notes) from every tablet and from offline sync. Deleting a customer keeps the card and unlinks it. The card sync is fail-safe: it can never block a customer save.
+- **View card** on the customer screen: shows the card from the cloud when online (including Cardfile notes), otherwise generated on the tablet with the same formatter (`js/card.js`).
+- **Find in card file** on *New customer*: search as you type (2+ characters, online and signed in); unlinked cards first, cards already linked are greyed out. Picking a card fills in name, contact, phone, email, address and notes (also from free-text cards); everything stays editable. On save the card is linked to the new customer, never duplicated. Saved offline: linked automatically at the next sync. If another tablet linked the card first, you get a warning and the customer gets its own card.
+- Tests (mock + local Postgres only): `e2e_cards.py`, `e2e_cardlink.py`, `sql/test_customer_cards.mjs`.
+
 ## Rev 1.7.2 – 2026-10-05 (build 2026-10-05.2) – job photos load; no empty photo pages
 
 - **Job photos** in the Teardown / Assembly PDF: each image is embedded before any page is created (JPEG → PNG → canvas re-encode to JPEG). Unreadable blobs fall back to the thumbnail when needed. Pages are only added for photos that actually loaded — no more blank pages reserved for missing images.

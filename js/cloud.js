@@ -317,8 +317,43 @@ const Cloud = (() => {
   const importUsers = users => fn('import_users', {users: users.map(remoteUser)});
   const upsertUser = (u, password) => fn('upsert_user', {user: remoteUser(u), password: password || undefined});
   const setOwnPassword = (u, password) => fn('set_own_password', {password, secret: remoteUser(u).secret});
+  /* Rev 1.8: the customer's card as the database keeps it (public.customer_cards, written by a trigger on customers).
+     null when cloud sync is off, offline, signed out, or no live card yet; never throws (the caller falls back to the local formatter). */
+  /* Rev 1.8: "Find in card file" on the New customer screen. {offline:true} when there is no internet / no cloud session.
+     Live cards only (deleted_at is null), unlinked first, top 10; title or body ilike %term% (pg_trgm indexes in the DB). */
+  const canReach = async () => enabled() && navigator.onLine && !!await session();
+  async function searchCards(term) {
+    if (!await canReach()) return {offline: true, rows: []};
+    const q = String(term || '').replace(/[,()"\\%_*:]/g, '*').replace(/\s+/g, ' ').trim();   // PostgREST / LIKE syntax chars -> wildcard
+    const {data, error} = await client().from('customer_cards').select('id, customer_id, title, body, source')
+      .or(`title.ilike.*${q}*,body.ilike.*${q}*`).is('deleted_at', null)
+      .order('customer_id', {ascending: true, nullsFirst: true}).order('title', {ascending: true}).limit(10);
+    if (error) return {error: error.message, rows: []};
+    return {rows: data || []};
+  }
+  /* Link a picked card to a customer. The customer row must be in the cloud first (foreign key), so this syncs, then
+     PATCHes "where customer_id is null". 0 rows: either the trigger already linked it to THIS customer (data.cardId), or
+     another customer has it. Returns {linked} | {takenBy: customer_id} | {pending: reason} (offline: the trigger links it at the next sync). */
+  async function linkCard(cardId, customerId) {
+    if (!await canReach()) return {pending: 'offline'};
+    try { const r = await sync('card-link'); if (r && r.error) return {pending: r.error}; } catch (e) { return {pending: e.message}; }
+    const {data, error} = await client().from('customer_cards').update({customer_id: customerId}).eq('id', cardId).is('customer_id', null).is('deleted_at', null).select('id');
+    if (error) return {pending: error.message};
+    if (data && data.length) return {linked: true};
+    const {data: row, error: e2} = await client().from('customer_cards').select('customer_id, deleted_at').eq('id', cardId).maybeSingle();
+    if (e2) return {pending: e2.message};
+    if (row && row.customer_id === customerId) return {linked: true};
+    return {takenBy: row ? row.customer_id : null, deleted: !row || !!row.deleted_at};
+  }
+  async function card(customerId) {
+    try {
+      if (!enabled() || !navigator.onLine || !await session()) return null;
+      const {data, error} = await client().from('customer_cards').select('id, customer_id, title, body, notes, source, updated_at').eq('customer_id', customerId).is('deleted_at', null).maybeSingle();
+      return error ? null : data;
+    } catch (e) { return null; }
+  }
   async function init(h) { hooks = {...hooks, ...h}; await loadCfg(); if (enabled()) start(); countPending(); return cfg; }
   return {configured, init, status, onStatus: f => { listeners.add(f); f(status()); }, sync, soon, signIn, signOut, session, me, connect, disconnect,
     bootstrapped, bootstrap, importUsers, upsertUser, setOwnPassword, checkout, release, releaseAll, lockOf: (j, k) => LOCKS[`${j}:${k}`] || null,
-    isHeld: (j, k) => held.has(`${j}:${k}`), deviceId, tablets: () => TABLETS, enabled, countPending, resetState, emailFor, hash, _state: getState};
+    isHeld: (j, k) => held.has(`${j}:${k}`), deviceId, tablets: () => TABLETS, enabled, countPending, resetState, emailFor, hash, card, searchCards, linkCard, _state: getState};
 })();
