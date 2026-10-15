@@ -55,6 +55,8 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
   a{color:#000;text-decoration:none} a[href^="http"]::after{content:" (" attr(href) ")";font-size:10pt;color:#444}
   th{background:#eee;color:#000}
 }
+.askg{margin:-4px 0 10px;font-size:.9em}.askg a{color:var(--primary)}
+.tryit{border:2px dashed var(--accent);border-radius:8px;padding:10px 14px;margin:14px 0;background:#fff}.tryit h4{margin:0 0 6px}.tryit .row2{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}.tryit input,.tryit select{font:inherit;padding:6px 8px;border:1px solid var(--border);border-radius:6px}.tryit .res{margin-top:8px;font-weight:600}.tryit .res.ok{color:#1d6b2c}.tryit .res.bad{color:#a12a1b}.tryit .res span{font-weight:400;color:var(--text)}
 </style>
 <script src="js/version.js"></script>
 </head>
@@ -65,6 +67,12 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
   <div class="actions"><button class="btn" type="button" onclick="window.print()">Print</button><a class="btn primary" href="./">Open the app</a></div>
 </div></header>
 <main>
+<section class="card" id="about">
+  <h2>What the app does</h2>
+  <p class="askg"><a class="askgrok" href="https://grok.com/?q=I'm%20using%20Ram-Gear's%20QC%20Form%20app%2C%20a%20web%20app%20for%20gearbox%20repair%20quality-control%20inspection%20forms.%20Please%20read%20https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%20first%2C%20then%20explain%20the%20part%20%22What%20the%20app%20does%22%20(https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%23about)%20and%20give%20me%20some%20pointers." target="_blank" rel="noopener noreferrer">Ask Grok about this</a></p>
+  <p>The Industrial Gearbox Data app (Ram-Gear's QC Form app) replaces the paper quality-control forms for gearbox repairs. For each customer and job (work order) you fill in the <b>Teardown Evaluation</b> and <b>Assembly Verification</b> for every gearbox, add photos where they belong, and <b>finalize</b> each form into a locked PDF report. The app also builds a <b>Parts Summary</b> (parts to order), exports a combined PDF and a job zip, and keeps every tablet in step through the company cloud. It works offline; changes are sent when the connection is back.</p>
+</section>
+
 <section class="card toc" aria-label="Contents">
   <h2>Contents</h2>
   <ol>
@@ -76,12 +84,16 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
     <li><a href="#gearboxes">Jobs, gearboxes &amp; reduction type</a></li>
     <li><a href="#backup">Backups &amp; restore</a></li>
     <li><a href="#cleared">If browser data is cleared</a></li>
+    <li><a href="#screens">The screens, one by one</a> · <a href="#askgrok">Ask Grok</a></li>
+    <li><a href="#tasks">Common tasks, step by step</a></li>
+    <li><a href="#trouble">Troubleshooting</a></li>
     <li><a href="#othershop">Setting up for another shop</a></li>
   </ol>
 </section>
 
 <section class="card" id="before">
   <h2><span class="num">1</span>Before you start</h2>
+  <p class="askg"><a class="askgrok" href="https://grok.com/?q=I'm%20using%20Ram-Gear's%20QC%20Form%20app%2C%20a%20web%20app%20for%20gearbox%20repair%20quality-control%20inspection%20forms.%20Please%20read%20https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%20first%2C%20then%20explain%20the%20part%20%22Before%20you%20start%22%20(https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%23before)%20and%20give%20me%20some%20pointers." target="_blank" rel="noopener noreferrer">Ask Grok about this</a></p>
   <p>You need:</p>
   <ul class="need">
     <li>The app address: <a href="https://ram-gear.github.io/ramgear-app/">https://ram-gear.github.io/ramgear-app/</a></li>
@@ -95,6 +107,7 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
 
 <section class="card" id="first">
   <h2><span class="num">2</span>Set up the first tablet (Admin)</h2>
+  <p class="askg"><a class="askgrok" href="https://grok.com/?q=I'm%20using%20Ram-Gear's%20QC%20Form%20app%2C%20a%20web%20app%20for%20gearbox%20repair%20quality-control%20inspection%20forms.%20Please%20read%20https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%20first%2C%20then%20explain%20the%20part%20%22Set%20up%20the%20first%20tablet%20(Admin)%22%20(https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%23first)%20and%20give%20me%20some%20pointers." target="_blank" rel="noopener noreferrer">Ask Grok about this</a></p>
   <p>Do this once, on the Admin's tablet, which is usually the one that already has the shop's jobs on it.</p>
   <ol class="steps">
     <li>Open <a href="https://ram-gear.github.io/ramgear-app/">https://ram-gear.github.io/ramgear-app/</a> in Chrome or Edge.</li>
@@ -112,6 +125,7 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
 
 <section class="card" id="more">
   <h2><span class="num">3</span>Add more tablets or a Windows PC</h2>
+  <p class="askg"><a class="askgrok" href="https://grok.com/?q=I'm%20using%20Ram-Gear's%20QC%20Form%20app%2C%20a%20web%20app%20for%20gearbox%20repair%20quality-control%20inspection%20forms.%20Please%20read%20https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%20first%2C%20then%20explain%20the%20part%20%22Add%20more%20tablets%20or%20a%20Windows%20PC%22%20(https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%23more)%20and%20give%20me%20some%20pointers." target="_blank" rel="noopener noreferrer">Ask Grok about this</a></p>
   <ol class="steps">
     <li>Open <a href="https://ram-gear.github.io/ramgear-app/">https://ram-gear.github.io/ramgear-app/</a> in Chrome or Edge. If you use Firefox, first do <a href="#firefox">section 4</a>.</li>
     <li>Install the app (Chrome: install icon in the address bar; Edge: <b>…</b> › <b>Apps</b> › <b>Install this site as an app</b>).</li>
@@ -127,6 +141,7 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
 
 <section class="card" id="firefox">
   <h2><span class="num">4</span>Firefox settings</h2>
+  <p class="askg"><a class="askgrok" href="https://grok.com/?q=I'm%20using%20Ram-Gear's%20QC%20Form%20app%2C%20a%20web%20app%20for%20gearbox%20repair%20quality-control%20inspection%20forms.%20Please%20read%20https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%20first%2C%20then%20explain%20the%20part%20%22Firefox%20settings%22%20(https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%23firefox)%20and%20give%20me%20some%20pointers." target="_blank" rel="noopener noreferrer">Ask Grok about this</a></p>
   <p>Only needed on devices that use Firefox. Without these settings, Firefox may delete the app's data every time it closes, and the app then asks for setup again.</p>
   <ol class="steps">
     <li>Open the Firefox menu <b>☰</b> › <b>Settings</b>.</li>
@@ -143,6 +158,7 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
 
 <section class="card" id="daily">
   <h2><span class="num">5</span>Daily use &amp; sync status</h2>
+  <p class="askg"><a class="askgrok" href="https://grok.com/?q=I'm%20using%20Ram-Gear's%20QC%20Form%20app%2C%20a%20web%20app%20for%20gearbox%20repair%20quality-control%20inspection%20forms.%20Please%20read%20https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%20first%2C%20then%20explain%20the%20part%20%22Daily%20use%20%26%20sync%20status%22%20(https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%23daily)%20and%20give%20me%20some%20pointers." target="_blank" rel="noopener noreferrer">Ask Grok about this</a></p>
   <ol class="steps">
     <li>Open the app from its icon.</li>
     <li>Sign in with your username and password/PIN.</li>
@@ -166,6 +182,7 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
     <tr><td>In use on Shop Tablet 2</td><td>That form is open on another device, so it is read-only here and updates live.</td><td>Wait until they leave the form. A lock on a device that went offline expires after 30 minutes.</td></tr>
   </table>
   <h3 id="roles">User roles (Rev 1.9, Change Gear Rev 1.10)</h3>
+  <p class="askg"><a class="askgrok" href="https://grok.com/?q=I'm%20using%20Ram-Gear's%20QC%20Form%20app%2C%20a%20web%20app%20for%20gearbox%20repair%20quality-control%20inspection%20forms.%20Please%20read%20https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%20first%2C%20then%20explain%20the%20part%20%22User%20roles%20(Rev%201.9%2C%20Change%20Gear%20Rev%201.10)%22%20(https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%23roles)%20and%20give%20me%20some%20pointers." target="_blank" rel="noopener noreferrer">Ask Grok about this</a></p>
   <p>Each user has three roles, set by an Admin under <b>Admin &amp; settings › Users › Edit</b>:</p>
   <table>
     <tr><th>QC role (this app)</th><th>Can do</th></tr>
@@ -191,15 +208,21 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
 
 <section class="card" id="gearboxes">
   <h2><span class="num">6</span>Jobs, gearboxes &amp; reduction type</h2>
+  <p class="askg"><a class="askgrok" href="https://grok.com/?q=I'm%20using%20Ram-Gear's%20QC%20Form%20app%2C%20a%20web%20app%20for%20gearbox%20repair%20quality-control%20inspection%20forms.%20Please%20read%20https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%20first%2C%20then%20explain%20the%20part%20%22Jobs%2C%20gearboxes%20%26%20reduction%20type%22%20(https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%23gearboxes)%20and%20give%20me%20some%20pointers." target="_blank" rel="noopener noreferrer">Ask Grok about this</a></p>
   <p>A job can hold <b>one or more gearboxes</b>. Each gearbox has its own <b>reduction type</b> (Single, Double or Triple), its own manufacturer, model and serial number, and its own <b>Teardown Evaluation</b> and <b>Assembly Verification</b>. The forms follow the type: ratios for each stage, the shafts (Single: input and output; Double: plus an intermediate shaft; Triple: plus two intermediate shafts), gears and pinions per stage, bearings and shims per shaft, and backlash for each gear mesh.</p>
   <p><b>Planetary</b> gearboxes (Rev 1.6) are a fourth type. When you pick <b>Planetary</b>, also pick the number of <b>planetary stages</b> (1 to 4); both are confirmed and locked together. The planetary forms have a section per stage: tooth counts and number of planets, the stage ratio (calculated as 1 + Z ring / Z sun from the tooth counts, plus the measured ratio), sun-planet and planet-ring backlash, sun float, carrier endplay and thrust washer thickness, and the sun gear, each planet (pin fit, needle rollers, thrust washers), ring gear, planet carrier and carrier bearing, and the coupling to the next stage. Input and output shafts, bearings, seals, housing, lubrication and the shim records (with <b>Replace / Reuse</b>) follow. In the planet table, fill in one row per planet: rows above the number of planets you entered are not required. Teardown parts keep <b>Reuse / Repair / Replace</b>, and the failure-mode and root-cause sections are the same as for the other types.</p>
   <h3 id="cards">Customer cards: View card and Find in card file (Rev 1.8)</h3>
+  <p class="askg"><a class="askgrok" href="https://grok.com/?q=I'm%20using%20Ram-Gear's%20QC%20Form%20app%2C%20a%20web%20app%20for%20gearbox%20repair%20quality-control%20inspection%20forms.%20Please%20read%20https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%20first%2C%20then%20explain%20the%20part%20%22Customer%20cards%3A%20View%20card%20and%20Find%20in%20card%20file%20(Rev%201.8)%22%20(https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%23cards)%20and%20give%20me%20some%20pointers." target="_blank" rel="noopener noreferrer">Ask Grok about this</a></p>
   <p>Every customer has a <b>card</b> in the company cloud, shared with the Cardfile app: the customer name (up to 39 characters) and a contact block (contact, phone, email, address, notes). It updates by itself whenever the customer is saved on any tablet.</p>
   <ul>
     <li><b>View card</b> (customer screen) shows the card. Online it comes from the cloud, including any notes added in Cardfile; offline the tablet builds it from the customer details.</li>
     <li><b>Find in card file</b> (top of <b>+ New customer</b>): type 2 or more letters of the company, contact, phone or email. Tap a card to fill in the form, check or edit the details, then tap <b>Create customer</b>; the card is linked to the new customer. Cards already linked to a customer are greyed out. Needs internet and the cloud sign-in; offline it shows <i>Card lookup needs internet</i>.</li>
     <li>If the connection drops after you picked a card, save anyway: the card is linked at the next sync. If another tablet linked the same card first, you get a warning and the new customer gets its own card.</li>
   </ul>
+  <div class="tryit" id="try-phone"><h4>Try it: phone numbers</h4>
+    <p>A (made-up) customer gave the phone number <code>+1 (555) 010-0188</code>. Type it the way the app shows it on the customer and the card.</p>
+    <div class="row2"><input id="tpPhone" autocomplete="off" aria-label="Phone as shown"><button class="btn" type="button" data-try="phone">Check</button></div>
+    <div class="res" id="tpPhoneRes" aria-live="polite"></div></div><!--/tryit-->
   <h3>Start a job</h3>
   <ol class="steps">
     <li>Open the customer and tap <b>+ New job</b>.</li>
@@ -208,6 +231,12 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
     <li>Tap <b>Create job</b>.</li>
     <li>Check the type in the confirmation and tap <b>Confirm … &amp; lock</b>. Tap <b>Back</b> to pick another one. The type is now locked 🔒.</li>
   </ol>
+  <div class="tryit" id="try-gearbox"><h4>Try it: pick the gearbox type</h4>
+    <p>Practice job WO 00-0000 (sample data): the gearbox is a <b>planetary gearbox with 2 planetary stages</b>. Pick what you would tap on <b>+ New job</b>.</p>
+    <div class="row2"><select id="tgType" aria-label="Gearbox type"><option value="">Gearbox type…</option><option value="1">Single reduction</option><option value="2">Double reduction</option><option value="3">Triple reduction</option><option value="p">Planetary</option></select>
+      <select id="tgStages" aria-label="Planetary stages"><option value="">Planetary stages…</option><option>1</option><option>2</option><option>3</option><option>4</option></select>
+      <button class="btn" type="button" data-try="gearbox">Check</button></div>
+    <div class="res" id="tgRes" aria-live="polite"></div></div><!--/tryit-->
   <h3>Add another gearbox to the job</h3>
   <ol class="steps">
     <li>Open the job folder and tap <b>+ Add gearbox</b> (below the gearbox cards).</li>
@@ -223,14 +252,24 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
   </ol>
   <p class="small">A removed gearbox disappears from the job, the counts and the exports. Its saved final PDFs are kept, listed as “Removed gearbox”.</p>
   <h3 id="shims">Shim records: Replace or Reuse</h3>
+  <p class="askg"><a class="askgrok" href="https://grok.com/?q=I'm%20using%20Ram-Gear's%20QC%20Form%20app%2C%20a%20web%20app%20for%20gearbox%20repair%20quality-control%20inspection%20forms.%20Please%20read%20https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%20first%2C%20then%20explain%20the%20part%20%22Shim%20records%3A%20Replace%20or%20Reuse%22%20(https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%23shims)%20and%20give%20me%20some%20pointers." target="_blank" rel="noopener noreferrer">Ask Grok about this</a></p>
   <p>Every row of the shim records (<b>As-found shim record</b> in the Teardown Evaluation, <b>Bearing shim record</b> in the Assembly Verification) has a <b>Shim pack: Replace / Reuse</b> choice. Tap one; tapping the other switches it. It is required to finalize, like the other values in the row. If the row does not apply, tap <b>N/A</b> for the whole row. The choice is printed in the shim table of the final and combined PDFs. Forms started before Rev 1.5.2 show it blank until you pick one.</p>
+  <div class="tryit" id="try-shims"><h4>Try it: shim pack Replace / Reuse</h4>
+    <p>Sample teardown notes: the <b>LSS drive-end</b> shims are crushed; the <b>HSS non-drive-end</b> shims are in good shape and can go back in. Pick for each row, then check whether the rows are ready to finalize.</p>
+    <table><tr><th>Shaft / end</th><th>Shim pack</th></tr>
+      <tr><td>LSS · DE</td><td><label><input type="radio" name="tsA" value="replace"> Replace</label> <label><input type="radio" name="tsA" value="reuse"> Reuse</label></td></tr>
+      <tr><td>HSS · NDE</td><td><label><input type="radio" name="tsB" value="replace"> Replace</label> <label><input type="radio" name="tsB" value="reuse"> Reuse</label></td></tr></table>
+    <div class="row2"><button class="btn" type="button" data-try="shims">Check</button></div>
+    <div class="res" id="tsRes" aria-live="polite"></div></div><!--/tryit-->
   <h3 id="tphotos">Photos in the report</h3>
+  <p class="askg"><a class="askgrok" href="https://grok.com/?q=I'm%20using%20Ram-Gear's%20QC%20Form%20app%2C%20a%20web%20app%20for%20gearbox%20repair%20quality-control%20inspection%20forms.%20Please%20read%20https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%20first%2C%20then%20explain%20the%20part%20%22Photos%20in%20the%20report%22%20(https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%23tphotos)%20and%20give%20me%20some%20pointers." target="_blank" rel="noopener noreferrer">Ask Grok about this</a></p>
   <p><b>Oil photos:</b> open <b>C. Oil condition</b> → <b>Section photos</b> (not L. Teardown photos) so they print under “Photos - C. Oil condition”. From Rev 1.7.1 the gallery button keeps that section even on tablets. If an older oil picture prints under L, delete it and add it again under C, then re-finalize.</p>
   <p><b>Job photos</b> (job folder or the Job photos block on a form) print at the end of every form PDF. From Rev 1.7.2 every readable job photo is included; the report no longer leaves blank pages for pictures that failed to load. Re-finalize to refresh an older final PDF.</p>
 
   <p>Take or pick photos where they belong: every section has <b>Section photos</b>, and every part row has its own <b>Photos</b>. The thumbnails show right there in that section, with their caption; tap one to see it full size (deleting needs Admin approval, as before). In the PDF report (final, draft and combined), each section's photos print <b>right after that section</b>: a small grid, 3 per row, with the caption under each photo and a note that the full-size photos are in the app and the job export. A part's photos print with its section and show the part name.</p>
   <p>The last section of every Teardown Evaluation (all gearbox types) is <b>L. Teardown photos</b> for general teardown photos. Tap <b>📷 Take photo</b> or <b>🖼 Choose from gallery</b> (several at once) and give each a short caption: type it, or pick a suggestion such as <i>As received</i>, <i>Disassembled</i> or a component name. The Assembly Verification has <b>Additional photos</b> at the end for the same purpose. Both are optional; they are not needed to finalize. Photos whose section no longer exists (for example after a gearbox type change) are shown and printed there. Job photos print at the end of each form. In the job zip, photos are in each gearbox's <code>Photos/</code> folder, full size, in report order, with the section at the start of the file name (e.g. <code>03_Teardown-C_Oil-condition_Sample-jar.jpg</code>). Photos and captions sync to the other tablets.</p>
   <h3 id="parts">Parts Summary (parts to order)</h3>
+  <p class="askg"><a class="askgrok" href="https://grok.com/?q=I'm%20using%20Ram-Gear's%20QC%20Form%20app%2C%20a%20web%20app%20for%20gearbox%20repair%20quality-control%20inspection%20forms.%20Please%20read%20https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%20first%2C%20then%20explain%20the%20part%20%22Parts%20Summary%20(parts%20to%20order)%22%20(https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%23parts)%20and%20give%20me%20some%20pointers." target="_blank" rel="noopener noreferrer">Ask Grok about this</a></p>
   <p>Each job folder has a <b>Parts Summary</b> card. Tap <b>Parts Summary</b> to see, for every gearbox (all types, including Planetary), what has to be ordered. It is built automatically from the Teardown Evaluation and updates as you fill the forms in:</p>
   <ul>
     <li><b>Parts to replace</b>: every component marked <b>Replace</b>, and planet gears marked Replace, with location, quantity, part number (bearing cone / cup P/N, seal P/N) and the findings as failure mode / notes. Components marked <b>Repair</b> are listed separately under <b>Parts to repair</b>.</li>
@@ -239,10 +278,16 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
   </ul>
   <p>Quantity: each component has an optional <b>Qty needed</b> field (for the Parts Summary only, not printed on the form). Leave it empty to use the default shown in the field: 1, 2 for a shaft's bearing pair, or per planet for planet bearings, pins and thrust washers (enter the <b>number of planets</b>; if it is empty, 3 is assumed and noted). Bearings also have an optional <b>Bearing type</b> (pick a suggestion such as <i>Spherical roller bearing</i>); bearings with cone / cup fields default to <i>Tapered roller bearing</i>. For <b>Other component</b> rows, a name such as “Cover gasket” or “O-ring” puts it in the right group.</p>
   <p>Until a gearbox's Teardown Evaluation is finalized, its summary is marked <b>DRAFT</b> (quantities may still change); after that it is marked <b>FINAL</b>. The Parts Summary page is added at the end of the final Teardown PDF, after the teardown sections in the combined job PDF (with the job roll-up last), and as its own PDF with <b>Download Parts Summary</b>. The job zip also contains <code>…_Parts-Summary.pdf</code> and <code>…_Parts-Summary.csv</code> (opens in Excel). Each page shows the Ram-Gear header, the job, customer, work order, gearbox, Tablet ID and app revision.</p>
+  <div class="tryit" id="try-parts"><h4>Try it: Parts Summary totals</h4>
+    <p>Sample Teardown Evaluation (fake data), all marked <b>Replace</b>: HSS bearing pair (Tapered roller bearing, qty 2), LSS bearing pair (Tapered roller bearing, qty 2), input oil seal (Oil seal, qty 1), and the shim packs of LSS DE and HSS NDE. The IS bearing is marked <b>Repair</b>. How many of each go on the order?</p>
+    <div class="row2"><label>Tapered roller bearings <input id="tpBrg" type="number" min="0" style="width:5em"></label><label>Oil seals <input id="tpSeal" type="number" min="0" style="width:5em"></label><label>Shim packs <input id="tpShim" type="number" min="0" style="width:5em"></label>
+      <button class="btn" type="button" data-try="parts">Check</button></div>
+    <div class="res" id="tpRes" aria-live="polite"></div></div><!--/tryit-->
 </section>
 
 <section class="card" id="backup">
   <h2><span class="num">7</span>Backups &amp; restore</h2>
+  <p class="askg"><a class="askgrok" href="https://grok.com/?q=I'm%20using%20Ram-Gear's%20QC%20Form%20app%2C%20a%20web%20app%20for%20gearbox%20repair%20quality-control%20inspection%20forms.%20Please%20read%20https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%20first%2C%20then%20explain%20the%20part%20%22Backups%20%26%20restore%22%20(https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%23backup)%20and%20give%20me%20some%20pointers." target="_blank" rel="noopener noreferrer">Ask Grok about this</a></p>
   <p>The cloud keeps a copy of everything, but a backup file is still your safety net.</p>
   <h3>Make a backup</h3>
   <ol class="steps">
@@ -265,6 +310,7 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
 
 <section class="card" id="cleared">
   <h2><span class="num">8</span>If browser data is cleared</h2>
+  <p class="askg"><a class="askgrok" href="https://grok.com/?q=I'm%20using%20Ram-Gear's%20QC%20Form%20app%2C%20a%20web%20app%20for%20gearbox%20repair%20quality-control%20inspection%20forms.%20Please%20read%20https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%20first%2C%20then%20explain%20the%20part%20%22If%20browser%20data%20is%20cleared%22%20(https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%23cleared)%20and%20give%20me%20some%20pointers." target="_blank" rel="noopener noreferrer">Ask Grok about this</a></p>
   <p>The app keeps its data in the browser. If that data is deleted (by "clear browsing data", a privacy setting, or a Private/Incognito window), the app opens with <b>Create the first Admin account</b> as if it were new. With cloud sync, everything that was synced is still safe in the cloud.</p>
   <ol class="steps">
     <li>Do <b>not</b> create a new admin account.</li>
@@ -288,8 +334,82 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
   </ol>
 </section>
 
+<section class="card" id="screens">
+  <h2><span class="num">9</span>The screens, one by one</h2>
+  <p class="askg"><a class="askgrok" href="https://grok.com/?q=I'm%20using%20Ram-Gear's%20QC%20Form%20app%2C%20a%20web%20app%20for%20gearbox%20repair%20quality-control%20inspection%20forms.%20Please%20read%20https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%20first%2C%20then%20explain%20the%20part%20%22The%20screens%2C%20one%20by%20one%22%20(https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%23screens)%20and%20give%20me%20some%20pointers." target="_blank" rel="noopener noreferrer">Ask Grok about this</a></p>
+  <h3>Sign-in</h3>
+  <p>Type your username and password/PIN and tap <b>Sign in</b>. After 5 wrong tries the device waits a short time before you can try again. The links at the bottom open this guide (<b>Help &amp; setup guide</b>) and <b>Ask Grok</b>. A brand-new device shows <b>Create the first Admin account</b> instead (see sections 2 and 3).</p>
+  <h3>Top bar</h3>
+  <p>Shows the company name, the app revision (tap it for details), the cloud status (section 5), your name and role, <b>Log out</b>, <b>Help</b> and <b>Ask Grok</b>. Some screens add buttons here, for example <b>Backup</b> on the home screen.</p>
+  <h3>Home – customers</h3>
+  <p>Lists all customers with a search box. Tap a customer to open it. Technicians and Admins see <b>+ New customer</b>. A backup reminder appears here when one is due.</p>
+  <h3>Customer</h3>
+  <p>The customer's details and their jobs. Buttons: <b>View card</b> (the shared customer card, see <a href="#cards">Customer cards</a>), <b>Edit</b>, <b>+ New job</b> and, for Admins, <b>Delete</b>.</p>
+  <h3>Job folder</h3>
+  <p>One card per gearbox with its type and its two forms (Teardown Evaluation, Assembly Verification) and their status: not started, draft, or ✓ completed. Below: <b>Job photos</b>, <b>Saved documents</b> (final PDFs), the <b>Parts Summary</b> card, <b>+ Add gearbox</b>, and the exports <b>Combined PDF</b> and <b>Export zip</b>.</p>
+  <h3>Forms</h3>
+  <p>The form opens in sections (A, B, C …). Everything saves automatically as you type, also offline. Required items are marked; tap <b>N/A</b> for an item that doesn't apply. While you have a form open it is checked out to your tablet, so other devices see it as <b>In use</b> and read-only. Leave with the back button when you are done.</p>
+  <h3>Photos</h3>
+  <p>Every section has <b>Section photos</b> and every part row has <b>Photos</b>; the job has <b>Job photos</b>. Tap <b>📷 Take photo</b> or <b>🖼 Choose from gallery</b> and give each photo a short caption. Photos print in the PDF under the section where you added them (see <a href="#tphotos">Photos in the report</a>).</p>
+  <h3>Finalize</h3>
+  <p>Tap <b>Finalize</b> at the end of the form. If required items are missing, the app lists them and <b>Go to first</b> takes you there. When all are complete, tap <b>Finalize &amp; save PDF</b>: the form is locked, the Tablet ID and time are stamped, and the final PDF is saved in the job's <b>Saved documents</b>. Only an Admin can <b>Reopen</b> a completed form (with approval); finalizing again makes a new revision.</p>
+  <h3>Parts Summary</h3>
+  <p>Parts to replace or repair and shim packs, per gearbox and as a job roll-up, built from the forms. See <a href="#parts">Parts Summary</a>.</p>
+  <h3>Backup / restore</h3>
+  <p><b>Backup</b> saves everything on the device to one file; Admins can restore it. See section 7.</p>
+  <h3>Cloud sync</h3>
+  <p>All tablets share one company cloud. The top bar shows the status; Admins see details and <b>Sync now</b> under <b>Admin › Cloud sync</b>. See section 5.</p>
+  <h3>Admin › Users</h3>
+  <p>Admins add users (<b>+ New user</b>), reset passwords/PINs, disable or enable accounts, and set each user's <b>QC role</b>, <b>Card file role</b> and <b>Change Gear role</b> (see <a href="#roles">User roles</a>). Admin also holds the Tablet ID, auto-lock time, backup reminder and the audit log.</p>
+  <h3 id="askgrok">Ask Grok</h3>
+  <p class="askg"><a class="askgrok" href="https://grok.com/?q=I'm%20using%20Ram-Gear's%20QC%20Form%20app%2C%20a%20web%20app%20for%20gearbox%20repair%20quality-control%20inspection%20forms.%20Please%20read%20https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%20first%2C%20then%20explain%20the%20part%20%22Ask%20Grok%22%20(https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%23askgrok)%20and%20give%20me%20some%20pointers." target="_blank" rel="noopener noreferrer">Ask Grok about this</a></p>
+  <p><b>Ask Grok</b> (top bar and sign-in screen) opens grok.com in a new tab with a fixed question asking Grok to read this guide and give you pointers. It sends no customer, job or user information, only that question. It needs an internet connection; the app itself keeps working offline.</p>
+</section>
+
+<section class="card" id="tasks">
+  <h2><span class="num">10</span>Common tasks, step by step</h2>
+  <p class="askg"><a class="askgrok" href="https://grok.com/?q=I'm%20using%20Ram-Gear's%20QC%20Form%20app%2C%20a%20web%20app%20for%20gearbox%20repair%20quality-control%20inspection%20forms.%20Please%20read%20https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%20first%2C%20then%20explain%20the%20part%20%22Common%20tasks%2C%20step%20by%20step%22%20(https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%23tasks)%20and%20give%20me%20some%20pointers." target="_blank" rel="noopener noreferrer">Ask Grok about this</a></p>
+  <h3>Record a new gearbox repair</h3>
+  <ol class="steps">
+    <li>Home: open the customer, or tap <b>+ New customer</b> (use <b>Find in card file</b> to fill in the details).</li>
+    <li>Tap <b>+ New job</b>, type the work order number, pick the gearbox type and tap <b>Create job</b>, then confirm the type.</li>
+    <li>In the job folder, open the <b>Teardown Evaluation</b>, fill it in and add photos as you go.</li>
+    <li>Tap <b>Finalize</b>, fix any missing items, then <b>Finalize &amp; save PDF</b>.</li>
+    <li>Check the <b>Parts Summary</b> for what to order.</li>
+    <li>After the rebuild, fill in and finalize the <b>Assembly Verification</b> the same way.</li>
+  </ol>
+  <h3>Send the report to a customer</h3>
+  <ol class="steps"><li>Open the job folder.</li><li>Tap <b>Combined PDF</b> (all final forms) or <b>Export zip</b> (PDFs and photos).</li><li>Tap <b>Share</b>, <b>Save as…</b> or <b>Download</b> and send the file as usual.</li></ol>
+  <h3>Correct a completed form</h3>
+  <ol class="steps"><li>Ask an Admin to open the form and tap <b>Reopen</b> (Admin approval).</li><li>Make the change.</li><li>Finalize again; the new PDF gets the next revision number and the old one stays in Saved documents.</li></ol>
+  <h3>Add a user or change a role (Admin)</h3>
+  <ol class="steps"><li>Tap <b>Admin</b>, then under <b>Users</b> tap <b>+ New user</b> or <b>Edit</b>.</li><li>Fill in the name and username and pick the QC, Card file and Change Gear roles.</li><li>For a new user, set a password/PIN and tell them in person.</li></ol>
+  <h3>Set up another tablet</h3>
+  <p>Follow section 3.</p>
+</section>
+
+<section class="card" id="trouble">
+  <h2><span class="num">11</span>Troubleshooting</h2>
+  <p class="askg"><a class="askgrok" href="https://grok.com/?q=I'm%20using%20Ram-Gear's%20QC%20Form%20app%2C%20a%20web%20app%20for%20gearbox%20repair%20quality-control%20inspection%20forms.%20Please%20read%20https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%20first%2C%20then%20explain%20the%20part%20%22Troubleshooting%22%20(https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%23trouble)%20and%20give%20me%20some%20pointers." target="_blank" rel="noopener noreferrer">Ask Grok about this</a></p>
+  <table>
+    <tr><th>Problem</th><th>What to do</th></tr>
+    <tr><td>The app asks to create the first Admin account on a device that was set up before</td><td>The browser data was cleared. Don't create a new admin; follow section 8.</td></tr>
+    <tr><td>Can't sign in / wrong PIN</td><td>Check the username (not your full name) and caps. After 5 tries, wait and try again. An Admin can reset your password/PIN.</td></tr>
+    <tr><td>Form says <b>In use on …</b></td><td>Someone else has it open. Wait until they leave it; a lock from a device that went offline ends after 30 minutes.</td></tr>
+    <tr><td>Buttons like <b>+ New customer</b> or <b>Finalize</b> are missing</td><td>You are signed in as a Viewer (view only). Ask an Admin if you need to make changes.</td></tr>
+    <tr><td>Finalize says items are incomplete</td><td>Tap <b>Go to first</b>, fill in the item or tap <b>N/A</b>, and finalize again.</td></tr>
+    <tr><td>Cloud status shows a problem</td><td>See the table in section 5. Most often: reconnect to the internet, or log out and sign in again.</td></tr>
+    <tr><td>A photo is missing from the PDF or printed in the wrong section</td><td>Add it again under that section's <b>Section photos</b>, then download a new draft or finalize again (see <a href="#tphotos">Photos in the report</a>).</td></tr>
+    <tr><td>View card says "Generated on this tablet"</td><td>You are offline or have no card file access. Online, with a card file role, it shows the shared card.</td></tr>
+    <tr><td>The app looks old after an update</td><td>Close the app completely and open it again; the revision number in the top bar shows the version.</td></tr>
+    <tr><td>Data seems lost</td><td>Don't clear anything. With cloud sync, sign in on another device to check. Otherwise ask an Admin to restore the newest backup (section 7).</td></tr>
+  </table>
+  <p>Still stuck? Tap <b>Ask Grok</b> for general pointers, or ask your Admin.</p>
+</section>
+
 <section class="card" id="othershop">
-  <h2><span class="num">9</span>Setting up for another shop</h2>
+  <h2><span class="num">12</span>Setting up for another shop</h2>
+  <p class="askg"><a class="askgrok" href="https://grok.com/?q=I'm%20using%20Ram-Gear's%20QC%20Form%20app%2C%20a%20web%20app%20for%20gearbox%20repair%20quality-control%20inspection%20forms.%20Please%20read%20https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%20first%2C%20then%20explain%20the%20part%20%22Setting%20up%20for%20another%20shop%22%20(https%3A%2F%2Fram-gear.github.io%2Framgear-app%2Fhelp.html%23othershop)%20and%20give%20me%20some%20pointers." target="_blank" rel="noopener noreferrer">Ask Grok about this</a></p>
   <p>This address, <code>https://ram-gear.github.io/ramgear-app/</code>, uses <b>Ram-Gear's</b> database and needs a Ram-Gear account. Another shop that wants the app with <b>its own data</b> makes its own copy:</p>
   <ol class="steps">
     <li>Fork the app on GitHub and turn on GitHub Pages. This gives the shop its own web address.</li>
@@ -307,6 +427,48 @@ footer{color:var(--steel);font-size:14px;text-align:center;margin-top:20px}
   const r = self.APP_REV_LABEL || '';
   document.getElementById('rev').textContent = r; document.getElementById('rev2').textContent = 'App ' + r;
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js', {updateViaCache: 'none'}).catch(() => {});
+</script>
+<script src="js/phone.js"></script>
+<script src="js/parts.js"></script>
+<script>
+/* Practice boxes: run only in this page with the app's own Phone / Parts code; sample data only; no network, no storage. */
+(() => {
+  const $ = id => document.getElementById(id);
+  const say = (el, ok, why) => { el.className = 'res ' + (ok ? 'ok' : 'bad'); el.innerHTML = ''; el.append(ok ? 'Correct. ' : 'Incorrect. '); const sp = document.createElement('span'); sp.textContent = why; el.append(sp); };
+  const typeLabel = t => /^p[1-4]$/.test(t) ? `Planetary ${t.slice(1)}-stage` : ({1: 'Single', 2: 'Double', 3: 'Triple'}[t] + ' reduction');   // same labels as the app
+  const T = {
+    phone() {
+      const want = Phone.format('+1 (555) 010-0188'), got = $('tpPhone').value.trim();
+      if (got === want) say($('tpPhoneRes'), true, `The app drops the +1 country code and shows 10-digit US numbers as XXX-XXX-XXXX: ${want}.`);
+      else say($('tpPhoneRes'), false, `The app shows ${want}: digits only, the +1 country code dropped, dashes after the 3rd and 6th digit. You typed "${got || '(nothing)'}"${Phone.format(got) === want && got !== want ? ' – the app would reformat that to ' + want : ''}.`);
+    },
+    gearbox() {
+      const t = $('tgType').value, n = $('tgStages').value, el = $('tgRes');
+      if (!t) return say(el, false, 'Pick a gearbox type first. The app won\'t create a job without one.');
+      if (t !== 'p') return say(el, false, `${typeLabel(t)} is a helical gearbox. This one is planetary, so tap Planetary.`);
+      if (!n) return say(el, false, 'For Planetary the app also needs the number of planetary stages (1–4) and won\'t create the job without it.');
+      if (n !== '2') return say(el, false, `That would lock the gearbox as ${typeLabel('p' + n)}; the notes say 2 stages. Changing it later needs an Admin.`);
+      say(el, true, `The gearbox is confirmed and locked as ${typeLabel('p2')}, with a section per planetary stage.`);
+    },
+    shims() {
+      const v = k => (document.querySelector(`input[name=${k}]:checked`) || {}).value, a = v('tsA'), b = v('tsB'), el = $('tsRes');
+      if (!a || !b) return say(el, false, 'Every shim row needs Replace or Reuse before the form can be finalized (or N/A for the whole row if it does not apply).');
+      if (a !== 'replace') return say(el, false, 'Crushed LSS drive-end shims must be marked Replace; they then appear on the Parts Summary as a shim pack to order.');
+      if (b !== 'reuse') return say(el, false, 'The HSS non-drive-end shims are in good shape, so Reuse; Replace would add an unneeded shim pack to the order.');
+      say(el, true, 'LSS DE = Replace (goes on the Parts Summary), HSS NDE = Reuse. Both rows are complete, so this table is ready to finalize.');
+    },
+    parts() {
+      const sample = {replace: [{cat: 'Bearings', type: 'Tapered roller bearing', qty: 2}, {cat: 'Bearings', type: 'Tapered roller bearing', qty: 2}, {cat: 'Seals', type: 'Oil seal', qty: 1}],
+        repair: [{cat: 'Bearings', type: 'Tapered roller bearing', qty: 2}], shims: [{qty: 1}, {qty: 1}]};
+      const tot = Parts.totals([sample]), q = type => (tot.find(x => x.type === type) || {qty: 0}).qty;
+      const want = [q('Tapered roller bearing'), q('Oil seal'), q('Shim pack')], got = ['tpBrg', 'tpSeal', 'tpShim'].map(id => $(id).value === '' ? null : +$(id).value);
+      const txt = `${want[0]} tapered roller bearings, ${want[1]} oil seal, ${want[2]} shim packs`;
+      if (got.every((g, i) => g === want[i])) say($('tpRes'), true, `The totals count only Replace items: ${txt}. The IS bearing marked Repair is listed separately and not ordered.`);
+      else say($('tpRes'), false, `The Parts Summary totals are ${txt}. Only Replace items count (2 + 2 bearings); Repair items are not ordered; each shim row marked Replace is one shim pack.`);
+    },
+  };
+  document.addEventListener('click', e => { const b = e.target.closest('[data-try]'); if (b) T[b.dataset.try](); });
+})();
 </script>
 </body>
 </html>

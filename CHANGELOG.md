@@ -2,6 +2,14 @@
 
 The revision number lives in `js/version.js` (see README › *Revision number*).
 
+## Rev 1.10.3 – 2026-10-15 (build 2026-10-15.3) – fuller help guide, practice boxes, Ask Grok reads the guide
+
+- **help.html** reviewed and extended: *What the app does*, *The screens, one by one* (sign-in, top bar, home, customer, job folder, forms, photos, finalize, Parts Summary, backup/restore, cloud sync, Admin › Users with QC / Card file / Change Gear roles, Ask Grok), *Common tasks, step by step* and *Troubleshooting*. No customer data, keys, setup codes or credentials.
+- **Try it** practice boxes in the guide (phone format, gearbox type / planetary stages, shim Replace / Reuse, Parts Summary totals). They run only in the page with the app's own `js/phone.js` and `js/parts.js`, use made-up sample data, and show Correct / Incorrect with the reason. No network, no storage. Work offline (cached by the service worker).
+- **Ask Grok about this** link on every help section (section-specific question that asks Grok to read the guide first).
+- The app's **Ask Grok** links (top bar, sign-in) now ask Grok to read https://ram-gear.github.io/ramgear-app/help.html first. Help stays linked from the top bar and the sign-in screen.
+- Tests: `e2e_help2.py`, `e2e_askgrok.py` (Chromium + Firefox).
+
 ## Rev 1.10.2 – 2026-10-15 (build 2026-10-15.2) – light green page background
 
 - Page background behind the cards is now light green `#EAF7EA` (was grey `#E8EAED`). Cards, inputs and text areas stay white; the sign-in screen background is unchanged; Ask Grok kept.
