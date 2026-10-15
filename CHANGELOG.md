@@ -2,6 +2,10 @@
 
 The revision number lives in `js/version.js` (see README › *Revision number*).
 
+## Rev 1.10.1 – 2026-10-15 (build 2026-10-15.1) – Ask Grok help link
+
+- **Ask Grok** link next to Help in the top bar and on the sign-in screen: opens grok.com in a new tab (`target=_blank`, `rel=noopener noreferrer`) with a fixed question about how to use the app. The link is static: no customer, user or job data is included. Test: `e2e_askgrok.py`.
+
 ## Rev 1.10 – 2026-10-13 (build 2026-10-13.3) – Change Gear role and tables
 
 - New per-member **Change Gear role** (`members.changegear_role`: none / viewer / admin, default viewer). Admin › Users shows a *Change Gear role* selector and a Change Gear column; a new user created as QC Admin defaults to Change Gear Admin.
