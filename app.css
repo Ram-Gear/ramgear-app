@@ -4,7 +4,7 @@
    --rg-border #D5D8DB   --rg-proof #1A1A1C   #9FD3E1 (hero pill link)   #E8EAED (page background)
    Primary UI color is #2E7386 because white on #4396AC is only 3.4:1 (fails WCAG AA); white on #2E7386 is 5.4:1. */
 :root{--navy:#2E7386;--navy2:#2E7386;--header:#2C2C2E;--brand-accent:#4396AC;--steel:#3E555C;--border:#D5D8DB;
---light:#F3F5F6;--grid:#6E767E;--fill:#F3F5F6;--bg:#E8EAED;--text:#2C2C2E;--muted:#3E555C;--link-on-dark:#9FD3E1;
+--light:#F3F5F6;--grid:#6E767E;--fill:#F3F5F6;--bg:#EAF7EA;--text:#2C2C2E;--muted:#3E555C;--link-on-dark:#9FD3E1;
 --ok:#1e7a46;--warn:#b86e00;--danger:#b3261e;--accent:#1e7a46;--radius:10px;--tap:48px;
 --safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px)}
 *{box-sizing:border-box}

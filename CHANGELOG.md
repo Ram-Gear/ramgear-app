@@ -2,6 +2,11 @@
 
 The revision number lives in `js/version.js` (see README › *Revision number*).
 
+## Rev 1.10.2 – 2026-10-15 (build 2026-10-15.2) – light green page background
+
+- Page background behind the cards is now light green `#EAF7EA` (was grey `#E8EAED`). Cards, inputs and text areas stay white; the sign-in screen background is unchanged; Ask Grok kept.
+- Contrast checked (WCAG AA) for all text drawn directly on the page background: lowest ratio 4.85:1 (link colour); body text 12.6:1, muted text 7.1:1. Test: `e2e_bg.py` (Chromium + Firefox).
+
 ## Rev 1.10.1 – 2026-10-15 (build 2026-10-15.1) – Ask Grok help link
 
 - **Ask Grok** link next to Help in the top bar and on the sign-in screen: opens grok.com in a new tab (`target=_blank`, `rel=noopener noreferrer`) with a fixed question about how to use the app. The link is static: no customer, user or job data is included. Test: `e2e_askgrok.py`.
