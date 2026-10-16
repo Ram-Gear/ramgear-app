@@ -2,6 +2,11 @@
 
 The revision number lives in `js/version.js` (see README › *Revision number*).
 
+## Rev 1.10.4 – 2026-10-16 (build 2026-10-16.1) – App Hub look
+
+- Restyled to match the Ram-Gear App Hub: header gradient `#2b3d47 → #1d2b33` with white text, a 46 px app icon, 6 px teal `#2e7386` bottom rule and 72 px minimum height. Buttons and accents teal `#2E7386`, hover `#245E6E`, focus ring `#9FD3E1` with a dark inner edge so it stays visible on white. Page background stays `#EAF7EA`; cards and inputs stay white. Same look in help.html (whose page background is now `#EAF7EA` too).
+- Contrast: the old light accent `#4396AC` (3.1:1 on the page) is no longer used for text, borders or the role tag (role tag now white on teal, 5.4:1). `#6E767E` is only used for borders and as a fill behind white text (4.8:1). WCAG AA checked in Chromium and Firefox.
+
 ## Rev 1.10.3 – 2026-10-15 (build 2026-10-15.3) – fuller help guide, practice boxes, Ask Grok reads the guide
 
 - **help.html** reviewed and extended: *What the app does*, *The screens, one by one* (sign-in, top bar, home, customer, job folder, forms, photos, finalize, Parts Summary, backup/restore, cloud sync, Admin › Users with QC / Card file / Change Gear roles, Ask Grok), *Common tasks, step by step* and *Troubleshooting*. No customer data, keys, setup codes or credentials.
