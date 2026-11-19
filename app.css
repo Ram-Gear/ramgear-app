@@ -361,3 +361,17 @@ h2.card-title { word-break: break-word; }
 :focus-visible{outline-color:var(--focus)}
 .btn:focus-visible,a:focus-visible,select:focus-visible,button:focus-visible,input:focus,textarea:focus,select:focus{box-shadow:0 0 0 5px #1d2b33}
 .appbar .btn:focus-visible,.appbar a:focus-visible,.appbar button:focus-visible{box-shadow:none}
+
+/* Rev 1.10.5: full-size photo viewer gallery nav (large tablet-friendly arrows, counter, swipe) */
+.photo-viewer{display:grid;gap:10px}
+.pv-stage{position:relative;display:flex;align-items:center;justify-content:center;min-height:160px;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.pv-stage img.full{-webkit-user-drag:none;user-drag:none}
+.pv-nav{position:absolute;top:50%;transform:translateY(-50%);z-index:2;width:72px;height:72px;border:0;border-radius:50%;background:var(--navy);color:#fff;font-size:52px;line-height:1;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0 0 4px;box-shadow:0 2px 10px rgba(0,0,0,.4);-webkit-tap-highlight-color:transparent}
+.pv-nav:hover{background:var(--hover)}
+.pv-nav:focus-visible{outline:3px solid var(--focus);outline-offset:2px;box-shadow:0 0 0 5px #1d2b33}
+.pv-prev{left:8px}
+.pv-next{right:8px}
+.pv-nav[hidden]{visibility:hidden;display:flex;pointer-events:none}
+.pv-count{margin:0;text-align:center;font-weight:700;color:var(--navy);font-size:17px}
+.pv-cap{margin:0}
+.pv-meta{margin:0}

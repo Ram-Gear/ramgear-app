@@ -2,6 +2,12 @@
 
 The revision number lives in `js/version.js` (see README › *Revision number*).
 
+## Rev 1.10.5 – 2026-11-19 (build 2026-11-19.1) – photo gallery navigation
+
+- Tapping a form photo still opens the same full-size viewer (close button, caption and label). When a form (or the job folder) has more than one photo, the viewer now has previous and next arrows, a counter such as **3 / 12**, left/right swipe, and the keyboard arrow keys, so you can go through all photos on that screen in order without closing the viewer. Arrows are hidden at the first and last photo; a single photo has no arrows.
+- Same viewer on Teardown Evaluation, Assembly Verification, section and part photo lists, and Job photos. Arrow buttons are 72 px and use the teal look (`#2E7386`, hover `#245E6E`, focus `#9FD3E1`).
+- The viewer now shows the current caption (from the thumbnail field or the saved record) instead of a stale copy taken when the form was last filled in.
+
 ## Rev 1.10.4 – 2026-10-16 (build 2026-10-16.1) – App Hub look
 
 - Restyled to match the Ram-Gear App Hub: header gradient `#2b3d47 → #1d2b33` with white text, a 46 px app icon, 6 px teal `#2e7386` bottom rule and 72 px minimum height. Buttons and accents teal `#2E7386`, hover `#245E6E`, focus ring `#9FD3E1` with a dark inner edge so it stays visible on white. Page background stays `#EAF7EA`; cards and inputs stay white. Same look in help.html (whose page background is now `#EAF7EA` too).

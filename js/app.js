@@ -1297,6 +1297,76 @@
     const inp = $('#fileGallery'); if (inp) { inp.dataset.pendingScope = scope; inp.dataset.pendingLabel = label || ''; inp.dataset.pendingJob = current.job.id; }
     return pendingPhoto;
   }
+  // Rev 1.10.5: photos currently shown on this screen, in page order (sections, then catch-all, then job photos).
+  function galleryPhotos(photos, clicked) {
+    const byId = new Map((photos || []).map(p => [p.id, p]));
+    if (clicked && clicked.id) byId.set(clicked.id, clicked);
+    const list = [], seen = new Set();
+    for (const im of $$('img[data-full]', view)) {
+      const id = im.dataset.full; if (!id || seen.has(id)) continue;
+      const p = byId.get(id); if (!p) continue;
+      seen.add(id); list.push(p);
+    }
+    if (clicked && clicked.id && !seen.has(clicked.id)) list.push(clicked);
+    return list;
+  }
+  // Rev 1.10.5: full-size photo viewer with prev/next (arrows, swipe, keyboard). Same look as before (close, caption, label · size).
+  function openPhotoViewer(list, startId) {
+    if (!list.length) return;
+    let i = list.findIndex(p => p.id === startId); if (i < 0) i = 0;
+    const many = list.length > 1;
+    const html = `<div class="photo-viewer">
+      <div class="pv-stage">
+        ${many ? `<button type="button" class="pv-nav pv-prev" aria-label="Previous photo">‹</button>` : ''}
+        <img class="full" alt="" draggable="false">
+        ${many ? `<button type="button" class="pv-nav pv-next" aria-label="Next photo">›</button>` : ''}
+      </div>
+      ${many ? `<p class="pv-count" aria-live="polite"></p>` : ''}
+      <p class="pv-cap"></p>
+      <p class="muted small pv-meta"></p>
+    </div>`;
+    modal(html, [{label: 'Close', value: 'cancel'}], {wide: true, noFocus: true, cls: 'photo-dlg', onOpen(f, dlg) {
+      const img = $('.pv-stage img', f), cap = $('.pv-cap', f), meta = $('.pv-meta', f), count = $('.pv-count', f);
+      const prevBtn = $('.pv-prev', f), nextBtn = $('.pv-next', f), stage = $('.pv-stage', f);
+      const show = () => {
+        const p = list[i], blob = p.blob || p.thumb;
+        img.src = blob ? objUrl(blob) : '';
+        img.alt = p.caption || 'photo';
+        cap.textContent = p.caption || '';
+        meta.textContent = [p.label || '', (p.w && p.h) ? `${p.w}×${p.h}` : ''].filter(Boolean).join(' · ');
+        if (count) count.textContent = `${i + 1} / ${list.length}`;
+        if (prevBtn) { prevBtn.hidden = i <= 0; prevBtn.disabled = i <= 0; }
+        if (nextBtn) { nextBtn.hidden = i >= list.length - 1; nextBtn.disabled = i >= list.length - 1; }
+      };
+      const go = d => { const n = i + d; if (n < 0 || n >= list.length) return; i = n; show(); };
+      if (prevBtn) prevBtn.onclick = ev => { ev.preventDefault(); go(-1); };
+      if (nextBtn) nextBtn.onclick = ev => { ev.preventDefault(); go(1); };
+      const onKey = ev => {
+        if (!dlg.open) return;
+        if (ev.key === 'ArrowLeft') { ev.preventDefault(); go(-1); }
+        else if (ev.key === 'ArrowRight') { ev.preventDefault(); go(1); }
+      };
+      dlg.addEventListener('keydown', onKey);
+      let sx = 0, sy = 0, tracking = false;
+      stage.addEventListener('pointerdown', ev => {
+        if (ev.isPrimary === false) return;
+        if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+        if (ev.target.closest && ev.target.closest('.pv-nav')) return;
+        tracking = true; sx = ev.clientX; sy = ev.clientY;
+        try { stage.setPointerCapture(ev.pointerId); } catch (e) {}
+      });
+      const endPtr = ev => {
+        if (!tracking) return; tracking = false;
+        const dx = ev.clientX - sx, dy = ev.clientY - sy;
+        if (Math.abs(dx) >= 50 && Math.abs(dx) > Math.abs(dy)) go(dx < 0 ? 1 : -1);
+      };
+      stage.addEventListener('pointerup', endPtr);
+      stage.addEventListener('pointercancel', () => { tracking = false; });
+      const done = () => { dlg.removeEventListener('keydown', onKey); dlg.removeEventListener('close', done); };
+      dlg.addEventListener('close', done);
+      show();
+    }});
+  }
   function viewClick(photos) {
     return async e => {
       const t = e.target;
@@ -1305,7 +1375,19 @@
       if (t.matches('label[for="fileCamera"],label[for="fileGallery"]')) { armPhotoTarget(t); return; }   // legacy labels if any remain
       const camBtn = t.closest && t.closest('[data-cam]');
       if (camBtn) { openCamera(armPhotoTarget(camBtn)); return; }
-      if (t.dataset.full) { const p = photos.find(x => x.id === t.dataset.full) || await DB.get('photos', t.dataset.full); if (p) modal(`<img class="full" src="${objUrl(p.blob)}" alt=""><p>${esc(p.caption || '')}</p><p class="muted small">${esc(p.label)} · ${p.w}×${p.h}</p>`, [{label: 'Close', value: 'cancel'}], {wide: true, noFocus: true}); return; }
+      if (t.dataset.full) {
+        const p = photos.find(x => x.id === t.dataset.full) || await DB.get('photos', t.dataset.full);
+        if (!p) return;
+        const list = galleryPhotos(photos, p);
+        for (let i = 0; i < list.length; i++) {
+          const fresh = await DB.get('photos', list[i].id);
+          if (fresh) list[i] = fresh;
+          const inp = view.querySelector(`input.cap[data-cap="${CSS.escape(list[i].id)}"]`);
+          if (inp) list[i] = {...list[i], caption: inp.value};
+        }
+        openPhotoViewer(list, p.id);
+        return;
+      }
       if (t.dataset.delphoto) {
         if (!await confirmBox('Delete photo?', 'This photo will be removed from the job.', 'Delete', true)) return;
         const ph = photos.find(x => x.id === t.dataset.delphoto) || await DB.get('photos', t.dataset.delphoto) || {};
